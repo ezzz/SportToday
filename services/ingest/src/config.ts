@@ -1,5 +1,7 @@
 import path from "node:path";
 
+import "dotenv/config";
+
 import type { SourceId } from "./types.js";
 
 const dataRoot = process.env.INGEST_DATA_DIR ?? path.resolve("data");

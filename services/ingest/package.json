@@ -14,6 +14,7 @@
     "sportsdb:fetch": "tsx src/cli.ts sportsdb:fetch"
   },
   "dependencies": {
+    "dotenv": "^17.4.2",
     "fast-xml-parser": "^5.2.5"
   },
   "devDependencies": {
