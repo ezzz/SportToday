@@ -36,7 +36,10 @@ async function fetchSportsDb(): Promise<void> {
 async function fetchSources(sources: string[]): Promise<void> {
   await mkdir(config.dataRoot, { recursive: true });
   const database = await initializeDatabase(config.sqlitePath);
-  const sourceObjects = sources.filter(isXmltvSource).map(sourceObject);
+  const sourceObjects = sources
+    .filter(isXmltvSource)
+    .filter((source) => source !== "xmltvfree" || Boolean(config.xmltv.xmltvfree))
+    .map(sourceObject);
 
   if (sourceObjects.length === 0) {
     console.error("Aucune source XMLTV configurée. Définissez XMLTVFREE_URL ou utilisez --source=xmltvfr.");
