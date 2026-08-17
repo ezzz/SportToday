@@ -1,0 +1,24 @@
+{
+  "name": "@sporttoday/ingest-poc",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.5"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "xmltv:fetch": "tsx src/cli.ts fetch",
+    "xmltv:report": "tsx src/cli.ts report",
+    "sportsdb:fetch": "tsx src/cli.ts sportsdb:fetch"
+  },
+  "dependencies": {
+    "fast-xml-parser": "^5.2.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}

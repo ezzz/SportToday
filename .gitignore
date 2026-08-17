@@ -1,0 +1,17 @@
+# Dependencies and local build output
+node_modules/
+dist/
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+
+# POC data is intentionally local: XMLTV snapshots may be large and carry
+# source-specific usage restrictions.
+services/ingest/data/raw/
+services/ingest/data/sporttoday.sqlite
+services/ingest/reports/*.json
+
+# macOS
+.DS_Store
