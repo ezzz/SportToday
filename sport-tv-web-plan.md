@@ -1114,6 +1114,64 @@ COÛT DATA MVP
 +
 RISQUES RÉSIDUELS
 ```
+### Axes prioritaires de validation
+
+Le POC doit produire des mesures séparées pour chaque source, et ne pas se
+limiter au nombre total de programmes téléchargés.
+
+| Axe | Mesure attendue |
+|---|---|
+| Disponibilité | succès HTTP, durée, taille, checksum, erreurs consécutives |
+| Couverture chaînes | présence des chaînes du panel et taux de grilles non vides |
+| Couverture sportive | événements sportifs de référence présents par chaîne et par sport |
+| Classification | précision et rappel sur un échantillon annoté manuellement |
+| Qualité sémantique | titre, description, compétition, participants, catégorie |
+| Horaires | écart à la source officielle, fuseau et passage été/hiver |
+| Fraîcheur | délai d'apparition d'un ajout, report, annulation ou changement de chaîne |
+| Horizon | jours réellement disponibles à chaque collecte |
+| Déduplication | doublons entre chaînes événementielles et programmes répétés |
+| Enrichissement | taux de matching XMLTV → TheSportsDB et qualité des correspondances |
+| OTT | événements disponibles hors chaînes linéaires |
+| Juridique | droit de stockage, transformation et affichage public |
+
+### Échantillon manuel recommandé
+
+Pour chaque source EPG :
+
+```text
+10 chaînes du panel
+10 sports
+au moins 100 programmes candidats
+au moins 50 programmes non sportifs
+au moins 20 événements sportifs vérifiés dans les sources officielles
+```
+
+Chaque ligne doit être annotée :
+
+```text
+isSport
+sport
+competition
+participants
+isLive
+channelCorrect
+timeCorrect
+```
+
+Les seuils de départ proposés sont :
+
+```text
+couverture chaînes du panel       ≥ 95 %
+rappel des événements sportifs    ≥ 90 %
+précision des candidats sportifs  ≥ 90 %
+horaires à ±5 minutes              ≥ 98 %
+fraîcheur des changements          ≤ 2 heures au percentile 95
+```
+
+Ces seuils doivent être appliqués séparément aux chaînes linéaires et aux
+offres OTT. TheSportsDB ne doit pas être noté comme une source EPG : il est
+évalué sur le taux et la qualité de son enrichissement.
+
 # 3. MVP du site
 
 ## Objectif

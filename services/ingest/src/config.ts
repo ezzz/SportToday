@@ -10,6 +10,7 @@ export const config = {
   dataRoot,
   sqlitePath: path.join(dataRoot, "sporttoday.sqlite"),
   reportsRoot: path.resolve("reports"),
+  timeZone: process.env.POC_TIMEZONE ?? "Europe/Paris",
   xmltv: {
     xmltvfr: process.env.XMLTVFR_URL ?? "https://xmltvfr.fr/xmltv/xmltv_fr.xml.gz",
     xmltvfree: process.env.XMLTVFREE_URL ?? "http://xmltvfree.free.fr/xmltv.xml.gz"

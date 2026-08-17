@@ -11,6 +11,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "xmltv:fetch": "tsx src/cli.ts fetch",
     "xmltv:report": "tsx src/cli.ts report",
+    "xmltv:day": "tsx src/cli.ts day",
     "sportsdb:fetch": "tsx src/cli.ts sportsdb:fetch"
   },
   "dependencies": {

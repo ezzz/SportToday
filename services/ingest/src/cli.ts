@@ -2,13 +2,14 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { config, isXmltvSource } from "./config.js";
+import { buildDayReport, writeDayReport } from "./reports/day-filter.js";
 import { writeReport } from "./reports/report.js";
 import { XmltvFrSource } from "./sources/xmltvfr.js";
 import { XmltvFreeSource } from "./sources/xmltvfree.js";
 import type { XmltvSource } from "./sources/xmltv.js";
 import { TheSportsDbSource } from "./sources/thesportsdb.js";
 import { storeSnapshot } from "./storage/snapshot-store.js";
-import { importXmltv, initializeDatabase } from "./storage/sqlite.js";
+import { importXmltv, initializeDatabase, openDatabase } from "./storage/sqlite.js";
 
 const command = process.argv[2] ?? "help";
 const requestedSources = sourceArguments();
@@ -17,6 +18,8 @@ if (command === "fetch") {
   await fetchSources(requestedSources);
 } else if (command === "report") {
   console.log("Les rapports sont générés pendant xmltv:fetch dans ce premier squelette.");
+} else if (command === "day") {
+  await reportDay();
 } else if (command === "sportsdb:fetch") {
   await fetchSportsDb();
 } else {
@@ -31,6 +34,31 @@ async function fetchSportsDb(): Promise<void> {
   const filePath = path.join(directory, `${date}.json`);
   await writeFile(filePath, `${JSON.stringify({ fetchedAt: new Date().toISOString(), date, payload }, null, 2)}\n`, "utf8");
   console.log(`thesportsdb: ${filePath}`);
+}
+
+async function reportDay(): Promise<void> {
+  const source = argumentValue("--source") ?? "xmltvfr";
+  const date = argumentValue("--date") ?? new Date().toISOString().slice(0, 10);
+  if (!isXmltvSource(source)) {
+    throw new Error(`Source invalide: ${source}. Utilisez xmltvfr ou xmltvfree.`);
+  }
+
+  const database = openDatabase(config.sqlitePath);
+  try {
+    const report = buildDayReport(database, source, date, config.timeZone);
+    const reportPath = await writeDayReport(config.reportsRoot, report);
+    console.log(`${source} ${date} (${config.timeZone})`);
+    console.log(`  programmes: ${report.programmeCount}`);
+    console.log(`  candidats sport: ${report.sportCandidateCount}`);
+    console.log(`  chaînes: ${report.channels.length}`);
+    console.log(`  sports: ${report.sports.map((item) => `${item.sport}=${item.programmeCount}`).join(", ")}`);
+    console.log(`  report: ${reportPath}`);
+    for (const programme of report.programmes.filter((item) => item.isSportCandidate).slice(0, 20)) {
+      console.log(`  ${programme.localStartAt}  ${programme.channelName}  [${programme.sportSignals.join(", ")}]  ${programme.title}`);
+    }
+  } finally {
+    database.close();
+  }
 }
 
 async function fetchSources(sources: string[]): Promise<void> {
@@ -86,6 +114,7 @@ Usage:
   npm run xmltv:fetch
   npm run xmltv:fetch -- --source=xmltvfr
   npm run xmltv:fetch -- --source=xmltvfr,xmltvfree
+  npm run xmltv:day -- --source=xmltvfr --date=YYYY-MM-DD
   npm run sportsdb:fetch -- --date=YYYY-MM-DD
 `);
 }

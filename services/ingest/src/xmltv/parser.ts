@@ -43,8 +43,33 @@ export function parseXmltv(xml: string, source: Extract<SourceId, "xmltvfr" | "x
 }
 
 export function isSportProgramme(programme: ProgrammeRecord): boolean {
-  const haystack = `${programme.title} ${programme.description ?? ""} ${programme.categories.join(" ")}`.toLocaleLowerCase("fr-FR");
-  return /football|foot|rugby|tennis|cyclisme|vélo|formule 1|f1|motogp|moto gp|basket|athlétisme|golf|ski|biathlon|handball|volley|judo|boxe|natation|sport/.test(haystack);
+  return sportSignals(programme).length > 0;
+}
+
+export function sportSignals(programme: ProgrammeRecord): string[] {
+  // Conservative first pass: descriptions often contain generic channel
+  // metadata and create false positives. Description-based recall can be
+  // measured separately once a labelled sample exists.
+  const haystack = `${programme.title} ${programme.categories.join(" ")}`.toLocaleLowerCase("fr-FR");
+  const patterns: Array<[string, RegExp]> = [
+    ["football", /\b(?:football|foot)\b/u],
+    ["rugby", /\brugby\b/u],
+    ["tennis", /\btennis\b/u],
+    ["cyclisme", /\b(?:cyclisme|vélo)\b/u],
+    ["f1", /\b(?:formule 1|f1)\b/u],
+    ["motogp", /\b(?:motogp|moto gp)\b/u],
+    ["basket", /\bbasket(?:ball)?\b/u],
+    ["athlétisme", /\bathlétisme\b/u],
+    ["golf", /\bgolf\b/u],
+    ["ski", /\bski\b/u],
+    ["biathlon", /\bbiathlon\b/u],
+    ["handball", /\bhandball\b/u],
+    ["volley", /\bvolley(?:ball)?\b/u],
+    ["judo", /\bjudo\b/u],
+    ["boxe", /\bboxe\b/u],
+    ["natation", /\bnatation\b/u]
+  ];
+  return patterns.filter(([, pattern]) => pattern.test(haystack)).map(([name]) => name);
 }
 
 function parseXmltvDate(value: string): string | null {

@@ -39,6 +39,7 @@ npm run typecheck
 npm run xmltv:fetch
 npm run xmltv:fetch -- --source=xmltvfr
 npm run xmltv:report
+npm run xmltv:day -- --source=xmltvfr --date=2026-08-17
 npm run sportsdb:fetch -- --date=2026-08-17
 ```
 
@@ -49,6 +50,16 @@ XMLTVFREE est ignoré proprement si `XMLTVFREE_URL` est explicitement vidé.
 `sportsdb:fetch` appelle l'endpoint gratuit TheSportsDB pour une journée et
 archive le JSON localement. Il s'agit d'un test d'adaptateur, pas encore du
 matching entre un programme XMLTV et un événement sportif.
+
+`xmltv:day` filtre les programmes qui commencent pendant une journée en
+`Europe/Paris`, produit un rapport JSON et affiche les 20 premiers candidats
+sportifs. Le mot « candidat » est volontaire : la classification par mots-clés
+doit encore être évaluée manuellement sur un échantillon. Les programmes
+commencés la veille et encore en cours sont réservés à une future vue
+« maintenant ». Le premier classifieur est volontairement conservateur et
+utilise le titre et les catégories, pas la description souvent générique. Le
+rapport conserve les signaux qui ont déclenché la classification afin de
+mesurer les faux positifs et les faux négatifs.
 
 Les snapshots et rapports locaux sont exclus de Git. Cela évite de publier
 des données dont les conditions de réutilisation restent à clarifier.

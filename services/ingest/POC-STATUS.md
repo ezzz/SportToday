@@ -22,6 +22,18 @@ Le flux est téléchargeable et le parsing fonctionne. Les chiffres devront
 être confirmés sur la durée et comparés au panel de chaînes et aux sources
 officielles.
 
+Filtrage de la journée `2026-08-17` en `Europe/Paris` :
+
+```text
+Programmes commençant ce jour       11 945
+Candidats sportifs                   327
+Principaux signaux                   football=171, tennis=47, cyclisme=32
+```
+
+Le résultat confirme que le contenu est exploitable pour une inspection
+manuelle, mais les 327 candidats doivent encore être annotés pour mesurer la
+précision et le rappel du classifieur.
+
 ## XMLTVFREE
 
 Flux testé : `http://xmltvfree.free.fr/xmltv.xml.gz`
