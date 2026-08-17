@@ -4,6 +4,7 @@ import path from "node:path";
 import { config, isXmltvSource } from "./config.js";
 import { buildDayReport, writeDayReport } from "./reports/day-filter.js";
 import { writeReport } from "./reports/report.js";
+import { writeValidationCsv } from "./reports/validation-csv.js";
 import { XmltvFrSource } from "./sources/xmltvfr.js";
 import { XmltvFreeSource } from "./sources/xmltvfree.js";
 import type { XmltvSource } from "./sources/xmltv.js";
@@ -20,6 +21,8 @@ if (command === "fetch") {
   console.log("Les rapports sont générés pendant xmltv:fetch dans ce premier squelette.");
 } else if (command === "day") {
   await reportDay();
+} else if (command === "export-csv") {
+  await exportValidationCsv();
 } else if (command === "sportsdb:fetch") {
   await fetchSportsDb();
 } else {
@@ -56,6 +59,27 @@ async function reportDay(): Promise<void> {
     for (const programme of report.programmes.filter((item) => item.isSportCandidate).slice(0, 20)) {
       console.log(`  ${programme.localStartAt}  ${programme.channelName}  [${programme.sportSignals.join(", ")}]  ${programme.title}`);
     }
+  } finally {
+    database.close();
+  }
+}
+
+async function exportValidationCsv(): Promise<void> {
+  const source = argumentValue("--source") ?? "xmltvfr";
+  const date = argumentValue("--date") ?? new Date().toISOString().slice(0, 10);
+  if (!isXmltvSource(source)) {
+    throw new Error(`Source invalide: ${source}. Utilisez xmltvfr ou xmltvfree.`);
+  }
+
+  const sportLimit = numericArgument("--sports-limit", 100);
+  const nonSportLimit = numericArgument("--non-sports-limit", 50);
+  const database = openDatabase(config.sqlitePath);
+  try {
+    const report = buildDayReport(database, source, date, config.timeZone);
+    const exported = await writeValidationCsv(config.reportsRoot, report, sportLimit, nonSportLimit);
+    console.log(`CSV: ${exported.path}`);
+    console.log(`  candidats sportifs: ${exported.sportCount}`);
+    console.log(`  non-candidats: ${exported.nonSportCount}`);
   } finally {
     database.close();
   }
@@ -107,6 +131,11 @@ function argumentValue(name: string): string | undefined {
   return argument?.slice(name.length + 1);
 }
 
+function numericArgument(name: string, fallback: number): number {
+  const value = Number(argumentValue(name));
+  return Number.isInteger(value) && value >= 0 ? value : fallback;
+}
+
 function printHelp(): void {
   console.log(`SportToday ingestion POC
 
@@ -115,6 +144,7 @@ Usage:
   npm run xmltv:fetch -- --source=xmltvfr
   npm run xmltv:fetch -- --source=xmltvfr,xmltvfree
   npm run xmltv:day -- --source=xmltvfr --date=YYYY-MM-DD
+  npm run xmltv:export-csv -- --source=xmltvfr --date=YYYY-MM-DD
   npm run sportsdb:fetch -- --date=YYYY-MM-DD
 `);
 }

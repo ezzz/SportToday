@@ -16,6 +16,9 @@ Les premiers résultats de smoke test sont conservés dans
 [`POC-STATUS.md`](./POC-STATUS.md). Ils ne remplacent pas le benchmark de
 fraîcheur prévu sur plusieurs jours.
 
+La procédure détaillée d'annotation et de décision est dans
+[`VALIDATION.md`](./VALIDATION.md).
+
 ## Prérequis
 
 - Node.js 22.5 ou supérieur ;
@@ -40,6 +43,7 @@ npm run xmltv:fetch
 npm run xmltv:fetch -- --source=xmltvfr
 npm run xmltv:report
 npm run xmltv:day -- --source=xmltvfr --date=2026-08-17
+npm run xmltv:export-csv -- --source=xmltvfr --date=2026-08-17
 npm run sportsdb:fetch -- --date=2026-08-17
 ```
 
@@ -60,6 +64,12 @@ commencés la veille et encore en cours sont réservés à une future vue
 utilise le titre et les catégories, pas la description souvent générique. Le
 rapport conserve les signaux qui ont déclenché la classification afin de
 mesurer les faux positifs et les faux négatifs.
+
+`xmltv:export-csv` produit un échantillon déterministe destiné à l'annotation
+manuelle : 100 candidats sportifs et 50 non-candidats par défaut. Les colonnes
+vides `isSport`, `sport`, `competition`, `participants`, `isLive`,
+`channelCorrect`, `timeCorrect`, `referenceUrl`, `referenceStartAt`,
+`checkedAt` et `notes` doivent être complétées pendant la validation.
 
 Les snapshots et rapports locaux sont exclus de Git. Cela évite de publier
 des données dont les conditions de réutilisation restent à clarifier.

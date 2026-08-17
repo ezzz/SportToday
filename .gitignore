@@ -12,6 +12,7 @@ dist/
 services/ingest/data/raw/
 services/ingest/data/sporttoday.sqlite
 services/ingest/reports/*.json
+services/ingest/reports/*.csv
 
 # macOS
 .DS_Store

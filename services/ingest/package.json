@@ -12,6 +12,7 @@
     "xmltv:fetch": "tsx src/cli.ts fetch",
     "xmltv:report": "tsx src/cli.ts report",
     "xmltv:day": "tsx src/cli.ts day",
+    "xmltv:export-csv": "tsx src/cli.ts export-csv",
     "sportsdb:fetch": "tsx src/cli.ts sportsdb:fetch"
   },
   "dependencies": {
