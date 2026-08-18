@@ -34,18 +34,26 @@ Le résultat confirme que le contenu est exploitable pour une inspection
 manuelle, mais les 327 candidats doivent encore être annotés pour mesurer la
 précision et le rappel du classifieur.
 
-Sur l'échantillon CSV de 150 lignes, l'analyse automatique propose :
+Sur l'échantillon CSV de 150 lignes, la nouvelle analyse automatique propose :
 
 ```text
-true / confiance haute       46
+true / confiance haute       49
 false / confiance haute      44
-unknown / confiance basse    30
+unknown / confiance basse    27
 false / confiance moyenne    30
+checkRequired=true          106
+checkRequired=false          44
+Sport Live                    0
+Sport différé                74
+Emission                     76
 ```
 
-Exemple corrigé automatiquement : `Foot 2 rue` est proposé `false` car ses
-catégories sont `Dessin animé|Jeunesse`. La valeur manuelle `isSport` reste
-vide jusqu'à ta validation.
+Les lignes sont désormais triées par catégorie : `Sport Live`, `Sport
+différé`, puis `Emission`. Les colonnes automatiques proposent aussi le sport,
+la compétition, les participants et le statut direct/différé lorsqu'ils sont
+explicitement déductibles. `Foot 2 rue` est proposé `Emission` / `false` avec
+une confiance haute car ses catégories sont `Dessin animé|Jeunesse`. La valeur
+manuelle `isSport` reste vide jusqu'à ta validation.
 
 ## XMLTVFREE
 

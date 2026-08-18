@@ -3,6 +3,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 
 import type { DayProgramme, DayReport } from "./day-filter.js";
+import { autoAnnotate, type ContentCategory } from "./auto-annotation.js";
 
 const DEFAULT_SPORT_LIMIT = 100;
 const DEFAULT_NON_SPORT_LIMIT = 50;
@@ -21,15 +22,19 @@ export async function writeValidationCsv(
     .filter((programme) => !programme.isSportCandidate)
     .sort(stableOrder)
     .slice(0, nonSportLimit);
-  const rows = [
-    ...sportCandidates.map((programme) => rowFor(programme, report.date, "heuristic_candidate")),
-    ...nonSportCandidates.map((programme) => rowFor(programme, report.date, "heuristic_non_candidate"))
-  ];
+  const selected = [
+    ...sportCandidates.map((programme) => ({ programme, validationType: "heuristic_candidate" })),
+    ...nonSportCandidates.map((programme) => ({ programme, validationType: "heuristic_non_candidate" }))
+  ].sort((left, right) => categoryOrder(autoAnnotate(left.programme).contentCategory) - categoryOrder(autoAnnotate(right.programme).contentCategory)
+    || left.programme.startAt.localeCompare(right.programme.startAt)
+    || left.programme.channelName.localeCompare(right.programme.channelName));
+  const rows = selected.map(({ programme, validationType }) => rowFor(programme, report.date, validationType));
 
   const header = [
-    "rowId", "validationType", "source", "date", "channel", "channelSourceId",
+    "rowId", "validationType", "contentCategory", "source", "date", "channel", "channelSourceId",
     "startAtUtc", "startAtLocal", "stopAtUtc", "title", "description", "categories",
     "heuristicSport", "heuristicSignals", "autoIsSport", "autoConfidence", "autoReason", "autoSport",
+    "autoCompetition", "autoParticipants", "autoIsLive", "checkRequired", "checkReason",
     "isSport", "sport", "competition", "participants",
     "isLive", "channelCorrect", "timeCorrect", "referenceUrl", "referenceStartAt", "checkedAt", "notes"
   ];
@@ -45,6 +50,7 @@ function rowFor(programme: DayProgramme, date: string, validationType: string): 
   return [
     programme.sourceId,
     validationType,
+    annotation.contentCategory,
     programme.source,
     date,
     programme.channelName,
@@ -61,46 +67,16 @@ function rowFor(programme: DayProgramme, date: string, validationType: string): 
     annotation.confidence,
     annotation.reason,
     annotation.sport,
+    annotation.competition,
+    annotation.participants,
+    annotation.isLive,
+    annotation.checkRequired,
+    annotation.checkReason,
     "", "", "", "", "", "", "", "", "", "", ""
   ];
 }
-
-interface AutoAnnotation {
-  isSport: "true" | "false" | "unknown";
-  confidence: "high" | "medium" | "low";
-  reason: string;
-  sport: string;
-}
-
-function autoAnnotate(programme: DayProgramme): AutoAnnotation {
-  const title = programme.title.toLocaleLowerCase("fr-FR");
-  const description = (programme.description ?? "").toLocaleLowerCase("fr-FR");
-  const categories = programme.categories.join(" ").toLocaleLowerCase("fr-FR");
-  const text = `${title} ${description} ${categories}`;
-  const sport = programme.sportSignals[0] ?? "";
-
-  if (/dessin animé|animation|fiction|série|film|jeunesse/.test(categories)) {
-    return { isSport: "false", confidence: "high", reason: "catégorie fiction/animation/jeunesse", sport };
-  }
-
-  if (/foot 2 rue|la chaîne officielle|vivez en direct les évènements|à bientôt sur|autopromotion|bande annonce|publicité/.test(text)) {
-    return { isSport: "false", confidence: "high", reason: "fiction ou autopromotion", sport };
-  }
-
-  const eventPattern = /grand prix|masters?\b|premier league|ligue 1|championnat|match|trophée|tour de |atp\b|wta\b|roland|open d|ufc|combat|finale|demi-finale|quart de finale|cyclassics|arctic race/;
-  if (eventPattern.test(text) && programme.isSportCandidate) {
-    return { isSport: "true", confidence: "high", reason: "événement ou compétition sportive explicite", sport };
-  }
-
-  if (programme.isSportCandidate && /résumé|review|magazine|analyse|inside|best of|journal/.test(title)) {
-    return { isSport: "true", confidence: "medium", reason: "programme éditorial sportif", sport };
-  }
-
-  if (programme.isSportCandidate && sport) {
-    return { isSport: "unknown", confidence: "low", reason: "mot-clé sportif sans événement explicite", sport };
-  }
-
-  return { isSport: "false", confidence: "medium", reason: "aucun signal sportif exploitable", sport };
+function categoryOrder(category: ContentCategory): number {
+  return category === "Sport Live" ? 0 : category === "Sport différé" ? 1 : 2;
 }
 
 function stableOrder(left: DayProgramme, right: DayProgramme): number {

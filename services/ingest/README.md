@@ -65,13 +65,22 @@ utilise le titre et les catégories, pas la description souvent générique. Le
 rapport conserve les signaux qui ont déclenché la classification afin de
 mesurer les faux positifs et les faux négatifs.
 
-`xmltv:export-csv` produit un échantillon déterministe destiné à l'annotation
-manuelle : 100 candidats sportifs et 50 non-candidats par défaut. Les colonnes
-`autoIsSport`, `autoConfidence`, `autoReason` et `autoSport` contiennent une
-première proposition automatique basée sur le titre, la description, les
-catégories et la chaîne. Les colonnes manuelles vides `isSport`, `sport`, `competition`, `participants`, `isLive`,
-`channelCorrect`, `timeCorrect`, `referenceUrl`, `referenceStartAt`,
-`checkedAt` et `notes` doivent être complétées pendant la validation.
+`xmltv:export-csv` produit un échantillon déterministe destiné à la validation :
+100 candidats sportifs et 50 non-candidats par défaut. Les lignes sont triées
+par catégorie (`Sport Live`, `Sport différé`, `Emission`), puis par horaire et
+chaîne.
+
+Les colonnes `contentCategory`, `autoIsSport`, `autoConfidence`, `autoReason`,
+`autoSport`, `autoCompetition`, `autoParticipants`, `autoIsLive`,
+`checkRequired` et `checkReason` contiennent des propositions automatiques
+basées sur le titre, la description, les catégories et les signaux sportifs.
+`checkRequired=true` indique qu'une vérification humaine est recommandée.
+
+Les colonnes manuelles vides `isSport`, `sport`, `competition`, `participants`,
+`isLive`, `channelCorrect`, `timeCorrect`, `referenceUrl`, `referenceStartAt`,
+`checkedAt` et `notes` restent la référence pour mesurer la qualité réelle du
+flux. En particulier, la chaîne, l'horaire et la référence officielle ne sont
+pas considérés comme validés par l'heuristique.
 
 Les snapshots et rapports locaux sont exclus de Git. Cela évite de publier
 des données dont les conditions de réutilisation restent à clarifier.
@@ -95,7 +104,10 @@ src/
 ├── xmltv/
 │   └── parser.ts
 └── reports/
-    └── report.ts
+    ├── auto-annotation.ts
+    ├── day-filter.ts
+    ├── report.ts
+    └── validation-csv.ts
 ```
 
 Le parsing est volontairement limité au socle nécessaire au benchmark :

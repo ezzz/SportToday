@@ -32,10 +32,29 @@ permettent.
 
 ## 2. Annoter le CSV
 
-L'export contient 100 candidats sportifs et 50 non-candidats. Les colonnes
-`autoIsSport`, `autoConfidence`, `autoReason` et `autoSport` sont préremplies
-par une première analyse heuristique. Elles sont des suggestions, pas la
-vérité terrain.
+L'export contient 100 candidats sportifs et 50 non-candidats. Les lignes sont
+triées dans l'ordre `Sport Live`, `Sport différé`, puis `Emission`, et ensuite
+par horaire et chaîne.
+
+Les colonnes préfixées par `auto` et `contentCategory` sont des propositions
+automatiques, pas la vérité terrain :
+
+| Colonne | Rôle |
+|---|---|
+| `contentCategory` | catégorie proposée parmi `Sport Live`, `Sport différé`, `Emission` |
+| `autoIsSport` | classification proposée : `true`, `false` ou `unknown` |
+| `autoConfidence` | confiance de la proposition : `high`, `medium` ou `low` |
+| `autoReason` | règle ayant conduit à la proposition |
+| `autoSport` | sport déduit du signal XMLTV |
+| `autoCompetition` | compétition extraite lorsqu'elle est explicitement nommée |
+| `autoParticipants` | équipes/joueurs extraits lorsqu'ils sont explicitement séparés par `/`, `vs` ou `contre` |
+| `autoIsLive` | direct/différé proposé à partir des termes présents dans le titre ou la description |
+| `checkRequired` | `true` si une vérification humaine est recommandée |
+| `checkReason` | raison de la vérification à effectuer |
+
+La seule validation manuelle obligatoire porte sur les colonnes sans préfixe
+`auto` ci-dessous. Les propositions peuvent être corrigées, mais ne doivent
+pas remplacer la valeur vérifiée.
 
 Compléter ou corriger les colonnes manuelles suivantes :
 
@@ -53,6 +72,12 @@ Compléter ou corriger les colonnes manuelles suivantes :
 | `checkedAt` | date/heure de vérification en ISO 8601 |
 | `notes` | justification ou anomalie observée |
 
+Pour aller vite, filtrer d'abord `checkRequired=true`, puis vérifier les
+lignes `checkRequired=false` à haute confiance. Les colonnes `channelCorrect`,
+`timeCorrect`, `referenceUrl` et `referenceStartAt` nécessitent toujours une
+source officielle : elles ne sont pas déduites automatiquement de façon
+fiable.
+
 Règles de classification :
 
 ```text
@@ -68,6 +93,16 @@ car il s'agit d'une fiction et non d'un programme sportif à regarder.
 Pour les programmes éditoriaux (magazine, analyse, résumé), utiliser `true`
 si la décision produit est de les afficher dans le guide sport ; sinon les
 marquer `false` et documenter la règle dans `notes`.
+
+Les trois catégories servent à organiser le guide :
+
+```text
+Sport Live     = événement sportif avec indication explicite de direct/live
+Sport différé  = événement sportif sans direct explicite, replay ou rediffusion
+Emission       = programme non sportif ou contenu éditorial sportif
+```
+
+Un `unknown` ou une confiance `medium`/`low` déclenche `checkRequired=true`.
 
 ## 3. Vérifier la couverture
 
