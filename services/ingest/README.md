@@ -67,7 +67,9 @@ mesurer les faux positifs et les faux négatifs.
 
 `xmltv:export-csv` produit un échantillon déterministe destiné à l'annotation
 manuelle : 100 candidats sportifs et 50 non-candidats par défaut. Les colonnes
-vides `isSport`, `sport`, `competition`, `participants`, `isLive`,
+`autoIsSport`, `autoConfidence`, `autoReason` et `autoSport` contiennent une
+première proposition automatique basée sur le titre, la description, les
+catégories et la chaîne. Les colonnes manuelles vides `isSport`, `sport`, `competition`, `participants`, `isLive`,
 `channelCorrect`, `timeCorrect`, `referenceUrl`, `referenceStartAt`,
 `checkedAt` et `notes` doivent être complétées pendant la validation.
 

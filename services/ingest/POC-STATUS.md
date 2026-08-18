@@ -34,6 +34,19 @@ Le résultat confirme que le contenu est exploitable pour une inspection
 manuelle, mais les 327 candidats doivent encore être annotés pour mesurer la
 précision et le rappel du classifieur.
 
+Sur l'échantillon CSV de 150 lignes, l'analyse automatique propose :
+
+```text
+true / confiance haute       46
+false / confiance haute      44
+unknown / confiance basse    30
+false / confiance moyenne    30
+```
+
+Exemple corrigé automatiquement : `Foot 2 rue` est proposé `false` car ses
+catégories sont `Dessin animé|Jeunesse`. La valeur manuelle `isSport` reste
+vide jusqu'à ta validation.
+
 ## XMLTVFREE
 
 Flux testé : `http://xmltvfree.free.fr/xmltv.xml.gz`

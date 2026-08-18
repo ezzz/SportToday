@@ -32,8 +32,12 @@ permettent.
 
 ## 2. Annoter le CSV
 
-L'export contient 100 candidats sportifs et 50 non-candidats. Compléter les
-colonnes vides suivantes :
+L'export contient 100 candidats sportifs et 50 non-candidats. Les colonnes
+`autoIsSport`, `autoConfidence`, `autoReason` et `autoSport` sont préremplies
+par une première analyse heuristique. Elles sont des suggestions, pas la
+vérité terrain.
+
+Compléter ou corriger les colonnes manuelles suivantes :
 
 | Colonne | Valeurs attendues |
 |---|---|
