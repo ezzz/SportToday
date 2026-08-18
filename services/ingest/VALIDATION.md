@@ -11,6 +11,7 @@ Pour chaque source et chaque journée retenue :
 npm run xmltv:fetch -- --source=xmltvfr
 npm run xmltv:day -- --source=xmltvfr --date=YYYY-MM-DD
 npm run xmltv:export-csv -- --source=xmltvfr --date=YYYY-MM-DD
+npm run xmltv:export-csv -- --source=xmltvfr --date=YYYY-MM-DD --with-sportsdb
 ```
 
 Le fichier à ouvrir est :
@@ -48,9 +49,17 @@ automatiques, pas la vérité terrain :
 | `autoSport` | sport déduit du signal XMLTV |
 | `autoCompetition` | compétition extraite lorsqu'elle est explicitement nommée |
 | `autoParticipants` | équipes/joueurs extraits lorsqu'ils sont explicitement séparés par `/`, `vs` ou `contre` |
-| `autoIsLive` | direct/différé proposé à partir des termes présents dans le titre ou la description |
+| `autoIsLive` | direct/différé proposé à partir du titre/description et, avec `--with-sportsdb`, du matching horaire/statut |
 | `checkRequired` | `true` si une vérification humaine est recommandée |
 | `checkReason` | raison de la vérification à effectuer |
+| `sportsDbEventId` | événement TheSportsDB associé, si le matching est suffisamment solide |
+| `sportsDbEvent` | nom de l'événement TheSportsDB associé |
+| `sportsDbCompetition` | compétition telle que fournie par TheSportsDB |
+| `sportsDbParticipants` | participants tels que fournis par TheSportsDB |
+| `sportsDbStartAt` | horaire TheSportsDB utilisé comme indice de comparaison |
+| `sportsDbTimeDeltaMinutes` | écart indicatif entre l'horaire XMLTV et TheSportsDB |
+| `sportsDbMatchConfidence` | confiance du matching : `high`, `medium`, `low` ou `none` |
+| `sportsDbLiveEvidence` | indice utilisé pour le direct : alignement horaire, statut API, titre explicite, etc. |
 
 La seule validation manuelle obligatoire porte sur les colonnes sans préfixe
 `auto` ci-dessous. Les propositions peuvent être corrigées, mais ne doivent
@@ -77,6 +86,12 @@ lignes `checkRequired=false` à haute confiance. Les colonnes `channelCorrect`,
 `timeCorrect`, `referenceUrl` et `referenceStartAt` nécessitent toujours une
 source officielle : elles ne sont pas déduites automatiquement de façon
 fiable.
+
+Avec `--with-sportsdb`, considérer `sportsDbMatchConfidence=high` et
+`sportsDbLiveEvidence=aligned-event-start` comme un indice de « probablement
+live », jamais comme une vérité. Une rediffusion peut reprendre le même
+événement et les horaires TheSportsDB peuvent être exprimés dans la timezone
+locale de l'événement. Vérifier les cas non ambigus avec le diffuseur.
 
 Règles de classification :
 
@@ -179,7 +194,10 @@ absence de confusion entre événements similaires
 ```
 
 TheSportsDB ne doit pas être noté sur la couverture EPG globale. Son résultat
-est un taux de matching et une qualité d'enrichissement.
+est un taux de matching et une qualité d'enrichissement. Le champ de statut
+TheSportsDB peut signaler un événement en cours, mais les statuts ne sont pas
+uniformes pour tous les sports : `sportsDbLiveEvidence` doit donc rester une
+preuve à contrôler.
 
 ## 7. Seuils de décision de départ
 

@@ -9,6 +9,7 @@ import { XmltvFrSource } from "./sources/xmltvfr.js";
 import { XmltvFreeSource } from "./sources/xmltvfree.js";
 import type { XmltvSource } from "./sources/xmltv.js";
 import { TheSportsDbSource } from "./sources/thesportsdb.js";
+import { parseSportsDbEvents } from "./sportsdb/events.js";
 import { storeSnapshot } from "./storage/snapshot-store.js";
 import { importXmltv, initializeDatabase, openDatabase } from "./storage/sqlite.js";
 
@@ -32,11 +33,13 @@ if (command === "fetch") {
 async function fetchSportsDb(): Promise<void> {
   const date = argumentValue("--date") ?? new Date().toISOString().slice(0, 10);
   const payload = await new TheSportsDbSource().eventsForDay(date);
+  const events = parseSportsDbEvents(payload);
   const directory = path.join(config.dataRoot, "raw", "thesportsdb");
   await mkdir(directory, { recursive: true });
   const filePath = path.join(directory, `${date}.json`);
   await writeFile(filePath, `${JSON.stringify({ fetchedAt: new Date().toISOString(), date, payload }, null, 2)}\n`, "utf8");
   console.log(`thesportsdb: ${filePath}`);
+  console.log(`  événements: ${events.length}`);
 }
 
 async function reportDay(): Promise<void> {
@@ -76,13 +79,54 @@ async function exportValidationCsv(): Promise<void> {
   const database = openDatabase(config.sqlitePath);
   try {
     const report = buildDayReport(database, source, date, config.timeZone);
-    const exported = await writeValidationCsv(config.reportsRoot, report, sportLimit, nonSportLimit);
+    const sportsDbEvents = hasFlag("--with-sportsdb")
+      ? await fetchSportsDbEvents(date, report.sports.map((item) => item.sport))
+      : [];
+    const exported = await writeValidationCsv(config.reportsRoot, report, sportLimit, nonSportLimit, sportsDbEvents);
     console.log(`CSV: ${exported.path}`);
     console.log(`  candidats sportifs: ${exported.sportCount}`);
     console.log(`  non-candidats: ${exported.nonSportCount}`);
+    console.log(`  événements TheSportsDB: ${sportsDbEvents.length}`);
   } finally {
     database.close();
   }
+}
+
+async function fetchSportsDbEvents(date: string, signals: string[] = []) {
+  const sports = [...new Set(signals.map((signal) => sportsDbName(signal)).filter(Boolean))];
+  const payload = await new TheSportsDbSource().eventsForDay(date);
+  const payloads = [payload];
+  for (const sport of sports) {
+    payloads.push(await new TheSportsDbSource().eventsForDay(date, undefined, sport));
+  }
+  const events = [...new Map(payloads.flatMap(parseSportsDbEvents).map((event) => [event.id, event])).values()];
+  const directory = path.join(config.dataRoot, "raw", "thesportsdb");
+  await mkdir(directory, { recursive: true });
+  const filePath = path.join(directory, `${date}.json`);
+  await writeFile(filePath, `${JSON.stringify({ fetchedAt: new Date().toISOString(), date, sports, payloads }, null, 2)}\n`, "utf8");
+  return events;
+}
+
+function sportsDbName(signal: string): string {
+  const names: Record<string, string> = {
+    football: "Soccer",
+    tennis: "Tennis",
+    rugby: "Rugby",
+    cyclisme: "Cycling",
+    f1: "Motorsport",
+    motogp: "Motorsport",
+    basket: "Basketball",
+    athlétisme: "Athletics",
+    golf: "Golf",
+    ski: "Skiing",
+    biathlon: "Biathlon",
+    handball: "Handball",
+    volley: "Volleyball",
+    judo: "Judo",
+    boxe: "Boxing",
+    natation: "Swimming"
+  };
+  return names[signal] ?? "";
 }
 
 async function fetchSources(sources: string[]): Promise<void> {
@@ -136,6 +180,10 @@ function numericArgument(name: string, fallback: number): number {
   return Number.isInteger(value) && value >= 0 ? value : fallback;
 }
 
+function hasFlag(name: string): boolean {
+  return process.argv.includes(name);
+}
+
 function printHelp(): void {
   console.log(`SportToday ingestion POC
 
@@ -145,6 +193,7 @@ Usage:
   npm run xmltv:fetch -- --source=xmltvfr,xmltvfree
   npm run xmltv:day -- --source=xmltvfr --date=YYYY-MM-DD
   npm run xmltv:export-csv -- --source=xmltvfr --date=YYYY-MM-DD
+  npm run xmltv:export-csv -- --source=xmltvfr --date=YYYY-MM-DD --with-sportsdb
   npm run sportsdb:fetch -- --date=YYYY-MM-DD
 `);
 }

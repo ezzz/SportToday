@@ -2,16 +2,17 @@ import { config } from "../config.js";
 
 /**
  * TheSportsDB enriches sport events; it is not an EPG replacement.
- * This adapter is intentionally small until the XMLTV event matching rules
- * and the required API tier are validated.
+ * The raw adapter stays small; parsing and conservative matching live in the
+ * sportsdb/events and reports/sportsdb-match modules.
  */
 export class TheSportsDbSource {
   readonly id = "thesportsdb" as const;
 
-  async eventsForDay(date: string, league?: string): Promise<unknown> {
+  async eventsForDay(date: string, league?: string, sport?: string): Promise<unknown> {
     const endpoint = new URL(`${config.thesportsdb.baseUrl}/${config.thesportsdb.apiKey}/eventsday.php`);
     endpoint.searchParams.set("d", date);
     if (league) endpoint.searchParams.set("l", league);
+    if (sport) endpoint.searchParams.set("s", sport);
 
     const response = await fetch(endpoint, {
       headers: { "user-agent": "SportToday-data-poc/0.1" }

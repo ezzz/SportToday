@@ -4,6 +4,8 @@ import { createHash } from "node:crypto";
 
 import type { DayProgramme, DayReport } from "./day-filter.js";
 import { autoAnnotate, type ContentCategory } from "./auto-annotation.js";
+import { matchProgrammeToSportsDb } from "./sportsdb-match.js";
+import type { TheSportsDbEvent } from "../sportsdb/events.js";
 
 const DEFAULT_SPORT_LIMIT = 100;
 const DEFAULT_NON_SPORT_LIMIT = 50;
@@ -12,7 +14,8 @@ export async function writeValidationCsv(
   reportsRoot: string,
   report: DayReport,
   sportLimit = DEFAULT_SPORT_LIMIT,
-  nonSportLimit = DEFAULT_NON_SPORT_LIMIT
+  nonSportLimit = DEFAULT_NON_SPORT_LIMIT,
+  sportsDbEvents: TheSportsDbEvent[] = []
 ): Promise<{ path: string; sportCount: number; nonSportCount: number }> {
   const sportCandidates = report.programmes
     .filter((programme) => programme.isSportCandidate)
@@ -28,13 +31,15 @@ export async function writeValidationCsv(
   ].sort((left, right) => categoryOrder(autoAnnotate(left.programme).contentCategory) - categoryOrder(autoAnnotate(right.programme).contentCategory)
     || left.programme.startAt.localeCompare(right.programme.startAt)
     || left.programme.channelName.localeCompare(right.programme.channelName));
-  const rows = selected.map(({ programme, validationType }) => rowFor(programme, report.date, validationType));
+  const rows = selected.map(({ programme, validationType }) => rowFor(programme, report.date, validationType, sportsDbEvents));
 
   const header = [
     "rowId", "validationType", "contentCategory", "source", "date", "channel", "channelSourceId",
     "startAtUtc", "startAtLocal", "stopAtUtc", "title", "description", "categories",
     "heuristicSport", "heuristicSignals", "autoIsSport", "autoConfidence", "autoReason", "autoSport",
     "autoCompetition", "autoParticipants", "autoIsLive", "checkRequired", "checkReason",
+    "sportsDbEventId", "sportsDbEvent", "sportsDbCompetition", "sportsDbParticipants",
+    "sportsDbStartAt", "sportsDbTimeDeltaMinutes", "sportsDbMatchConfidence", "sportsDbLiveEvidence",
     "isSport", "sport", "competition", "participants",
     "isLive", "channelCorrect", "timeCorrect", "referenceUrl", "referenceStartAt", "checkedAt", "notes"
   ];
@@ -45,8 +50,23 @@ export async function writeValidationCsv(
   return { path: filePath, sportCount: sportCandidates.length, nonSportCount: nonSportCandidates.length };
 }
 
-function rowFor(programme: DayProgramme, date: string, validationType: string): string[] {
+function rowFor(
+  programme: DayProgramme,
+  date: string,
+  validationType: string,
+  sportsDbEvents: TheSportsDbEvent[]
+): string[] {
   const annotation = autoAnnotate(programme);
+  const sportsDbMatch = matchProgrammeToSportsDb(programme, annotation, sportsDbEvents);
+  const effectiveIsLive = sportsDbMatch && sportsDbMatch.suggestedIsLive !== "unknown"
+    ? sportsDbMatch.suggestedIsLive
+    : annotation.isLive;
+  const checkReasons = [annotation.checkReason];
+  if (sportsDbMatch && sportsDbMatch.suggestedIsLive === "unknown" && annotation.isSport !== "false") {
+    checkReasons.push("preuve TheSportsDB insuffisante pour le direct");
+  }
+  const checkReason = checkReasons.filter(Boolean).join("; ");
+  const checkRequired = annotation.checkRequired === "true" || checkReason !== annotation.checkReason ? "true" : "false";
   return [
     programme.sourceId,
     validationType,
@@ -69,9 +89,19 @@ function rowFor(programme: DayProgramme, date: string, validationType: string): 
     annotation.sport,
     annotation.competition,
     annotation.participants,
-    annotation.isLive,
-    annotation.checkRequired,
-    annotation.checkReason,
+    effectiveIsLive,
+    checkRequired,
+    checkReason,
+    sportsDbMatch?.eventId ?? "",
+    sportsDbMatch?.eventName ?? "",
+    sportsDbMatch?.competition ?? "",
+    sportsDbMatch?.participants ?? "",
+    sportsDbMatch?.startAtUtc ?? "",
+    sportsDbMatch?.timeDeltaMinutes === null || sportsDbMatch?.timeDeltaMinutes === undefined
+      ? ""
+      : String(sportsDbMatch.timeDeltaMinutes),
+    sportsDbMatch?.confidence ?? "none",
+    sportsDbMatch?.liveEvidence ?? (annotation.isSport === "false" ? "not-sport" : "no-match"),
     "", "", "", "", "", "", "", "", "", "", ""
   ];
 }

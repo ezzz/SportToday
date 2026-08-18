@@ -78,15 +78,26 @@ envoyée.
 
 ## TheSportsDB
 
-L'appel gratuit `eventsday.php` avec la clé publique `123` fonctionne pour le
-test d'adaptateur. Le matching avec les programmes XMLTV n'est pas encore
-implémenté.
+L'appel gratuit `eventsday.php` avec la clé publique `123` fonctionne. L'export
+CSV accepte désormais `--with-sportsdb` et ajoute les colonnes de matching et
+de preuve live/non-live.
+
+Sur la journée `2026-08-17`, les requêtes générique + sports détectés ont
+retourné 9 événements (baseball, football argentin et basketball mexicain) et
+aucun des 150 programmes de l'échantillon XMLTVFr ne correspondait. Ce résultat ne
+permet pas de conclure à une absence de qualité : l'endpoint gratuit ne couvre
+pas nécessairement les compétitions françaises présentes dans l'EPG. Il faut
+mesurer séparément le taux de matching sur un panel d'événements connus.
+
+Un matching haute confiance avec horaire aligné peut proposer `autoIsLive=true`,
+mais cette proposition reste à vérifier. TheSportsDB enrichit et rapproche les
+événements ; il ne remplace pas la preuve de diffusion du diffuseur.
 
 ## Conséquence actuelle
 
 ```text
 XMLTVFr      → candidat techniquement exploitable, à mesurer dans le temps
 XMLTVFREE    → candidat actuellement bloqué par la fraîcheur observée
-TheSportsDB  → enrichissement sportif, adaptateur validé
+TheSportsDB  → enrichissement + matching indicatif, couverture à mesurer
 EPG.best     → différé
 ```
