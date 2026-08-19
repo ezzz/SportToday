@@ -8,20 +8,27 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test dist/reports/tonight.test.js dist/validation/export.test.js dist/validation/store.test.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "xmltv:fetch": "tsx src/cli.ts fetch",
     "xmltv:report": "tsx src/cli.ts report",
     "xmltv:day": "tsx src/cli.ts day",
+    "xmltv:tonight": "tsx src/cli.ts tonight",
     "xmltv:export-csv": "tsx src/cli.ts export-csv",
+    "validation:web": "tsx src/cli.ts validation-web",
     "sportsdb:fetch": "tsx src/cli.ts sportsdb:fetch"
   },
   "dependencies": {
     "dotenv": "^17.4.2",
+    "exceljs": "^4.4.0",
     "fast-xml-parser": "^5.2.5"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
   }
 }

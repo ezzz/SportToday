@@ -37,15 +37,16 @@ précision et le rappel du classifieur.
 Sur l'échantillon CSV de 150 lignes, la nouvelle analyse automatique propose :
 
 ```text
-true / confiance haute       49
-false / confiance haute      44
-unknown / confiance basse    27
+true / confiance haute       43
+true / confiance moyenne      5
+false / confiance haute      46
+unknown / confiance basse    26
 false / confiance moyenne    30
-checkRequired=true          106
-checkRequired=false          44
+checkRequired=true          104
+checkRequired=false          46
 Sport Live                    0
-Sport différé                74
-Emission                     76
+Sport différé                69
+Emission                     81
 ```
 
 Les lignes sont désormais triées par catégorie : `Sport Live`, `Sport
@@ -54,6 +55,28 @@ la compétition, les participants et le statut direct/différé lorsqu'ils sont
 explicitement déductibles. `Foot 2 rue` est proposé `Emission` / `false` avec
 une confiance haute car ses catégories sont `Dessin animé|Jeunesse`. La valeur
 manuelle `isSport` reste vide jusqu'à ta validation.
+
+## Sélection produit « ce soir »
+
+Un filtre produit couvre désormais la fenêtre 18 h–00 h 30, regroupe les
+diffusions similaires et classe les principaux événements. Sur le programme
+du `2026-08-17`, la sélection de 12 résultats fait notamment ressortir :
+
+```text
+Lens / Paris-SG — Trophée des Champions
+Crystal Palace / Arsenal
+Masters 1000 de Cincinnati
+Championnat du Portugal
+Grand Prix de Lima
+La Vuelta
+WTA de Cincinnati
+EFL Championship
+```
+
+La validation se fait dans une interface locale avec un seul verdict par
+événement. Les annotations sont sauvegardées en JSON et exportables en CSV
+compatible Excel ou en XLSX. L'analyse finale reste en attente de la
+validation utilisateur.
 
 ## XMLTVFREE
 

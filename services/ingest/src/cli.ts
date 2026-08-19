@@ -4,6 +4,7 @@ import path from "node:path";
 import { config, isXmltvSource } from "./config.js";
 import { buildDayReport, writeDayReport } from "./reports/day-filter.js";
 import { writeReport } from "./reports/report.js";
+import { buildTonightReport, writeTonightReport } from "./reports/tonight.js";
 import { writeValidationCsv } from "./reports/validation-csv.js";
 import { XmltvFrSource } from "./sources/xmltvfr.js";
 import { XmltvFreeSource } from "./sources/xmltvfree.js";
@@ -12,6 +13,7 @@ import { TheSportsDbSource } from "./sources/thesportsdb.js";
 import { parseSportsDbEvents } from "./sportsdb/events.js";
 import { storeSnapshot } from "./storage/snapshot-store.js";
 import { importXmltv, initializeDatabase, openDatabase } from "./storage/sqlite.js";
+import { startValidationServer } from "./validation/server.js";
 
 const command = process.argv[2] ?? "help";
 const requestedSources = sourceArguments();
@@ -24,10 +26,63 @@ if (command === "fetch") {
   await reportDay();
 } else if (command === "export-csv") {
   await exportValidationCsv();
+} else if (command === "tonight") {
+  await reportTonight();
+} else if (command === "validation-web") {
+  await serveValidation();
 } else if (command === "sportsdb:fetch") {
   await fetchSportsDb();
 } else {
   printHelp();
+}
+
+async function reportTonight(): Promise<void> {
+  const source = xmltvSourceArgument();
+  const date = argumentValue("--date") ?? todayInTimeZone(config.timeZone);
+  const limit = numericArgument("--limit", 12);
+  const database = openDatabase(config.sqlitePath);
+  try {
+    const report = buildTonightReport(
+      buildDayReport(database, source, date, config.timeZone),
+      buildDayReport(database, source, nextDate(date), config.timeZone),
+      limit
+    );
+    const filePath = await writeTonightReport(config.reportsRoot, report);
+    console.log(`${source} ${date} — sélection du soir`);
+    console.log(`  fenêtre: ${report.windowStartUtc} → ${report.windowEndUtc}`);
+    console.log(`  candidats: ${report.candidateCount}`);
+    console.log(`  sélectionnés: ${report.selectedCount}`);
+    console.log(`  report: ${filePath}`);
+    for (const item of report.items) {
+      const broadcast = item.broadcasts[0];
+      console.log(`  ${broadcast?.timeLabel ?? "--:--"}  ${broadcast?.channel ?? ""}  [${item.sport}]  ${item.title}  score=${item.score}`);
+    }
+  } finally {
+    database.close();
+  }
+}
+
+async function serveValidation(): Promise<void> {
+  const source = xmltvSourceArgument();
+  const date = argumentValue("--date") ?? todayInTimeZone(config.timeZone);
+  const limit = numericArgument("--limit", 12);
+  const port = numericArgument("--port", 4173);
+  const database = openDatabase(config.sqlitePath);
+  try {
+    const report = buildTonightReport(
+      buildDayReport(database, source, date, config.timeZone),
+      buildDayReport(database, source, nextDate(date), config.timeZone),
+      limit
+    );
+    const reportPath = await writeTonightReport(config.reportsRoot, report);
+    const server = await startValidationServer({ report, reportsRoot: config.reportsRoot, port });
+    console.log(`Validation SportToday disponible sur ${server.url}`);
+    console.log(`  sélection: ${reportPath}`);
+    console.log(`  validations: ${server.validationFile}`);
+    console.log("  Ctrl+C pour arrêter le serveur.");
+  } finally {
+    database.close();
+  }
 }
 
 async function fetchSportsDb(): Promise<void> {
@@ -165,6 +220,12 @@ function sourceObject(source: "xmltvfr" | "xmltvfree"): XmltvSource {
   return source === "xmltvfr" ? new XmltvFrSource() : new XmltvFreeSource();
 }
 
+function xmltvSourceArgument(): "xmltvfr" | "xmltvfree" {
+  const source = argumentValue("--source") ?? "xmltvfr";
+  if (!isXmltvSource(source)) throw new Error(`Source invalide: ${source}. Utilisez xmltvfr ou xmltvfree.`);
+  return source;
+}
+
 function sourceArguments(): string[] {
   const argument = process.argv.find((value) => value.startsWith("--source="));
   return argument ? argument.slice("--source=".length).split(",").filter(Boolean) : ["xmltvfr", "xmltvfree"];
@@ -184,6 +245,18 @@ function hasFlag(name: string): boolean {
   return process.argv.includes(name);
 }
 
+function nextDate(value: string): string {
+  const date = new Date(`${value}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().slice(0, 10);
+}
+
+function todayInTimeZone(timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
 function printHelp(): void {
   console.log(`SportToday ingestion POC
 
@@ -192,8 +265,10 @@ Usage:
   npm run xmltv:fetch -- --source=xmltvfr
   npm run xmltv:fetch -- --source=xmltvfr,xmltvfree
   npm run xmltv:day -- --source=xmltvfr --date=YYYY-MM-DD
+  npm run xmltv:tonight -- --source=xmltvfr --date=YYYY-MM-DD --limit=12
   npm run xmltv:export-csv -- --source=xmltvfr --date=YYYY-MM-DD
   npm run xmltv:export-csv -- --source=xmltvfr --date=YYYY-MM-DD --with-sportsdb
+  npm run validation:web -- --source=xmltvfr --date=YYYY-MM-DD --limit=12 --port=4173
   npm run sportsdb:fetch -- --date=YYYY-MM-DD
 `);
 }

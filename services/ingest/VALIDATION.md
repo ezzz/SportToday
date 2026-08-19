@@ -3,6 +3,39 @@
 Cette procédure sert à décider si XMLTVFr ou XMLTVFREE peut alimenter le
 MVP. TheSportsDB est évalué séparément comme source d'enrichissement.
 
+## Parcours recommandé : valider la promesse produit
+
+La validation principale porte sur la question « quel sport regarder ce
+soir ? », avec une sélection courte plutôt que 150 lignes à annoter :
+
+```bash
+npm run xmltv:tonight -- --source=xmltvfr --date=YYYY-MM-DD --limit=12
+npm run validation:web -- --source=xmltvfr --date=YYYY-MM-DD --limit=12
+```
+
+Ouvrir `http://127.0.0.1:4173`, puis attribuer un seul verdict par événement :
+
+```text
+OK
+Doute
+Hors sujet
+Mauvaise chaîne
+Mauvais horaire
+Mauvais Live/Différé
+Doublon
+```
+
+Le commentaire par ligne et le champ global « événement majeur manquant »
+sont facultatifs. Toutes les modifications sont automatiquement enregistrées
+dans `reports/validation-tonight-<source>-<date>.json`.
+
+Pour contrôler les faux négatifs, renseigner seulement le champ global si un
+événement important est absent. Une fois la soirée validée, ce fichier suffit
+pour lancer l'analyse des résultats et ajuster le classement.
+
+Le CSV détaillé décrit ci-dessous reste disponible pour une investigation
+technique ciblée ; il n'est plus le parcours de validation par défaut.
+
 ## 1. Préparer les données
 
 Pour chaque source et chaque journée retenue :
@@ -31,7 +64,7 @@ Pour la validation finale, répéter sur au moins 7 jours de snapshots et
 collecter les flux toutes les 30 à 60 minutes lorsque leurs conditions le
 permettent.
 
-## 2. Annoter le CSV
+## 2. Annoter le CSV détaillé
 
 L'export contient 100 candidats sportifs et 50 non-candidats. Les lignes sont
 triées dans l'ordre `Sport Live`, `Sport différé`, puis `Emission`, et ensuite

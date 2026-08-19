@@ -39,13 +39,48 @@ Depuis `services/ingest` :
 
 ```bash
 npm run typecheck
+npm test
 npm run xmltv:fetch
 npm run xmltv:fetch -- --source=xmltvfr
 npm run xmltv:report
 npm run xmltv:day -- --source=xmltvfr --date=2026-08-17
+npm run xmltv:tonight -- --source=xmltvfr --date=2026-08-17 --limit=12
+npm run validation:web -- --source=xmltvfr --date=2026-08-17 --limit=12
 npm run xmltv:export-csv -- --source=xmltvfr --date=2026-08-17
 npm run sportsdb:fetch -- --date=2026-08-17
 ```
+
+## Validation produit « ce soir »
+
+Le parcours recommandé pour le POC est désormais la sélection courte :
+
+```bash
+npm run xmltv:tonight -- --source=xmltvfr --date=2026-08-17 --limit=12
+npm run validation:web -- --source=xmltvfr --date=2026-08-17 --limit=12
+```
+
+La première commande sélectionne et classe les événements entre 18 h et
+00 h 30 en `Europe/Paris`, regroupe leurs diffusions et écrit :
+
+```text
+reports/tonight-xmltvfr-2026-08-17.json
+```
+
+La seconde démarre l'interface locale sur `http://127.0.0.1:4173`. Chaque
+événement se valide en un clic avec `OK`, `Doute` ou une raison d'erreur. Les
+commentaires sont facultatifs. La sauvegarde est automatique dans :
+
+```text
+reports/validation-tonight-xmltvfr-2026-08-17.json
+```
+
+Ce fichier est directement lisible par l'assistant une fois la validation
+terminée. L'interface permet aussi de télécharger :
+
+- un CSV UTF-8 avec séparateur `;`, ouvert directement par Excel français ;
+- un fichier XLSX avec filtres, en-têtes figés et colonnes dimensionnées.
+
+Le serveur écoute uniquement sur `127.0.0.1`. `Ctrl+C` l'arrête.
 
 `xmltv:fetch` télécharge les flux configurés, conserve chaque snapshot brut
 dans `data/raw/<source>/` et importe les chaînes/programmes dans SQLite.
@@ -120,12 +155,18 @@ src/
 │   └── parser.ts
 ├── sportsdb/
 │   └── events.ts
-└── reports/
-    ├── auto-annotation.ts
-    ├── day-filter.ts
-    ├── report.ts
-    ├── sportsdb-match.ts
-    └── validation-csv.ts
+├── reports/
+│   ├── auto-annotation.ts
+│   ├── day-filter.ts
+│   ├── report.ts
+│   ├── sportsdb-match.ts
+│   ├── tonight.ts
+│   └── validation-csv.ts
+└── validation/
+    ├── export.ts
+    ├── server.ts
+    ├── store.ts
+    └── ui.ts
 ```
 
 Le parsing est volontairement limité au socle nécessaire au benchmark :

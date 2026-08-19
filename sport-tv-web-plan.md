@@ -1,6 +1,6 @@
 # Sport TV Web — Plan de lancement
 
-> Dernière mise à jour : 17 août 2026 — stratégie DATA à 4 candidats
+> Dernière mise à jour : 19 août 2026 — validation produit « ce soir » opérationnelle
 
 ## Objectif
 
@@ -1134,19 +1134,26 @@ limiter au nombre total de programmes téléchargés.
 | OTT | événements disponibles hors chaînes linéaires |
 | Juridique | droit de stockage, transformation et affichage public |
 
-### Échantillon manuel recommandé
+### Validation manuelle recommandée
 
-Pour chaque source EPG :
+Le parcours principal valide directement la promesse « quel sport regarder ce
+soir ? ». Pour chaque soirée testée :
 
 ```text
-10 chaînes du panel
-10 sports
-au moins 100 programmes candidats
-au moins 50 programmes non sportifs
-au moins 20 événements sportifs vérifiés dans les sources officielles
+10 à 15 événements principaux proposés automatiquement
+un verdict unique par événement : OK, Doute ou raison d'erreur
+un champ global facultatif pour signaler un événement majeur absent
+contrôle prioritaire du titre, de la chaîne, de l'horaire et du Live/Différé
 ```
 
-Chaque ligne doit être annotée :
+Le premier passage couvre au minimum une soirée en semaine et une soirée de
+week-end. La validation détaillée de 100 candidats sportifs et 50
+non-candidats reste disponible uniquement pour diagnostiquer un défaut précis
+du classifieur.
+
+Les verdicts du parcours produit sont sauvegardés en JSON et exportables en
+CSV/XLSX. Les annotations détaillées suivantes ne sont demandées que sur les
+lignes en erreur :
 
 ```text
 isSport
@@ -1496,6 +1503,8 @@ TheSportsDB : API free + matching, puis Premium si pertinent
 snapshots
 comparaison chaînes
 comparaison sports
+sélection « ce soir » classée
+interface locale de validation en un clic
 analyse fraîcheur
 analyse OTT
 rapport de décision
@@ -1590,7 +1599,9 @@ DATA-14 Tester matching TheSportsDB
 DATA-15 Mesurer couverture OTT
 DATA-16 Vérifier conditions de réutilisation
 DATA-17 Comparer avec sources officielles
-DATA-18 Choisir stratégie DATA MVP
+DATA-18 Valider la sélection produit « ce soir »
+DATA-19 Consolider les anomalies et ajuster le classement
+DATA-20 Choisir stratégie DATA MVP
 ```
 
 ### Definition of Done EPIC 2

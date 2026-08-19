@@ -24,7 +24,9 @@ export function autoAnnotate(programme: DayProgramme): AutoAnnotation {
   const text = `${title} ${description} ${categories}`;
   const detectedSport = programme.sportSignals[0] ?? "";
   const fiction = /dessin animé|animation|fiction|série|film|jeunesse/.test(categories);
-  const promotion = /foot 2 rue|la chaîne officielle|vivez en direct les évènements|à bientôt sur|autopromotion|bande annonce|publicité/.test(text);
+  const promotion = /foot 2 rue|la chaîne officielle|vivez en direct les évènements|la premier league sur canal\+|à bientôt sur|autopromotion|bande annonce|publicité/.test(text);
+  const editorial = /résumé|review|magazine|analyse|inside|best of|journal|documentaire|histoires? de|stories|portrait|la vie à|le podium|avant-course|après-course|débrief/.test(title)
+    || /retour sur (?:la|le) (?:carrière|saison)|portrait de|documentaire consacré/.test(description);
   const eventPattern = /grand prix|masters?\b|premier league|ligue [1-3]\b|championnat|match|trophée|tour de |tour d['’]|atp\b|wta\b|roland|open d|ufc|combat|finale|demi-finale|quart de finale|cyclassics|arctic race/;
 
   let isSport: TriState;
@@ -38,14 +40,14 @@ export function autoAnnotate(programme: DayProgramme): AutoAnnotation {
     isSport = "false";
     confidence = "high";
     reason = "fiction ou autopromotion";
+  } else if (programme.isSportCandidate && editorial) {
+    isSport = "true";
+    confidence = "medium";
+    reason = "programme éditorial sportif";
   } else if (eventPattern.test(text) && programme.isSportCandidate) {
     isSport = "true";
     confidence = "high";
     reason = "événement ou compétition sportive explicite";
-  } else if (programme.isSportCandidate && /résumé|review|magazine|analyse|inside|best of|journal/.test(title)) {
-    isSport = "true";
-    confidence = "medium";
-    reason = "programme éditorial sportif";
   } else if (programme.isSportCandidate && detectedSport) {
     isSport = "unknown";
     confidence = "low";
@@ -64,7 +66,6 @@ export function autoAnnotate(programme: DayProgramme): AutoAnnotation {
     ? ""
     : extractCompetition(programme.title) || extractCompetition(programme.description ?? "");
   const participants = isSport === "false" ? "" : extractParticipants(programme.title);
-  const editorial = /résumé|review|magazine|analyse|inside|best of|journal|documentaire/.test(title);
   const contentCategory: ContentCategory = isSport === "false"
     ? "Emission"
     : isLive === "true"
@@ -102,9 +103,10 @@ function inferLive(text: string): TriState {
 
 function extractCompetition(value: string): string {
   const patterns = [
-    /\b(?:Premier League|Ligue [1-3]|Champions League|Europa League|Conference League)\b[^|,.;]*/iu,
+    /\b(?:Premier League|EFL Championship|Ligue [1-3]|Champions League|Europa League|Conference League)\b[^|,.;]*/iu,
+    /\b(?:La Vuelta|Vuelta a España)\b/iu,
     /\b(?:Grand Prix|Masters?\s*1000|ATP|WTA|Roland-Garros|Wimbledon|US Open|Open d['’]Australie)\b[^|,.;]*/iu,
-    /\b(?:Tour de|Tour d['’]|Championnat (?:de|du)|Coupe (?:de|du))\s+[A-ZÀ-ÖØ-Þ][^|,.;]*/iu
+    /\b(?:Tour de|Tour d['’]|Championnat (?:de|du)|Coupe (?:de|du)|Trophée (?:de|des))\s+[A-ZÀ-ÖØ-Þ][^|,.;]*/iu
   ];
   for (const pattern of patterns) {
     const match = value.match(pattern);
