@@ -56,11 +56,14 @@ explicitement déductibles. `Foot 2 rue` est proposé `Emission` / `false` avec
 une confiance haute car ses catégories sont `Dessin animé|Jeunesse`. La valeur
 manuelle `isSport` reste vide jusqu'à ta validation.
 
-## Sélection produit « ce soir »
+## Sélection produit « aujourd’hui / ce soir »
 
-Un filtre produit couvre désormais la fenêtre 18 h–00 h 30, regroupe les
-diffusions similaires et classe les principaux événements. Sur le programme
-du `2026-08-17`, la sélection de 12 résultats fait notamment ressortir :
+Le rapport couvre désormais toute la journée jusqu'à 00 h 30, regroupe les
+diffusions similaires et classe les principaux événements. L'interface démarre
+sur `Direct / à confirmer + Soirée dès 20 h`, puis permet de basculer vers `Différé`,
+`Émission` ou la journée complète. Chaque combinaison est limitée aux 12
+meilleurs résultats par défaut. Sur le programme du `2026-08-17`, la première
+sélection faisait notamment ressortir :
 
 ```text
 Lens / Paris-SG — Trophée des Champions
@@ -77,6 +80,11 @@ La validation se fait dans une interface locale avec un seul verdict par
 événement. Les annotations sont sauvegardées en JSON et exportables en CSV
 compatible Excel ou en XLSX. L'analyse finale reste en attente de la
 validation utilisateur.
+
+La page multi-chaînes [Programme TV sport de L'Équipe](https://www.lequipe.fr/programme-tv/agenda)
+est retenue comme benchmark manuel de qualité. Elle n'est pas intégrée comme
+source : ses CGU interdisent explicitement la collecte et la réutilisation
+automatisées sans autorisation écrite préalable.
 
 ## XMLTVFREE
 

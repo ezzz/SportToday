@@ -13,7 +13,26 @@ npm run xmltv:tonight -- --source=xmltvfr --date=YYYY-MM-DD --limit=12
 npm run validation:web -- --source=xmltvfr --date=YYYY-MM-DD --limit=12
 ```
 
-Ouvrir `http://127.0.0.1:4173`, puis attribuer un seul verdict par événement :
+Pour un test réel le jour même, omettre simplement `--date` :
+
+```bash
+npm run validation:web -- --source=xmltvfr --limit=12
+```
+
+Ouvrir `http://127.0.0.1:4173`. Le parcours prioritaire est présélectionné :
+
+```text
+Programme : Direct / à confirmer
+Période   : Soirée, à partir de 20 h
+```
+
+Les filtres `Différé`, `Émission` et `Aujourd'hui · journée complète`
+permettent d'étendre le contrôle. Chaque vue contient au maximum la valeur de
+`--limit`. Attribuer ensuite un seul verdict par événement :
+
+`Direct / à confirmer` inclut les directs explicitement marqués par le flux et
+les événements dont le statut est absent. XMLTVFr omet souvent ce marqueur :
+ces lignes affichent `Statut à valider` et constituent le cœur du test.
 
 ```text
 OK
@@ -35,6 +54,23 @@ pour lancer l'analyse des résultats et ajuster le classement.
 
 Le CSV détaillé décrit ci-dessous reste disponible pour une investigation
 technique ciblée ; il n'est plus le parcours de validation par défaut.
+
+### Référence externe L'Équipe
+
+La page [Programme TV sport de L'Équipe](https://www.lequipe.fr/programme-tv/agenda)
+est pertinente comme benchmark manuel : elle couvre plusieurs chaînes et
+permet notamment de distinguer les directs et les émissions.
+
+Elle ne doit pas être collectée automatiquement ni réutilisée comme source de
+données du produit sans autorisation écrite préalable. Les CGU de L'Équipe
+s'opposent explicitement à l'extraction, la réutilisation et la collecte
+automatisée de leurs contenus. Pour le POC, l'usage retenu est donc :
+
+```text
+autorisé dans le projet : consultation humaine et saisie de nos seuls verdicts
+exclu sans accord       : scraper, stocker ou republier leur grille
+option future           : demander une licence, un partenariat ou une API
+```
 
 ## 1. Préparer les données
 

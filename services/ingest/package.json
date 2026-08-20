@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node --test dist/reports/tonight.test.js dist/validation/export.test.js dist/validation/store.test.js",
+    "test": "npm run build && node --test dist/reports/tonight.test.js dist/validation/export.test.js dist/validation/filters.test.js dist/validation/store.test.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "xmltv:fetch": "tsx src/cli.ts fetch",
     "xmltv:report": "tsx src/cli.ts report",

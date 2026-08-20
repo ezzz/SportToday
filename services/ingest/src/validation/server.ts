@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 
 import type { TonightReport } from "../reports/tonight.js";
 import { validationCsv, validationXlsx } from "./export.js";
+import { filteredReport, parseCategoryFilter, parsePeriodFilter } from "./filters.js";
 import {
   isValidationVerdict,
   loadValidation,
@@ -57,10 +58,12 @@ export async function startValidationServer(options: ValidationServerOptions): P
         return sendJson(response, await persist(updateMissingEventNote(validation, stringField(body, "note", false))));
       }
       if (request.method === "GET" && url.pathname === "/export.csv") {
-        return sendDownload(response, validationCsv(options.report, validation), `validation-tonight-${options.report.date}.csv`, "text/csv; charset=utf-8");
+        const report = exportReport(options.report, url);
+        return sendDownload(response, validationCsv(report, validation), `validation-tonight-${options.report.date}.csv`, "text/csv; charset=utf-8");
       }
       if (request.method === "GET" && url.pathname === "/export.xlsx") {
-        return sendDownload(response, await validationXlsx(options.report, validation), `validation-tonight-${options.report.date}.xlsx`, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        const report = exportReport(options.report, url);
+        return sendDownload(response, await validationXlsx(report, validation), `validation-tonight-${options.report.date}.xlsx`, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       }
       if (request.method === "GET" && url.pathname === "/favicon.ico") {
         response.writeHead(204);
@@ -81,6 +84,14 @@ export async function startValidationServer(options: ValidationServerOptions): P
     });
   });
   return { url: `http://${host}:${port}`, validationFile: filePath };
+}
+
+function exportReport(report: TonightReport, url: URL): TonightReport {
+  return filteredReport(
+    report,
+    parseCategoryFilter(url.searchParams.get("category")),
+    parsePeriodFilter(url.searchParams.get("period"))
+  );
 }
 
 async function readJson(request: IncomingMessage): Promise<Record<string, unknown>> {

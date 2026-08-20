@@ -48,10 +48,11 @@ async function reportTonight(): Promise<void> {
       limit
     );
     const filePath = await writeTonightReport(config.reportsRoot, report);
-    console.log(`${source} ${date} — sélection du soir`);
+    console.log(`${source} ${date} — sélection de la journée`);
     console.log(`  fenêtre: ${report.windowStartUtc} → ${report.windowEndUtc}`);
     console.log(`  candidats: ${report.candidateCount}`);
-    console.log(`  sélectionnés: ${report.selectedCount}`);
+    console.log(`  événements indexés: ${report.selectedCount}`);
+    console.log(`  maximum par vue filtrée: ${report.limit}`);
     console.log(`  report: ${filePath}`);
     for (const item of report.items) {
       const broadcast = item.broadcasts[0];
@@ -265,10 +266,10 @@ Usage:
   npm run xmltv:fetch -- --source=xmltvfr
   npm run xmltv:fetch -- --source=xmltvfr,xmltvfree
   npm run xmltv:day -- --source=xmltvfr --date=YYYY-MM-DD
-  npm run xmltv:tonight -- --source=xmltvfr --date=YYYY-MM-DD --limit=12
+  npm run xmltv:tonight -- --source=xmltvfr [--date=YYYY-MM-DD] --limit=12
   npm run xmltv:export-csv -- --source=xmltvfr --date=YYYY-MM-DD
   npm run xmltv:export-csv -- --source=xmltvfr --date=YYYY-MM-DD --with-sportsdb
-  npm run validation:web -- --source=xmltvfr --date=YYYY-MM-DD --limit=12 --port=4173
+  npm run validation:web -- --source=xmltvfr [--date=YYYY-MM-DD] --limit=12 --port=4173
   npm run sportsdb:fetch -- --date=YYYY-MM-DD
 `);
 }

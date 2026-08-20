@@ -4,17 +4,20 @@ import test from "node:test";
 import type { DayProgramme, DayReport } from "./day-filter.js";
 import { buildTonightReport } from "./tonight.js";
 
-test("sélectionne la soirée, exclut la fiction et regroupe les diffusions", () => {
+test("sélectionne la journée, exclut la fiction et regroupe les diffusions", () => {
+  const morning = programme("morning", "Tennis : Masters 1000 de Paris", "2026-08-17T08:00:00.000Z", "Eurosport 1", ["Tennis"], ["tennis"]);
   const first = programme("match-a", "Football : Ligue 1 | Paris / Lyon", "2026-08-17T17:00:00.000Z", "Canal+ Foot", ["Football"], ["football"]);
   const duplicate = programme("match-b", "Football : Ligue 1 | Paris / Lyon", "2026-08-17T17:00:00.000Z", "beIN SPORTS 1", ["Football"], ["football"]);
   const fiction = programme("fiction", "Foot 2 rue", "2026-08-17T18:00:00.000Z", "France 4", ["Dessin animé", "Jeunesse"], ["football"]);
   const late = programme("judo", "Judo : Grand Prix de Paris", "2026-08-17T22:20:00.000Z", "RMC Sport 1", ["Judo"], ["judo"]);
   const tooLate = programme("late", "Tennis : Masters 1000 de Paris", "2026-08-17T22:40:00.000Z", "Eurosport 1", ["Tennis"], ["tennis"]);
-  const report = buildTonightReport(dayReport("2026-08-17", [first, duplicate, fiction]), dayReport("2026-08-18", [late, tooLate]));
+  const report = buildTonightReport(dayReport("2026-08-17", [morning, first, duplicate, fiction]), dayReport("2026-08-18", [late, tooLate]));
 
-  assert.equal(report.programmeCount, 4);
+  assert.equal(report.programmeCount, 5);
+  const masters = report.items.find((item) => item.title.includes("Masters 1000"));
+  assert.equal(masters?.broadcasts.length, 1);
+  assert.equal(masters?.broadcasts[0]?.sourceId, "morning");
   assert.equal(report.items.some((item) => item.title === "Foot 2 rue"), false);
-  assert.equal(report.items.some((item) => item.title.includes("Masters 1000")), false);
   const match = report.items.find((item) => item.participants === "Paris | Lyon");
   assert.equal(match?.broadcasts.length, 2);
   assert.equal(report.items.some((item) => item.title.includes("Grand Prix de Paris")), true);
@@ -22,7 +25,8 @@ test("sélectionne la soirée, exclut la fiction et regroupe les diffusions", ()
 
 test("respecte le changement d'heure Europe/Paris", () => {
   const report = buildTonightReport(dayReport("2026-10-25", []), dayReport("2026-10-26", []));
-  assert.equal(report.windowStartUtc, "2026-10-25T17:00:00.000Z");
+  assert.equal(report.windowStartUtc, "2026-10-24T22:00:00.000Z");
+  assert.equal(report.eveningStartUtc, "2026-10-25T19:00:00.000Z");
   assert.equal(report.windowEndUtc, "2026-10-25T23:30:00.000Z");
 });
 

@@ -1,6 +1,6 @@
 # Sport TV Web — Plan de lancement
 
-> Dernière mise à jour : 19 août 2026 — validation produit « ce soir » opérationnelle
+> Dernière mise à jour : 20 août 2026 — filtres Direct/Soirée et date courante opérationnels
 
 ## Objectif
 
@@ -1505,6 +1505,9 @@ comparaison chaînes
 comparaison sports
 sélection « ce soir » classée
 interface locale de validation en un clic
+filtres Direct / Différé / Émission
+filtres Soirée dès 20 h / journée complète
+benchmark manuel L'Équipe, sans collecte automatisée
 analyse fraîcheur
 analyse OTT
 rapport de décision
@@ -1599,7 +1602,7 @@ DATA-14 Tester matching TheSportsDB
 DATA-15 Mesurer couverture OTT
 DATA-16 Vérifier conditions de réutilisation
 DATA-17 Comparer avec sources officielles
-DATA-18 Valider la sélection produit « ce soir »
+DATA-18 Valider la sélection produit « Direct + soirée » puis les vues secondaires
 DATA-19 Consolider les anomalies et ajuster le classement
 DATA-20 Choisir stratégie DATA MVP
 ```

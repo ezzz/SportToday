@@ -5,7 +5,8 @@ import path from "node:path";
 import { autoAnnotate, type Confidence, type ContentCategory, type TriState } from "./auto-annotation.js";
 import type { DayProgramme, DayReport } from "./day-filter.js";
 
-const TONIGHT_START_HOUR = 18;
+const DAY_START_HOUR = 0;
+const EVENING_START_HOUR = 20;
 const TONIGHT_END_MINUTES_AFTER_MIDNIGHT = 30;
 const DEFAULT_LIMIT = 12;
 
@@ -40,6 +41,7 @@ export interface TonightReport {
   timeZone: string;
   generatedAt: string;
   windowStartUtc: string;
+  eveningStartUtc: string;
   windowEndUtc: string;
   programmeCount: number;
   candidateCount: number;
@@ -53,7 +55,8 @@ export function buildTonightReport(
   followingReport?: DayReport,
   limit = DEFAULT_LIMIT
 ): TonightReport {
-  const windowStart = zonedDateTime(report.date, TONIGHT_START_HOUR, 0, report.timeZone);
+  const windowStart = zonedDateTime(report.date, DAY_START_HOUR, 0, report.timeZone);
+  const eveningStart = zonedDateTime(report.date, EVENING_START_HOUR, 0, report.timeZone);
   const windowEnd = zonedDateTime(nextDate(report.date), 0, TONIGHT_END_MINUTES_AFTER_MIDNIGHT, report.timeZone);
   const programmes = [...report.programmes, ...(followingReport?.programmes ?? [])]
     .filter((programme) => {
@@ -79,8 +82,7 @@ export function buildTonightReport(
     .sort((left, right) => right.score - left.score
       || categoryOrder(left.contentCategory) - categoryOrder(right.contentCategory)
       || firstStart(left).localeCompare(firstStart(right))
-      || left.title.localeCompare(right.title, "fr"))
-    .slice(0, Math.max(1, limit));
+      || left.title.localeCompare(right.title, "fr"));
 
   return {
     source: report.source,
@@ -88,6 +90,7 @@ export function buildTonightReport(
     timeZone: report.timeZone,
     generatedAt: new Date().toISOString(),
     windowStartUtc: windowStart.toISOString(),
+    eveningStartUtc: eveningStart.toISOString(),
     windowEndUtc: windowEnd.toISOString(),
     programmeCount: programmes.length,
     candidateCount: candidates.length,

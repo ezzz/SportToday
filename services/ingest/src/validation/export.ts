@@ -28,7 +28,7 @@ export async function validationXlsx(report: TonightReport, validation: Validati
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "SportToday POC";
   workbook.created = new Date();
-  const worksheet = workbook.addWorksheet("Ce soir", {
+  const worksheet = workbook.addWorksheet("Sélection", {
     views: [{ state: "frozen", ySplit: 1 }]
   });
   worksheet.addRow([...headers]);
@@ -89,7 +89,7 @@ function exportRows(report: TonightReport, validation: ValidationFile): ExportRo
       item.sport,
       item.competition,
       item.participants,
-      item.contentCategory,
+      categoryLabel(item),
       liveLabel(item.isLive),
       String(item.score),
       item.selectionReasons.join(" | "),
@@ -97,6 +97,11 @@ function exportRows(report: TonightReport, validation: ValidationFile): ExportRo
       itemValidation?.note ?? ""
     ];
   });
+}
+
+function categoryLabel(item: TonightItem): string {
+  if (item.contentCategory === "Sport différé" && item.isLive === "unknown") return "Direct à confirmer";
+  return item.contentCategory;
 }
 
 function broadcastLabel(item: TonightItem): string {
