@@ -1507,6 +1507,7 @@ sélection « ce soir » classée
 interface locale de validation en un clic
 filtres Direct / Différé / Émission
 filtres Soirée dès 20 h / journée complète
+filtre multi-sports
 benchmark manuel L'Équipe, sans collecte automatisée
 analyse fraîcheur
 analyse OTT

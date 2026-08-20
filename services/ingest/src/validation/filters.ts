@@ -14,16 +14,27 @@ export function parsePeriodFilter(value: string | null): PeriodFilter {
   return periodFilters.includes(value as PeriodFilter) ? value as PeriodFilter : "evening";
 }
 
+export function parseSportFilters(value: string | null): string[] {
+  if (!value) return [];
+  return [...new Set(value.split(",").map((sport) => sport.trim()).filter(Boolean))];
+}
+
 export function filteredReport(
   report: TonightReport,
   category: CategoryFilter,
-  period: PeriodFilter
+  period: PeriodFilter,
+  sports: readonly string[] = []
 ): TonightReport {
   const items = report.items
     .filter((item) => matchesCategory(item, category))
     .filter((item) => matchesPeriod(item, report, period))
+    .filter((item) => matchesSports(item, sports))
     .slice(0, Math.max(1, report.limit));
   return { ...report, selectedCount: items.length, items };
+}
+
+export function matchesSports(item: TonightItem, sports: readonly string[]): boolean {
+  return sports.length === 0 || sports.includes(item.sport);
 }
 
 export function matchesCategory(item: TonightItem, category: CategoryFilter): boolean {

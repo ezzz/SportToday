@@ -68,6 +68,10 @@ export function validationHtml(): string {
         <button class="period-filter active" data-period="evening">Soirée · dès 20 h</button>
         <button class="period-filter" data-period="day">Aujourd’hui · journée complète</button>
       </div>
+      <div class="filter-row" id="sport-filters">
+        <span class="filter-label">Sport</span>
+        <span id="sport-buttons"><button class="sport-filter active" data-sport="all">Tous les sports</button></span>
+      </div>
       <div class="filter-row">
         <span class="filter-label">Validation</span>
         <button class="validation-filter active" data-validation="all">Tous</button>
@@ -100,6 +104,7 @@ export function validationHtml(): string {
     let activeCategory = 'live';
     let activePeriod = 'evening';
     let activeValidation = 'all';
+    let activeSports = new Set();
     let noteTimer = null;
     let missingTimer = null;
 
@@ -114,12 +119,13 @@ export function validationHtml(): string {
       const date = new Intl.DateTimeFormat('fr-FR',{dateStyle:'full',timeZone:state.report.timeZone}).format(new Date(state.report.date+'T12:00:00Z'));
       document.getElementById('subtitle').textContent = date + ' · ' + state.report.source + ' · soirée à partir de 20 h';
       document.getElementById('missing-event').value = state.validation.missingEventNote || '';
+      renderSportFilters();
       setSaved();
       render();
     }
 
     function render() {
-      const matching = state.report.items.filter(matchesCategory).filter(matchesPeriod);
+      const matching = state.report.items.filter(matchesCategory).filter(matchesPeriod).filter(matchesSport);
       const stats = matching.reduce((acc,item) => { const v=validationFor(item.id).verdict; acc[v==='pending'?'pending':v==='ok'?'ok':'issues']++; return acc; }, {pending:0,ok:0,issues:0});
       const filtered = matching.filter(item => { const v=validationFor(item.id).verdict; return activeValidation==='all'||activeValidation===v||(activeValidation==='issues'&&issue(v)); });
       const visible = filtered.slice(0,state.report.limit);
@@ -128,9 +134,24 @@ export function validationHtml(): string {
       ].map(([label,value]) => '<div class="metric"><strong>'+value+'</strong><span>'+label+'</span></div>').join('');
       document.getElementById('result-note').textContent = filtered.length>state.report.limit ? 'Les '+state.report.limit+' meilleurs résultats de cette vue sont affichés sur '+filtered.length+'.' : '';
       document.getElementById('cards').innerHTML = visible.length ? visible.map(cardHtml).join('') : '<div class="empty">Aucun événement dans ce filtre.</div>';
-      const query = '?category='+encodeURIComponent(activeCategory)+'&period='+encodeURIComponent(activePeriod);
+      const selectedSports = [...activeSports].sort().map(encodeURIComponent).join('%2C');
+      const query = '?category='+encodeURIComponent(activeCategory)+'&period='+encodeURIComponent(activePeriod)+(selectedSports?'&sports='+selectedSports:'');
       document.getElementById('export-csv').href='/export.csv'+query;
       document.getElementById('export-xlsx').href='/export.xlsx'+query;
+    }
+
+    function renderSportFilters() {
+      const counts = new Map();
+      state.report.items.forEach(item => counts.set(item.sport,(counts.get(item.sport)||0)+1));
+      const sports = [...counts.keys()].sort((left,right)=>sportLabel(left).localeCompare(sportLabel(right),'fr'));
+      const buttons = ['<button class="sport-filter '+(activeSports.size===0?'active':'')+'" data-sport="all">Tous les sports</button>']
+        .concat(sports.map(sport=>'<button class="sport-filter '+(activeSports.has(sport)?'active':'')+'" data-sport="'+escapeHtml(sport)+'">'+escapeHtml(sportLabel(sport))+' <small>('+counts.get(sport)+')</small></button>'));
+      document.getElementById('sport-buttons').innerHTML=buttons.join('');
+    }
+
+    function sportLabel(value) {
+      const labels={football:'Football',tennis:'Tennis',cyclisme:'Cyclisme',rugby:'Rugby',boxe:'Boxe',basket:'Basket',golf:'Golf',f1:'Formule 1',motogp:'MotoGP',judo:'Judo',ski:'Ski',handball:'Handball',volley:'Volley',athlétisme:'Athlétisme',natation:'Natation'};
+      return labels[value]||value.charAt(0).toLocaleUpperCase('fr-FR')+value.slice(1);
     }
 
     function matchesCategory(item) {
@@ -141,6 +162,10 @@ export function validationHtml(): string {
       if (activePeriod==='day') return true;
       const start=Date.parse(state.report.eveningStartUtc),end=Date.parse(state.report.windowEndUtc);
       return item.broadcasts.some(broadcast=>{const value=Date.parse(broadcast.startAtUtc);return value>=start&&value<end;});
+    }
+
+    function matchesSport(item) {
+      return activeSports.size===0||activeSports.has(item.sport);
     }
 
     function cardHtml(item) {
@@ -173,6 +198,14 @@ export function validationHtml(): string {
       if (category) { activeCategory=category.dataset.category; document.querySelectorAll('.category-filter').forEach(b=>b.classList.toggle('active',b===category)); render(); return; }
       const period = event.target.closest('.period-filter');
       if (period) { activePeriod=period.dataset.period; document.querySelectorAll('.period-filter').forEach(b=>b.classList.toggle('active',b===period)); render(); return; }
+      const sport = event.target.closest('.sport-filter');
+      if (sport) {
+        const value=sport.dataset.sport;
+        if (value==='all') activeSports.clear();
+        else if (activeSports.has(value)) activeSports.delete(value);
+        else activeSports.add(value);
+        renderSportFilters(); render(); return;
+      }
       const validation = event.target.closest('.validation-filter');
       if (validation) { activeValidation=validation.dataset.validation; document.querySelectorAll('.validation-filter').forEach(b=>b.classList.toggle('active',b===validation)); render(); return; }
       const button = event.target.closest('[data-action="verdict"]');

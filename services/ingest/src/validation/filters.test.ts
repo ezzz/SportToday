@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { TonightItem, TonightReport } from "../reports/tonight.js";
-import { filteredReport } from "./filters.js";
+import { filteredReport, matchesSports } from "./filters.js";
 
 test("filtre par catégorie et par soirée avec une limite par vue", () => {
   const report = fixtureReport([
@@ -15,6 +15,8 @@ test("filtre par catégorie et par soirée avec une limite par vue", () => {
   assert.deepEqual(filteredReport(report, "live", "evening").items.map(({ id }) => id), ["evening-live", "evening-unknown"]);
   assert.deepEqual(filteredReport(report, "live", "day").items.map(({ id }) => id), ["morning-live", "evening-live", "evening-unknown"]);
   assert.deepEqual(filteredReport(report, "delayed", "evening").items.map(({ id }) => id), ["evening-delayed"]);
+  assert.deepEqual(filteredReport(report, "all", "day", ["tennis"]).items.map(({ id }) => id), []);
+  assert.equal(matchesSports(report.items[0]!, []), true);
 });
 
 function item(

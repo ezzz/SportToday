@@ -61,7 +61,7 @@ manuelle `isSport` reste vide jusqu'à ta validation.
 Le rapport couvre désormais toute la journée jusqu'à 00 h 30, regroupe les
 diffusions similaires et classe les principaux événements. L'interface démarre
 sur `Direct / à confirmer + Soirée dès 20 h`, puis permet de basculer vers `Différé`,
-`Émission` ou la journée complète. Chaque combinaison est limitée aux 12
+`Émission`, la journée complète ou un ou plusieurs sports. Chaque combinaison est limitée aux 12
 meilleurs résultats par défaut. Sur le programme du `2026-08-17`, la première
 sélection faisait notamment ressortir :
 

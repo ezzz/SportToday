@@ -2,7 +2,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 
 import type { TonightReport } from "../reports/tonight.js";
 import { validationCsv, validationXlsx } from "./export.js";
-import { filteredReport, parseCategoryFilter, parsePeriodFilter } from "./filters.js";
+import { filteredReport, parseCategoryFilter, parsePeriodFilter, parseSportFilters } from "./filters.js";
 import {
   isValidationVerdict,
   loadValidation,
@@ -90,7 +90,8 @@ function exportReport(report: TonightReport, url: URL): TonightReport {
   return filteredReport(
     report,
     parseCategoryFilter(url.searchParams.get("category")),
-    parsePeriodFilter(url.searchParams.get("period"))
+    parsePeriodFilter(url.searchParams.get("period")),
+    parseSportFilters(url.searchParams.get("sports"))
   );
 }
 

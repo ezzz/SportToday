@@ -76,7 +76,9 @@ reports/tonight-xmltvfr-2026-08-17.json
 La seconde démarre l'interface locale sur `http://127.0.0.1:4173`. La vue
 initiale affiche les directs explicites et les directs à confirmer de la soirée
 à partir de 20 h. Les filtres donnent
-accès aux différés, aux émissions et à la journée complète. `--limit=12`
+accès aux différés, aux émissions, à la journée complète et à un ou plusieurs
+sports. La liste des sports est construite à partir des résultats du jour et
+`Tous les sports` est actif par défaut. `--limit=12`
 limite chaque vue filtrée aux douze résultats les mieux classés, et non le
 nombre total de programmes indexés.
 

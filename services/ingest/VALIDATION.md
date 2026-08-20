@@ -26,9 +26,11 @@ Programme : Direct / à confirmer
 Période   : Soirée, à partir de 20 h
 ```
 
-Les filtres `Différé`, `Émission` et `Aujourd'hui · journée complète`
-permettent d'étendre le contrôle. Chaque vue contient au maximum la valeur de
-`--limit`. Attribuer ensuite un seul verdict par événement :
+Les filtres `Différé`, `Émission`, `Aujourd'hui · journée complète` et `Sport`
+permettent d'étendre le contrôle. Le filtre Sport est multi-sélection : aucun
+sport n'est exclu par défaut, puis un ou plusieurs sports peuvent être cochés.
+Chaque vue contient au maximum la valeur de `--limit`. Attribuer ensuite un
+seul verdict par événement :
 
 `Direct / à confirmer` inclut les directs explicitement marqués par le flux et
 les événements dont le statut est absent. XMLTVFr omet souvent ce marqueur :
