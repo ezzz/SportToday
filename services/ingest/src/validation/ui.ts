@@ -158,14 +158,14 @@ export function validationHtml(): string {
         '<textarea data-action="note" data-id="'+item.id+'" placeholder="Commentaire facultatif">'+escapeHtml(validation.note)+'</textarea></div></article>';
     }
 
-    async function saveItem(id, patch) {
+    async function saveItem(id, patch, rerender=true) {
       const current = validationFor(id);
       setSaving();
       const response = await fetch('/api/validation', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({itemId:id,verdict:patch.verdict||current.verdict,note:patch.note ?? current.note}) });
       if (!response.ok) throw new Error(await response.text());
       state.validation = await response.json();
       setSaved();
-      render();
+      if (rerender) render();
     }
 
     document.addEventListener('click', event => {
@@ -182,7 +182,7 @@ export function validationHtml(): string {
     document.addEventListener('input', event => {
       if (event.target.matches('[data-action="note"]')) {
         clearTimeout(noteTimer); const id=event.target.dataset.id,value=event.target.value;
-        noteTimer=setTimeout(()=>saveItem(id,{note:value}).catch(showError),500);
+        noteTimer=setTimeout(()=>saveItem(id,{note:value},false).catch(showError),500);
       }
       if (event.target.id==='missing-event') {
         clearTimeout(missingTimer); const note=event.target.value; setSaving();
