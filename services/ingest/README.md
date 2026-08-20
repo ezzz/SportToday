@@ -74,20 +74,21 @@ reports/tonight-xmltvfr-2026-08-17.json
 ```
 
 La seconde démarre l'interface locale sur `http://127.0.0.1:4173`. La vue
-initiale affiche les directs explicites et les directs à confirmer de la soirée
-à partir de 20 h. Les filtres donnent
-accès aux différés, aux émissions, à la journée complète et à un ou plusieurs
-sports. La liste des sports est construite à partir des résultats du jour et
+initiale affiche les directs confirmés ou probables de la soirée. Un événement
+commencé avant 20 h reste visible s'il se termine après 20 h. Les filtres donnent
+accès aux statuts `À confirmer`, aux différés, aux émissions, à la journée
+complète et à un ou plusieurs sports. Les heures de début et de fin sont
+affichées. La liste des sports est construite à partir des résultats du jour et
 `Tous les sports` est actif par défaut. `--limit=12`
-limite chaque vue filtrée aux douze résultats les mieux classés, et non le
-nombre total de programmes indexés.
+limite chaque vue filtrée aux douze résultats les mieux classés, avec au plus
+deux cartes par compétition, et non le nombre total de programmes indexés.
 
 Chaque événement se valide en un clic avec `OK`, `Doute` ou une raison
 d'erreur. Les commentaires sont facultatifs. La sauvegarde est automatique
 dans :
 
 ```text
-reports/validation-tonight-xmltvfr-2026-08-17.json
+reports/validation-poc2-tonight-xmltvfr-2026-08-17.json
 ```
 
 Ce fichier est directement lisible par l'assistant une fois la validation

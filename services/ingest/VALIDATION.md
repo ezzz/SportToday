@@ -22,19 +22,25 @@ npm run validation:web -- --source=xmltvfr --limit=12
 Ouvrir `http://127.0.0.1:4173`. Le parcours prioritaire est présélectionné :
 
 ```text
-Programme : Direct / à confirmer
+Programme : Direct
 Période   : Soirée, à partir de 20 h
 ```
 
-Les filtres `Différé`, `Émission`, `Aujourd'hui · journée complète` et `Sport`
+Depuis POC-2, le programme par défaut est `Direct` : il contient uniquement les
+directs confirmés ou probables. Les statuts sans preuve suffisante sont isolés
+dans `À confirmer`. Les filtres `À confirmer`, `Différé`, `Émission`,
+`Aujourd'hui · journée complète` et `Sport`
 permettent d'étendre le contrôle. Le filtre Sport est multi-sélection : aucun
 sport n'est exclu par défaut, puis un ou plusieurs sports peuvent être cochés.
-Chaque vue contient au maximum la valeur de `--limit`. Attribuer ensuite un
-seul verdict par événement :
+La soirée inclut aussi un programme commencé avant 20 h s'il se termine après
+20 h. Chaque diffusion affiche son heure de début et de fin. La vue principale
+conserve au maximum deux événements par compétition et au maximum la valeur de
+`--limit`. Attribuer ensuite un seul verdict par événement :
 
-`Direct / à confirmer` inclut les directs explicitement marqués par le flux et
-les événements dont le statut est absent. XMLTVFr omet souvent ce marqueur :
-ces lignes affichent `Statut à valider` et constituent le cœur du test.
+XMLTVFr omet souvent le marqueur direct. Un `Direct probable` repose donc sur
+des indices de grille et reste à contrôler. `À confirmer` sert à évaluer le
+rappel : vérifier un petit échantillon de cette vue permet de repérer les vrais
+directs que l'algorithme conservateur aurait manqués.
 
 ```text
 OK
@@ -48,7 +54,8 @@ Doublon
 
 Le commentaire par ligne et le champ global « événement majeur manquant »
 sont facultatifs. Toutes les modifications sont automatiquement enregistrées
-dans `reports/validation-tonight-<source>-<date>.json`.
+dans `reports/validation-poc2-tonight-<source>-<date>.json`. Le fichier POC-1
+`validation-tonight-<source>-<date>.json` est conservé comme référence.
 
 Pour contrôler les faux négatifs, renseigner seulement le champ global si un
 événement important est absent. Une fois la soirée validée, ce fichier suffit

@@ -32,7 +32,7 @@ export interface ValidationFile {
 }
 
 export function validationPath(reportsRoot: string, report: TonightReport): string {
-  return path.join(reportsRoot, `validation-tonight-${report.source}-${report.date}.json`);
+  return path.join(reportsRoot, `validation-${report.iteration}-tonight-${report.source}-${report.date}.json`);
 }
 
 export async function loadValidation(filePath: string, report: TonightReport): Promise<ValidationFile> {

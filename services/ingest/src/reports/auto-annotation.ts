@@ -3,6 +3,7 @@ import type { DayProgramme } from "./day-filter.js";
 export type ContentCategory = "Sport Live" | "Sport différé" | "Emission";
 export type TriState = "true" | "false" | "unknown";
 export type Confidence = "high" | "medium" | "low";
+export type LiveStatus = "confirmed" | "probable" | "unknown" | "delayed";
 
 export interface AutoAnnotation {
   contentCategory: ContentCategory;
@@ -13,6 +14,7 @@ export interface AutoAnnotation {
   competition: string;
   participants: string;
   isLive: TriState;
+  liveStatus: LiveStatus;
   checkRequired: "true" | "false";
   checkReason: string;
 }
@@ -22,7 +24,7 @@ export function autoAnnotate(programme: DayProgramme): AutoAnnotation {
   const description = (programme.description ?? "").toLocaleLowerCase("fr-FR");
   const categories = programme.categories.join(" ").toLocaleLowerCase("fr-FR");
   const text = `${title} ${description} ${categories}`;
-  const detectedSport = programme.sportSignals[0] ?? "";
+  const detectedSport = correctedSport(programme, title);
   const fiction = /dessin animé|animation|fiction|série|film|jeunesse/.test(categories);
   const promotion = /foot 2 rue|la chaîne officielle|vivez en direct les évènements|la premier league sur canal\+|à bientôt sur|autopromotion|bande annonce|publicité/.test(text);
   const editorial = /résumé|review|magazine|analyse|inside|best of|journal|documentaire|histoires? de|stories|portrait|la vie à|le podium|avant-course|après-course|débrief/.test(title)
@@ -61,14 +63,19 @@ export function autoAnnotate(programme: DayProgramme): AutoAnnotation {
   // A phrase such as "vivez en direct" can belong to an autopromotion. The
   // live/delayed field is only meaningful once the programme is considered
   // sporting; keep it unknown for fiction, promotion and other emissions.
-  const isLive = isSport === "false" ? "unknown" : inferLive(text);
+  const liveStatus = isSport === "false" || editorial ? "unknown" : inferLiveStatus(programme, text);
+  const isLive: TriState = liveStatus === "confirmed"
+    ? "true"
+    : liveStatus === "delayed"
+      ? "false"
+      : "unknown";
   const competition = isSport === "false"
     ? ""
     : extractCompetition(programme.title) || extractCompetition(programme.description ?? "");
   const participants = isSport === "false" ? "" : extractParticipants(programme.title);
   const contentCategory: ContentCategory = isSport === "false"
     ? "Emission"
-    : isLive === "true"
+    : liveStatus === "confirmed" || liveStatus === "probable"
       ? "Sport Live"
       : editorial
         ? "Emission"
@@ -77,7 +84,8 @@ export function autoAnnotate(programme: DayProgramme): AutoAnnotation {
   const checks: string[] = [];
   if (isSport === "unknown") checks.push("sport à confirmer");
   if (confidence !== "high") checks.push("classification à confirmer");
-  if (isSport === "true" && isLive === "unknown") checks.push("direct ou différé à confirmer");
+  if (isSport === "true" && liveStatus === "probable") checks.push("direct probable à confirmer");
+  if (isSport === "true" && liveStatus === "unknown") checks.push("direct ou différé à confirmer");
   if (isSport === "true" && eventPattern.test(text) && !competition) checks.push("compétition à rechercher");
   if (isSport === "true" && eventPattern.test(text) && !participants) checks.push("participants à rechercher");
 
@@ -90,15 +98,33 @@ export function autoAnnotate(programme: DayProgramme): AutoAnnotation {
     competition,
     participants,
     isLive,
+    liveStatus,
     checkRequired: checks.length > 0 ? "true" : "false",
     checkReason: checks.join("; ")
   };
 }
 
-function inferLive(text: string): TriState {
-  if (/\b(?:replay|rediffusion|résumé|review|best of|magazine|analyse)\b/.test(text)) return "false";
-  if (/\b(?:en direct|direct|live)\b/.test(text)) return "true";
+function inferLiveStatus(programme: DayProgramme, text: string): LiveStatus {
+  const programmeYear = Number(programme.startAt.slice(0, 4));
+  const delayedWording = /\b(?:replay|rediffusion|résumé|review|best of|retour sur|meilleurs moments|archives?|classiques?)\b/u.test(text)
+    || /\b(?:s['’]imposait|s['’]affrontaient|se déroulait|avait remporté|a bouclé|a terminé|a remporté|était assuré|l['’]an dernier|la saison dernière)\b/u.test(text);
+  const mentionedYears = [...text.matchAll(/\b(20\d{2})\b/gu)].map((match) => Number(match[1]));
+  const historicalYear = mentionedYears.some((year) => year < programmeYear);
+  if (delayedWording || (historicalYear && /\b(?:édition|saison|victoire|finale|étape|match)\b/u.test(text))) return "delayed";
+  if (/\b(?:en direct|direct|live)\b/u.test(text)) return "confirmed";
+
+  const presentOrFutureEvent = /\b(?:se rendent|retrouveront|profiteront|réunit|sera|seront|s['’]affrontent|affrontent|défier|en lice|à suivre|qualifications?)\b/u.test(text);
+  const datedCurrentEvent = /\bdu\s+\d{1,2}\s+au\s+\d{1,2}\s+[a-zà-ÿ]+\b/u.test(text);
+  if (presentOrFutureEvent || datedCurrentEvent) return "probable";
   return "unknown";
+}
+
+function correctedSport(programme: DayProgramme, normalizedTitle: string): string {
+  // XMLTVFr can surface the generic expression "Formule 1" before the actual
+  // discipline and "FootVolley" before football. Prefer the programme label.
+  if (/^motonautisme\b/u.test(normalizedTitle)) return "motonautisme";
+  if (/^foot\s*volley\b/u.test(normalizedTitle)) return "footvolley";
+  return programme.sportSignals[0] ?? "";
 }
 
 function extractCompetition(value: string): string {

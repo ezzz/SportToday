@@ -90,7 +90,7 @@ function exportRows(report: TonightReport, validation: ValidationFile): ExportRo
       item.competition,
       item.participants,
       categoryLabel(item),
-      liveLabel(item.isLive),
+      liveLabel(item.liveStatus),
       String(item.score),
       item.selectionReasons.join(" | "),
       verdictLabel(itemValidation?.verdict ?? "pending"),
@@ -100,12 +100,12 @@ function exportRows(report: TonightReport, validation: ValidationFile): ExportRo
 }
 
 function categoryLabel(item: TonightItem): string {
-  if (item.contentCategory === "Sport différé" && item.isLive === "unknown") return "Direct à confirmer";
+  if (item.liveStatus === "unknown" && item.contentCategory !== "Emission") return "À confirmer";
   return item.contentCategory;
 }
 
 function broadcastLabel(item: TonightItem): string {
-  return item.broadcasts.map((broadcast) => `${broadcast.timeLabel} — ${broadcast.channel}`).join(" | ");
+  return item.broadcasts.map((broadcast) => `${broadcast.timeRangeLabel || broadcast.timeLabel} — ${broadcast.channel}`).join(" | ");
 }
 
 function verdictLabel(verdict: ValidationVerdict): string {
@@ -122,8 +122,14 @@ function verdictLabel(verdict: ValidationVerdict): string {
   return labels[verdict];
 }
 
-function liveLabel(value: TonightItem["isLive"]): string {
-  return value === "true" ? "Live" : value === "false" ? "Non-live" : "À confirmer";
+function liveLabel(value: TonightItem["liveStatus"]): string {
+  const labels: Record<TonightItem["liveStatus"], string> = {
+    confirmed: "Direct confirmé",
+    probable: "Direct probable",
+    unknown: "À confirmer",
+    delayed: "Différé détecté"
+  };
+  return labels[value];
 }
 
 function csvCell(value: string): string {

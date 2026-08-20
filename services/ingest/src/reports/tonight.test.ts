@@ -13,6 +13,7 @@ test("sélectionne la journée, exclut la fiction et regroupe les diffusions", (
   const tooLate = programme("late", "Tennis : Masters 1000 de Paris", "2026-08-17T22:40:00.000Z", "Eurosport 1", ["Tennis"], ["tennis"]);
   const report = buildTonightReport(dayReport("2026-08-17", [morning, first, duplicate, fiction]), dayReport("2026-08-18", [late, tooLate]));
 
+  assert.equal(report.iteration, "poc2");
   assert.equal(report.programmeCount, 5);
   const masters = report.items.find((item) => item.title.includes("Masters 1000"));
   assert.equal(masters?.broadcasts.length, 1);
@@ -20,7 +21,29 @@ test("sélectionne la journée, exclut la fiction et regroupe les diffusions", (
   assert.equal(report.items.some((item) => item.title === "Foot 2 rue"), false);
   const match = report.items.find((item) => item.participants === "Paris | Lyon");
   assert.equal(match?.broadcasts.length, 2);
+  assert.equal(match?.broadcasts[0]?.timeRangeLabel, "19:00–20:30");
   assert.equal(report.items.some((item) => item.title.includes("Grand Prix de Paris")), true);
+});
+
+test("sépare les directs probables des rediffusions et met les chaînes douteuses en quarantaine", () => {
+  const probable = programme("probable", "Football : Ligue 3 | Paris / Lyon", "2026-08-17T19:00:00.000Z", "Canal+ Foot", ["Football"], ["football"]);
+  probable.description = "Première période du match de la Journée 3 opposant Paris et Lyon.";
+  const previousRound = programme("previous", "Football : Ligue 3 | Rouen / Caen", "2026-08-17T10:00:00.000Z", "Canal+ Foot", ["Football"], ["football"]);
+  previousRound.description = "Première période du match de la Journée 2 opposant Rouen et Caen.";
+  const replay = programme("replay", "Rugby : finale", "2026-08-17T20:00:00.000Z", "Canal+ Sport", ["Rugby"], ["rugby"]);
+  replay.description = "Retour sur la finale 2025 où les deux équipes s'affrontaient.";
+  const obsolete = programme("obsolete", "Football : Premier League | Arsenal / Chelsea", "2026-08-17T20:30:00.000Z", "PereNoel.fr", ["Football"], ["football"]);
+  const slate = programme("slate", "Ligue 1+ 2", "2026-08-17T18:00:00.000Z", "Ligue 1+ 2", ["Football"], ["football"]);
+  slate.description = "Les canaux événements pour suivre tous vos matches en direct et en intégralité.";
+
+  const report = buildTonightReport(dayReport("2026-08-17", [probable, previousRound, replay, obsolete, slate]));
+
+  assert.equal(report.quarantinedProgrammeCount, 2);
+  assert.equal(report.items.find((item) => item.title.includes("Paris / Lyon"))?.liveStatus, "probable");
+  assert.equal(report.items.find((item) => item.title.includes("Rouen / Caen"))?.liveStatus, "delayed");
+  assert.equal(report.items.find((item) => item.title === "Rugby : finale")?.liveStatus, "delayed");
+  assert.equal(report.items.some((item) => item.broadcasts.some((broadcast) => broadcast.channelSourceId === "PereNoel.fr")), false);
+  assert.equal(report.items.some((item) => item.title === "Ligue 1+ 2"), false);
 });
 
 test("respecte le changement d'heure Europe/Paris", () => {

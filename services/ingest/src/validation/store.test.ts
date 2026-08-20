@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 
 import type { TonightReport } from "../reports/tonight.js";
-import { loadValidation, saveValidation, updateItemValidation, type ValidationFile } from "./store.js";
+import { loadValidation, saveValidation, updateItemValidation, validationPath, type ValidationFile } from "./store.js";
 
 test("sauvegarde les verdicts et retire les entrées en attente ou obsolètes", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "sporttoday-validation-"));
@@ -24,6 +24,7 @@ test("sauvegarde les verdicts et retire les entrées en attente ou obsolètes", 
       }
     };
     await saveValidation(filePath, initial);
+    assert.match(validationPath(directory, report), /validation-poc2-tonight-xmltvfr-2026-08-17\.json$/u);
     const loaded = await loadValidation(filePath, report);
     assert.deepEqual(loaded.items, {});
 
@@ -38,6 +39,7 @@ test("sauvegarde les verdicts et retire les entrées en attente ou obsolètes", 
 
 function fixtureReport(): TonightReport {
   return {
+    iteration: "poc2",
     source: "xmltvfr",
     date: "2026-08-17",
     timeZone: "Europe/Paris",
@@ -47,6 +49,7 @@ function fixtureReport(): TonightReport {
     windowEndUtc: "2026-08-17T22:30:00.000Z",
     programmeCount: 1,
     candidateCount: 1,
+    quarantinedProgrammeCount: 0,
     selectedCount: 1,
     limit: 12,
     items: [{
@@ -58,6 +61,8 @@ function fixtureReport(): TonightReport {
       participants: "Paris | Lyon",
       contentCategory: "Sport différé",
       isLive: "unknown",
+      liveStatus: "unknown",
+      titleQuality: "clear",
       confidence: "high",
       score: 100,
       selectionReasons: [],

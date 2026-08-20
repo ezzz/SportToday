@@ -58,14 +58,15 @@ export function validationHtml(): string {
     <section class="toolbar">
       <div class="filter-row">
         <span class="filter-label">Programme</span>
-        <button class="category-filter active" data-category="live">● Direct / à confirmer</button>
+        <button class="category-filter active" data-category="live">● Direct</button>
+        <button class="category-filter" data-category="uncertain">À confirmer</button>
         <button class="category-filter" data-category="delayed">Différé</button>
         <button class="category-filter" data-category="editorial">Émission</button>
         <button class="category-filter" data-category="all">Tous</button>
       </div>
       <div class="filter-row">
         <span class="filter-label">Période</span>
-        <button class="period-filter active" data-period="evening">Soirée · dès 20 h</button>
+        <button class="period-filter active" data-period="evening">Soirée · en cours dès 20 h</button>
         <button class="period-filter" data-period="day">Aujourd’hui · journée complète</button>
       </div>
       <div class="filter-row" id="sport-filters">
@@ -117,7 +118,7 @@ export function validationHtml(): string {
       if (!response.ok) throw new Error('Impossible de charger la sélection.');
       state = await response.json();
       const date = new Intl.DateTimeFormat('fr-FR',{dateStyle:'full',timeZone:state.report.timeZone}).format(new Date(state.report.date+'T12:00:00Z'));
-      document.getElementById('subtitle').textContent = date + ' · ' + state.report.source + ' · soirée à partir de 20 h';
+      document.getElementById('subtitle').textContent = date + ' · ' + state.report.source + ' · événements en cours à partir de 20 h';
       document.getElementById('missing-event').value = state.validation.missingEventNote || '';
       renderSportFilters();
       setSaved();
@@ -128,11 +129,12 @@ export function validationHtml(): string {
       const matching = state.report.items.filter(matchesCategory).filter(matchesPeriod).filter(matchesSport);
       const stats = matching.reduce((acc,item) => { const v=validationFor(item.id).verdict; acc[v==='pending'?'pending':v==='ok'?'ok':'issues']++; return acc; }, {pending:0,ok:0,issues:0});
       const filtered = matching.filter(item => { const v=validationFor(item.id).verdict; return activeValidation==='all'||activeValidation===v||(activeValidation==='issues'&&issue(v)); });
-      const visible = filtered.slice(0,state.report.limit);
+      const visible = diversifiedSelection(filtered,state.report.limit);
       document.getElementById('summary').innerHTML = [
         ['Résultats',matching.length],['Affichés',visible.length],['À valider',stats.pending],['Validés OK',stats.ok],['Doutes / erreurs',stats.issues]
       ].map(([label,value]) => '<div class="metric"><strong>'+value+'</strong><span>'+label+'</span></div>').join('');
-      document.getElementById('result-note').textContent = filtered.length>state.report.limit ? 'Les '+state.report.limit+' meilleurs résultats de cette vue sont affichés sur '+filtered.length+'.' : '';
+      const hidden=filtered.length-visible.length;
+      document.getElementById('result-note').textContent = hidden>0 ? visible.length+' événements principaux affichés sur '+filtered.length+' · maximum 2 par compétition pour diversifier la sélection.' : '';
       document.getElementById('cards').innerHTML = visible.length ? visible.map(cardHtml).join('') : '<div class="empty">Aucun événement dans ce filtre.</div>';
       const selectedSports = [...activeSports].sort().map(encodeURIComponent).join('%2C');
       const query = '?category='+encodeURIComponent(activeCategory)+'&period='+encodeURIComponent(activePeriod)+(selectedSports?'&sports='+selectedSports:'');
@@ -150,33 +152,47 @@ export function validationHtml(): string {
     }
 
     function sportLabel(value) {
-      const labels={football:'Football',tennis:'Tennis',cyclisme:'Cyclisme',rugby:'Rugby',boxe:'Boxe',basket:'Basket',golf:'Golf',f1:'Formule 1',motogp:'MotoGP',judo:'Judo',ski:'Ski',handball:'Handball',volley:'Volley',athlétisme:'Athlétisme',natation:'Natation'};
+      const labels={football:'Football',footvolley:'FootVolley',tennis:'Tennis',cyclisme:'Cyclisme',rugby:'Rugby',boxe:'Boxe',basket:'Basket',golf:'Golf',f1:'Formule 1',motonautisme:'Motonautisme',motogp:'MotoGP',judo:'Judo',ski:'Ski',handball:'Handball',volley:'Volley',athlétisme:'Athlétisme',natation:'Natation'};
       return labels[value]||value.charAt(0).toLocaleUpperCase('fr-FR')+value.slice(1);
     }
 
     function matchesCategory(item) {
-      return activeCategory==='all'||(activeCategory==='live'&&(item.contentCategory==='Sport Live'||(item.contentCategory==='Sport différé'&&item.isLive==='unknown')))||(activeCategory==='delayed'&&item.contentCategory==='Sport différé'&&item.isLive==='false')||(activeCategory==='editorial'&&item.contentCategory==='Emission');
+      return activeCategory==='all'||(activeCategory==='live'&&(item.liveStatus==='confirmed'||item.liveStatus==='probable'))||(activeCategory==='uncertain'&&item.liveStatus==='unknown'&&item.contentCategory!=='Emission')||(activeCategory==='delayed'&&item.liveStatus==='delayed')||(activeCategory==='editorial'&&item.contentCategory==='Emission');
     }
 
     function matchesPeriod(item) {
       if (activePeriod==='day') return true;
       const start=Date.parse(state.report.eveningStartUtc),end=Date.parse(state.report.windowEndUtc);
-      return item.broadcasts.some(broadcast=>{const value=Date.parse(broadcast.startAtUtc);return value>=start&&value<end;});
+      return item.broadcasts.some(broadcast=>{const value=Date.parse(broadcast.startAtUtc),parsedStop=Date.parse(broadcast.stopAtUtc),stop=Number.isFinite(parsedStop)&&parsedStop>value?parsedStop:value;return value<end&&(stop>start||value>=start);});
     }
 
     function matchesSport(item) {
       return activeSports.size===0||activeSports.has(item.sport);
     }
 
+    function diversifiedSelection(items,limit) {
+      const selected=[],counts=new Map();
+      for (const item of items) {
+        if (selected.length>=limit) break;
+        const competition=(item.competition||'').trim().toLocaleLowerCase('fr-FR');
+        const key=item.sport+'|'+(competition||item.title.toLocaleLowerCase('fr-FR'));
+        const count=counts.get(key)||0;
+        if (count>=2) continue;
+        counts.set(key,count+1); selected.push(item);
+      }
+      return selected;
+    }
+
     function cardHtml(item) {
       const validation = validationFor(item.id);
-      const category = item.contentCategory==='Sport différé'&&item.isLive==='unknown'?'Direct à confirmer':item.contentCategory;
-      const badges = [item.sport,item.competition,item.participants,category,item.isLive==='true'?'Live confirmé':item.isLive==='false'?'Différé détecté':'Statut à valider'].filter(Boolean);
+      const liveLabels={confirmed:'Direct confirmé',probable:'Direct probable',unknown:'Statut à confirmer',delayed:'Différé détecté'};
+      const category = item.liveStatus==='unknown'&&item.contentCategory!=='Emission'?'À confirmer':item.contentCategory;
+      const badges = [item.sport,item.competition,item.participants,category,liveLabels[item.liveStatus],item.titleQuality==='unclear'?'Intitulé peu précis':''].filter(Boolean);
       const buttons = verdicts.map(([value,label]) => '<button data-action="verdict" data-id="'+item.id+'" data-value="'+value+'" class="'+(validation.verdict===value?'selected':'')+'">'+label+'</button>').join('');
       return '<article class="card" data-verdict="'+validation.verdict+'">'+
         '<div class="card-head"><div class="card-main"><h2>'+escapeHtml(item.title)+'</h2>'+
         '<div class="badges">'+badges.map(value=>'<span class="badge">'+escapeHtml(value)+'</span>').join('')+'</div>'+
-        '<div class="broadcasts">'+item.broadcasts.map(b=>'<span class="broadcast"><strong>'+escapeHtml(b.timeLabel)+'</strong> · '+escapeHtml(b.channel)+'</span>').join('')+'</div>'+
+        '<div class="broadcasts">'+item.broadcasts.map(b=>'<span class="broadcast"><strong>'+escapeHtml(b.timeRangeLabel||b.timeLabel)+'</strong> · '+escapeHtml(b.channel)+'</span>').join('')+'</div>'+
         (item.description?'<p class="description">'+escapeHtml(item.description)+'</p>':'')+
         '<details><summary>Pourquoi cet événement ? Score '+item.score+'</summary><p>'+escapeHtml(item.selectionReasons.join(' · '))+'</p></details></div></div>'+
         '<div class="validation"><div class="verdicts">'+buttons+'</div>'+

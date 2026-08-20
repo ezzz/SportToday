@@ -59,11 +59,19 @@ manuelle `isSport` reste vide jusqu'à ta validation.
 ## Sélection produit « aujourd’hui / ce soir »
 
 Le rapport couvre désormais toute la journée jusqu'à 00 h 30, regroupe les
-diffusions similaires et classe les principaux événements. L'interface démarre
-sur `Direct / à confirmer + Soirée dès 20 h`, puis permet de basculer vers `Différé`,
-`Émission`, la journée complète ou un ou plusieurs sports. Chaque combinaison est limitée aux 12
-meilleurs résultats par défaut. Sur le programme du `2026-08-17`, la première
-sélection faisait notamment ressortir :
+diffusions similaires et classe les principaux événements. Depuis POC-2,
+l'interface démarre sur `Direct + Soirée` et sépare les statuts incertains dans
+`À confirmer`. Le filtre soirée utilise la plage début-fin : un événement déjà
+commencé mais encore en cours à 20 h est conservé.
+
+Les chaînes obsolètes ou génériques identifiées sont mises en quarantaine et
+la sélection est limitée à deux cartes par compétition pour éviter qu'une
+seule journée de championnat occupe toute la vue. Les résultats détaillés et
+la mesure sur la validation du 20 août sont conservés dans
+[`POC2-RESULTS.md`](./POC2-RESULTS.md).
+
+Sur le programme du `2026-08-17`, la première sélection POC-1 faisait notamment
+ressortir :
 
 ```text
 Lens / Paris-SG — Trophée des Champions

@@ -51,12 +51,13 @@ async function reportTonight(): Promise<void> {
     console.log(`${source} ${date} — sélection de la journée`);
     console.log(`  fenêtre: ${report.windowStartUtc} → ${report.windowEndUtc}`);
     console.log(`  candidats: ${report.candidateCount}`);
+    console.log(`  programmes en quarantaine: ${report.quarantinedProgrammeCount}`);
     console.log(`  événements indexés: ${report.selectedCount}`);
     console.log(`  maximum par vue filtrée: ${report.limit}`);
     console.log(`  report: ${filePath}`);
     for (const item of report.items) {
       const broadcast = item.broadcasts[0];
-      console.log(`  ${broadcast?.timeLabel ?? "--:--"}  ${broadcast?.channel ?? ""}  [${item.sport}]  ${item.title}  score=${item.score}`);
+      console.log(`  ${broadcast?.timeRangeLabel ?? "--:--"}  ${broadcast?.channel ?? ""}  [${item.sport}]  ${item.title}  ${item.liveStatus}  score=${item.score}`);
     }
   } finally {
     database.close();

@@ -30,6 +30,7 @@ test("génère un CSV Excel français et un classeur XLSX", async () => {
 
 function fixtureReport(): TonightReport {
   return {
+    iteration: "poc2",
     source: "xmltvfr",
     date: "2026-08-17",
     timeZone: "Europe/Paris",
@@ -39,6 +40,7 @@ function fixtureReport(): TonightReport {
     windowEndUtc: "2026-08-17T22:30:00.000Z",
     programmeCount: 1,
     candidateCount: 1,
+    quarantinedProgrammeCount: 0,
     selectedCount: 1,
     limit: 12,
     items: [{
@@ -50,6 +52,8 @@ function fixtureReport(): TonightReport {
       participants: "Paris | Lyon",
       contentCategory: "Sport Live",
       isLive: "true",
+      liveStatus: "confirmed",
+      titleQuality: "clear",
       confidence: "high",
       score: 100,
       selectionReasons: ["participants identifiés"],
@@ -60,7 +64,9 @@ function fixtureReport(): TonightReport {
         startAtUtc: "2026-08-17T19:00:00.000Z",
         stopAtUtc: "2026-08-17T21:00:00.000Z",
         startAtLocal: "17/08/2026 21:00",
-        timeLabel: "21:00"
+        timeLabel: "21:00",
+        endTimeLabel: "23:00",
+        timeRangeLabel: "21:00–23:00"
       }]
     }]
   };
