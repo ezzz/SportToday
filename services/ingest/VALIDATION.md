@@ -33,7 +33,10 @@ dans `À confirmer`. Les filtres `À confirmer`, `Différé`, `Émission`,
 permettent d'étendre le contrôle. Le filtre Sport est multi-sélection : aucun
 sport n'est exclu par défaut, puis un ou plusieurs sports peuvent être cochés.
 La soirée inclut aussi un programme commencé avant 20 h s'il se termine après
-20 h. Chaque diffusion affiche son heure de début et de fin. La vue principale
+20 h. Chaque diffusion affiche son heure de début et de fin. Depuis POC-2.1,
+les marqueurs XMLTV de rediffusion et les sous-titres sont conservés, chaque
+créneau reçoit son propre statut et les filtres masquent les autres créneaux de
+la même carte. La vue principale
 conserve au maximum deux événements par compétition et au maximum la valeur de
 `--limit`. Attribuer ensuite un seul verdict par événement :
 
@@ -54,8 +57,8 @@ Doublon
 
 Le commentaire par ligne et le champ global « événement majeur manquant »
 sont facultatifs. Toutes les modifications sont automatiquement enregistrées
-dans `reports/validation-poc2-tonight-<source>-<date>.json`. Le fichier POC-1
-`validation-tonight-<source>-<date>.json` est conservé comme référence.
+dans `reports/validation-poc21-tonight-<source>-<date>.json`. Les fichiers
+POC-1 et POC-2 sont conservés comme références et ne sont pas écrasés.
 
 Pour contrôler les faux négatifs, renseigner seulement le champ global si un
 événement important est absent. Une fois la soirée validée, ce fichier suffit

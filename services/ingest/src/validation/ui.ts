@@ -37,6 +37,9 @@ export function validationHtml(): string {
     .badges,.broadcasts { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
     .badge { background:#eef1f6; border-radius:999px; padding:4px 8px; font-size:12px; }
     .broadcast { background:#eaf3ff; color:#164d81; border-radius:7px; padding:6px 9px; font-size:13px; }
+    .broadcast[data-live="delayed"] { background:#f3edf9; color:#654080; }
+    .broadcast[data-live="unknown"] { background:#f2f3f5; color:#596477; }
+    .broadcast small { display:block; margin-top:3px; opacity:.82; }
     .description { color:#4f5c70; margin:10px 0; line-height:1.45; }
     details { color:#637087; font-size:13px; }
     .validation { border-top:1px solid #e8ebf0; margin-top:13px; padding-top:13px; }
@@ -126,7 +129,10 @@ export function validationHtml(): string {
     }
 
     function render() {
-      const matching = state.report.items.filter(matchesCategory).filter(matchesPeriod).filter(matchesSport);
+      const matching = state.report.items
+        .map(item=>({...item,broadcasts:item.broadcasts.filter(broadcast=>matchesBroadcast(item,broadcast))}))
+        .filter(item=>item.broadcasts.length>0)
+        .filter(matchesSport);
       const stats = matching.reduce((acc,item) => { const v=validationFor(item.id).verdict; acc[v==='pending'?'pending':v==='ok'?'ok':'issues']++; return acc; }, {pending:0,ok:0,issues:0});
       const filtered = matching.filter(item => { const v=validationFor(item.id).verdict; return activeValidation==='all'||activeValidation===v||(activeValidation==='issues'&&issue(v)); });
       const visible = diversifiedSelection(filtered,state.report.limit);
@@ -156,14 +162,13 @@ export function validationHtml(): string {
       return labels[value]||value.charAt(0).toLocaleUpperCase('fr-FR')+value.slice(1);
     }
 
-    function matchesCategory(item) {
-      return activeCategory==='all'||(activeCategory==='live'&&(item.liveStatus==='confirmed'||item.liveStatus==='probable'))||(activeCategory==='uncertain'&&item.liveStatus==='unknown'&&item.contentCategory!=='Emission')||(activeCategory==='delayed'&&item.liveStatus==='delayed')||(activeCategory==='editorial'&&item.contentCategory==='Emission');
-    }
-
-    function matchesPeriod(item) {
+    function matchesBroadcast(item,broadcast) {
+      const categoryMatch=activeCategory==='all'||(activeCategory==='live'&&(broadcast.liveStatus==='confirmed'||broadcast.liveStatus==='probable'))||(activeCategory==='uncertain'&&broadcast.liveStatus==='unknown'&&item.contentCategory!=='Emission')||(activeCategory==='delayed'&&broadcast.liveStatus==='delayed')||(activeCategory==='editorial'&&item.contentCategory==='Emission');
+      if (!categoryMatch) return false;
       if (activePeriod==='day') return true;
       const start=Date.parse(state.report.eveningStartUtc),end=Date.parse(state.report.windowEndUtc);
-      return item.broadcasts.some(broadcast=>{const value=Date.parse(broadcast.startAtUtc),parsedStop=Date.parse(broadcast.stopAtUtc),stop=Number.isFinite(parsedStop)&&parsedStop>value?parsedStop:value;return value<end&&(stop>start||value>=start);});
+      const value=Date.parse(broadcast.startAtUtc),parsedStop=Date.parse(broadcast.stopAtUtc),stop=Number.isFinite(parsedStop)&&parsedStop>value?parsedStop:value;
+      return value<end&&(stop>start||value>=start);
     }
 
     function matchesSport(item) {
@@ -186,13 +191,15 @@ export function validationHtml(): string {
     function cardHtml(item) {
       const validation = validationFor(item.id);
       const liveLabels={confirmed:'Direct confirmé',probable:'Direct probable',unknown:'Statut à confirmer',delayed:'Différé détecté'};
-      const category = item.liveStatus==='unknown'&&item.contentCategory!=='Emission'?'À confirmer':item.contentCategory;
-      const badges = [item.sport,item.competition,item.participants,category,liveLabels[item.liveStatus],item.titleQuality==='unclear'?'Intitulé peu précis':''].filter(Boolean);
+      const visibleStatuses=[...new Set(item.broadcasts.map(b=>b.liveStatus))];
+      const category=item.contentCategory==='Emission'?'Emission':visibleStatuses.some(status=>status==='confirmed'||status==='probable')?'Sport Live':visibleStatuses.every(status=>status==='delayed')?'Sport différé':'À confirmer';
+      const statusBadge=visibleStatuses.length>1?'Statuts mixtes':liveLabels[visibleStatuses[0]];
+      const badges = [item.sport,item.competition,item.participants,category,statusBadge,item.titleQuality==='unclear'?'Intitulé peu précis':''].filter(Boolean);
       const buttons = verdicts.map(([value,label]) => '<button data-action="verdict" data-id="'+item.id+'" data-value="'+value+'" class="'+(validation.verdict===value?'selected':'')+'">'+label+'</button>').join('');
       return '<article class="card" data-verdict="'+validation.verdict+'">'+
         '<div class="card-head"><div class="card-main"><h2>'+escapeHtml(item.title)+'</h2>'+
         '<div class="badges">'+badges.map(value=>'<span class="badge">'+escapeHtml(value)+'</span>').join('')+'</div>'+
-        '<div class="broadcasts">'+item.broadcasts.map(b=>'<span class="broadcast"><strong>'+escapeHtml(b.timeRangeLabel||b.timeLabel)+'</strong> · '+escapeHtml(b.channel)+'</span>').join('')+'</div>'+
+        '<div class="broadcasts">'+item.broadcasts.map(b=>'<span class="broadcast" data-live="'+escapeHtml(b.liveStatus)+'"><strong>'+escapeHtml(b.timeRangeLabel||b.timeLabel)+'</strong> · '+escapeHtml(b.channel)+' · '+escapeHtml(liveLabels[b.liveStatus])+(b.subTitle?'<small>'+escapeHtml(b.subTitle)+'</small>':'')+'</span>').join('')+'</div>'+
         (item.description?'<p class="description">'+escapeHtml(item.description)+'</p>':'')+
         '<details><summary>Pourquoi cet événement ? Score '+item.score+'</summary><p>'+escapeHtml(item.selectionReasons.join(' · '))+'</p></details></div></div>'+
         '<div class="validation"><div class="verdicts">'+buttons+'</div>'+

@@ -1508,6 +1508,8 @@ interface locale de validation en un clic
 filtres Direct / Différé / Émission
 filtres Soirée dès 20 h / journée complète
 filtre multi-sports
+qualification POC-2.1 de chaque créneau via previously-shown + sub-title
+POC-3 ciblé : matching XMLTVFr ↔ TheSportsDB après validation de POC-2.1
 benchmark manuel L'Équipe, sans collecte automatisée
 analyse fraîcheur
 analyse OTT
@@ -1599,7 +1601,7 @@ DATA-10 Mesurer fraîcheur
 DATA-11 Mesurer trous / complétude
 DATA-12 Tester classification sport
 DATA-13 Tester live / replay
-DATA-14 Tester matching TheSportsDB
+DATA-14 Tester matching TheSportsDB — prochain POC-3 après validation POC-2.1
 DATA-15 Mesurer couverture OTT
 DATA-16 Vérifier conditions de réutilisation
 DATA-17 Comparer avec sources officielles

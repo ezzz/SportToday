@@ -5,7 +5,7 @@ import type { ChannelRecord, ParsedXmltv, ProgrammeRecord, SourceId } from "../t
 const parser = new XMLParser({
   ignoreAttributes: false,
   attributeNamePrefix: "@_",
-  isArray: (name) => name === "channel" || name === "programme" || name === "display-name" || name === "category"
+  isArray: (name) => name === "channel" || name === "programme" || name === "display-name" || name === "category" || name === "sub-title"
 });
 
 export function parseXmltv(xml: string, source: Extract<SourceId, "xmltvfr" | "xmltvfree">): ParsedXmltv {
@@ -24,6 +24,7 @@ export function parseXmltv(xml: string, source: Extract<SourceId, "xmltvfr" | "x
     const title = text(asArray(programme.title)[0]);
     const startAt = parseXmltvDate(text(programme["@_start"]));
     if (!channelSourceId || !startAt) return [];
+    const subTitle = text(asArray(programme["sub-title"])[0]);
     const description = text(asArray(programme.desc)[0]);
     const categories = asArray(programme.category).map(text).filter(Boolean);
     const stopAt = parseXmltvDate(text(programme["@_stop"]));
@@ -32,10 +33,12 @@ export function parseXmltv(xml: string, source: Extract<SourceId, "xmltvfr" | "x
       sourceId,
       channelSourceId,
       title,
+      ...(subTitle ? { subTitle } : {}),
       ...(description ? { description } : {}),
       categories,
       startAt,
-      ...(stopAt ? { stopAt } : {})
+      ...(stopAt ? { stopAt } : {}),
+      isPreviouslyShown: Object.prototype.hasOwnProperty.call(programme, "previously-shown")
     } satisfies ProgrammeRecord];
   });
 
@@ -50,7 +53,7 @@ export function sportSignals(programme: ProgrammeRecord): string[] {
   // Conservative first pass: descriptions often contain generic channel
   // metadata and create false positives. Description-based recall can be
   // measured separately once a labelled sample exists.
-  const haystack = `${programme.title} ${programme.categories.join(" ")}`.toLocaleLowerCase("fr-FR");
+  const haystack = `${programme.title} ${programme.subTitle ?? ""} ${programme.categories.join(" ")}`.toLocaleLowerCase("fr-FR");
   const patterns: Array<[string, RegExp]> = [
     ["football", /\b(?:football|foot)\b/u],
     ["rugby", /\brugby\b/u],
@@ -113,6 +116,8 @@ interface XmltvProgramme {
   "@_start"?: string;
   "@_stop"?: string;
   title?: Array<string | { "#text"?: string }>;
+  "sub-title"?: Array<string | { "#text"?: string }>;
   desc?: Array<string | { "#text"?: string }>;
   category?: Array<string | { "#text"?: string }>;
+  "previously-shown"?: unknown;
 }

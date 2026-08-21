@@ -20,6 +20,10 @@ export interface TonightBroadcast {
   timeLabel: string;
   endTimeLabel: string;
   timeRangeLabel: string;
+  subTitle: string;
+  isPreviouslyShown: boolean;
+  liveStatus: LiveStatus;
+  liveEvidence: string;
 }
 
 export interface TonightItem {
@@ -40,7 +44,7 @@ export interface TonightItem {
 }
 
 export interface TonightReport {
-  iteration: "poc2";
+  iteration: "poc21";
   source: DayReport["source"];
   date: string;
   timeZone: string;
@@ -94,7 +98,7 @@ export function buildTonightReport(
       || left.title.localeCompare(right.title, "fr"));
 
   return {
-    iteration: "poc2",
+    iteration: "poc21",
     source: report.source,
     date: report.date,
     timeZone: report.timeZone,
@@ -114,22 +118,24 @@ export function buildTonightReport(
 function refineCompetitionRounds(
   entries: Array<{ programme: DayProgramme; annotation: ReturnType<typeof autoAnnotate> }>
 ): Array<{ programme: DayProgramme; annotation: ReturnType<typeof autoAnnotate> }> {
-  const rounds = new Map<string, Set<number>>();
+  const sequences = new Map<string, { rounds: Set<number>; replayRounds: Set<number> }>();
   for (const entry of entries) {
     const round = competitionRound(entry.programme);
-    if (!round || !entry.annotation.competition) continue;
-    const key = `${entry.annotation.sport}|${normalize(entry.annotation.competition)}`;
-    const values = rounds.get(key) ?? new Set<number>();
-    values.add(round);
-    rounds.set(key, values);
+    if (!round) continue;
+    const key = competitionSequenceKey(entry);
+    const sequence = sequences.get(key) ?? { rounds: new Set<number>(), replayRounds: new Set<number>() };
+    sequence.rounds.add(round);
+    if (entry.programme.isPreviouslyShown) sequence.replayRounds.add(round);
+    sequences.set(key, sequence);
   }
   return entries.map((entry) => {
     const round = competitionRound(entry.programme);
-    const key = `${entry.annotation.sport}|${normalize(entry.annotation.competition)}`;
-    const values = rounds.get(key);
-    if (!round || !values || values.size < 2 || entry.annotation.liveStatus !== "unknown") return entry;
-    const latestRound = Math.max(...values);
-    if (round === latestRound) {
+    const key = competitionSequenceKey(entry);
+    const sequence = sequences.get(key);
+    if (!round || !sequence || sequence.rounds.size < 2 || entry.annotation.liveStatus !== "unknown") return entry;
+    const latestRound = Math.max(...sequence.rounds);
+    const hasEarlierDeclaredReplay = [...sequence.replayRounds].some((replayRound) => replayRound < latestRound);
+    if (round === latestRound && hasEarlierDeclaredReplay) {
       return {
         ...entry,
         annotation: {
@@ -137,26 +143,27 @@ function refineCompetitionRounds(
           liveStatus: "probable",
           contentCategory: "Sport Live",
           checkRequired: "true",
-          checkReason: appendReason(entry.annotation.checkReason, "journée la plus récente de la grille")
+          checkReason: appendReason(entry.annotation.checkReason, "séquence la plus récente de la grille")
         }
       };
     }
-    return {
-      ...entry,
-      annotation: {
-        ...entry.annotation,
-        liveStatus: "delayed",
-        isLive: "false",
-        contentCategory: "Sport différé",
-        checkReason: appendReason(entry.annotation.checkReason, "journée antérieure présente dans la même grille")
-      }
-    };
+    return entry;
   });
 }
 
+function competitionSequenceKey(
+  entry: { programme: DayProgramme; annotation: ReturnType<typeof autoAnnotate> }
+): string {
+  const identity = entry.annotation.competition || entry.programme.title;
+  return `${entry.annotation.sport}|${normalize(identity)}`;
+}
+
 function competitionRound(programme: DayProgramme): number | undefined {
-  const match = `${programme.title} ${programme.description ?? ""}`.match(/\bJournée\s+(\d{1,2})\b/iu);
-  return match?.[1] ? Number(match[1]) : undefined;
+  const value = `${programme.title} ${programme.subTitle ?? ""} ${programme.description ?? ""}`;
+  const round = value.match(/\bJournée\s+(\d{1,2})\b/iu)?.[1];
+  if (round) return Number(round);
+  const sequence = value.match(/\b(\d{1,2})(?:er|e|re)\s+(?:tour|jour|étape)\b/iu)?.[1];
+  return sequence ? Number(sequence) : undefined;
 }
 
 function appendReason(current: string, addition: string): string {
@@ -181,7 +188,7 @@ function rankProgramme(
   programme: DayProgramme,
   annotation: ReturnType<typeof autoAnnotate>
 ): { score: number; reasons: string[] } {
-  const text = `${programme.title} ${programme.description ?? ""}`.toLocaleLowerCase("fr-FR");
+  const text = `${programme.title} ${programme.subTitle ?? ""} ${programme.description ?? ""}`.toLocaleLowerCase("fr-FR");
   const reasons: string[] = [];
   let score = 0;
 
@@ -241,15 +248,13 @@ function toTonightItem(group: RankedProgramme[], timeZone: string): TonightItem 
     || left.programme.startAt.localeCompare(right.programme.startAt));
   const representative = ranked[0];
   if (!representative) throw new Error("Groupe de programmes vide.");
-  const broadcasts = uniqueBroadcasts(group.map(({ programme }) => toBroadcast(programme, timeZone)));
-  const repeatedSchedule = hasSeparatedRepeat(broadcasts);
-  const liveStatus: LiveStatus = representative.annotation.liveStatus === "probable" && repeatedSchedule
-    ? "unknown"
-    : representative.annotation.liveStatus;
-  const score = representative.score + Math.min(6, Math.max(0, broadcasts.length - 1) * 2) - (repeatedSchedule ? 12 : 0);
+  const broadcasts = uniqueBroadcasts(group.map(({ programme, annotation }) => toBroadcast(programme, annotation, timeZone)));
+  const liveStatus = aggregateLiveStatus(broadcasts);
+  const score = representative.score + Math.min(6, Math.max(0, broadcasts.length - 1) * 2);
   const reasons = [...representative.reasons];
   if (broadcasts.length > 1) reasons.push(`${broadcasts.length} diffusions trouvées`);
-  if (repeatedSchedule) reasons.push("plusieurs créneaux distincts sur la même chaîne : direct non retenu");
+  const replayCount = broadcasts.filter((broadcast) => broadcast.isPreviouslyShown).length;
+  if (replayCount) reasons.push(`${replayCount} rediffusion${replayCount > 1 ? "s" : ""} déclarée${replayCount > 1 ? "s" : ""} par XMLTV`);
   const key = eventKey(
     representative.programme,
     representative.annotation.sport,
@@ -260,7 +265,7 @@ function toTonightItem(group: RankedProgramme[], timeZone: string): TonightItem 
   const quality = titleQuality(representative.programme.title);
   return {
     id: createHash("sha256").update(`${representative.programme.source}:${key}`).digest("hex").slice(0, 16),
-    title: displayTitle(representative.programme.title, representative.annotation.sport, participants),
+    title: displayTitle(representative.programme, representative.annotation.sport, participants),
     description: representative.programme.description ?? "",
     sport: representative.annotation.sport || representative.programme.sportSignals[0] || "sport à confirmer",
     competition: representative.annotation.competition,
@@ -280,7 +285,11 @@ function toTonightItem(group: RankedProgramme[], timeZone: string): TonightItem 
   };
 }
 
-function toBroadcast(programme: DayProgramme, timeZone: string): TonightBroadcast {
+function toBroadcast(
+  programme: DayProgramme,
+  annotation: ReturnType<typeof autoAnnotate>,
+  timeZone: string
+): TonightBroadcast {
   const timeFormatter = new Intl.DateTimeFormat("fr-FR", {
     timeZone,
     hour: "2-digit",
@@ -288,6 +297,7 @@ function toBroadcast(programme: DayProgramme, timeZone: string): TonightBroadcas
   });
   const timeLabel = timeFormatter.format(new Date(programme.startAt));
   const endTimeLabel = programme.stopAt ? timeFormatter.format(new Date(programme.stopAt)) : "";
+  const liveStatus: LiveStatus = programme.isPreviouslyShown ? "delayed" : annotation.liveStatus;
   return {
     sourceId: programme.sourceId,
     channel: programme.channelName,
@@ -297,13 +307,25 @@ function toBroadcast(programme: DayProgramme, timeZone: string): TonightBroadcas
     startAtLocal: programme.localStartAt,
     timeLabel,
     endTimeLabel,
-    timeRangeLabel: endTimeLabel ? `${timeLabel}–${endTimeLabel}` : timeLabel
+    timeRangeLabel: endTimeLabel ? `${timeLabel}–${endTimeLabel}` : timeLabel,
+    subTitle: programme.subTitle ?? "",
+    isPreviouslyShown: programme.isPreviouslyShown,
+    liveStatus,
+    liveEvidence: programme.isPreviouslyShown
+      ? "rediffusion déclarée par XMLTV"
+      : liveStatus === "confirmed"
+        ? "direct explicite dans le programme"
+        : liveStatus === "probable"
+          ? "indices compatibles avec un direct"
+          : liveStatus === "delayed"
+            ? "indices textuels de rediffusion"
+            : "aucune preuve suffisante"
   };
 }
 
 export function isQuarantinedProgramme(programme: DayProgramme): boolean {
   const channelId = programme.channelSourceId.toLocaleLowerCase("fr-FR");
-  if (channelId === "perenoel.fr") return true;
+  if (channelId === "perenoel.fr" || channelId === "evenementssports4kuhd.fr") return true;
   const title = programme.title.trim();
   const description = programme.description ?? "";
   return /^Ligue 1\+\s*[2-9]$/iu.test(title)
@@ -329,12 +351,14 @@ function participantsFromDescription(programme: DayProgramme, sport: string): st
   return "";
 }
 
-function displayTitle(title: string, sport: string, participants: string): string {
+function displayTitle(programme: DayProgramme, sport: string, participants: string): string {
+  const title = programme.title;
   if (/match amical international/iu.test(title) && participants) {
     return `${sportLabel(sport)} : ${participants.replace(" | ", " / ")} — Match amical international`;
   }
   if (/^\d+(?:er|e)\s+tour$/iu.test(title.trim())) return `${sportLabel(sport)} : ${title.trim()}`;
-  return title;
+  const stage = programmeStage(programme, sport);
+  return stage && !normalize(title).includes(normalize(stage)) ? `${title} — ${stage}` : title;
 }
 
 function sportLabel(sport: string): string {
@@ -356,25 +380,36 @@ function uniqueBroadcasts(broadcasts: TonightBroadcast[]): TonightBroadcast[] {
     || left.channel.localeCompare(right.channel, "fr"));
 }
 
-function hasSeparatedRepeat(broadcasts: TonightBroadcast[]): boolean {
-  const byChannel = new Map<string, TonightBroadcast[]>();
-  for (const broadcast of broadcasts) {
-    byChannel.set(broadcast.channelSourceId, [...(byChannel.get(broadcast.channelSourceId) ?? []), broadcast]);
-  }
-  return [...byChannel.values()].some((channelBroadcasts) => {
-    const sorted = [...channelBroadcasts].sort((left, right) => left.startAtUtc.localeCompare(right.startAtUtc));
-    return sorted.some((broadcast, index) => {
-      const next = sorted[index + 1];
-      if (!next) return false;
-      const stop = Date.parse(broadcast.stopAtUtc);
-      return Number.isFinite(stop) && stop <= Date.parse(next.startAtUtc);
-    });
-  });
-}
-
 function eventKey(programme: DayProgramme, sport: string, competition: string, participants: string): string {
   const identity = participants || competition || programme.title;
-  return `${normalize(sport)}|${normalize(identity)}`;
+  return `${normalize(sport)}|${normalize(identity)}|${normalize(programmeStage(programme, sport))}`;
+}
+
+function programmeStage(programme: DayProgramme, sport: string): string {
+  if (!programmesNeedStage(sport)) return "";
+  const value = programme.subTitle ?? "";
+  const patterns = [
+    /\b(?:essais libres?\s*\d*|qualifications? sprint|qualifications?|course sprint|course)\b/iu,
+    /\b\d+(?:er|e|re)\s+(?:tour|jour|étape)\b/iu,
+    /\b(?:finale|demi-finale|quart de finale|quarts de finale)\b/iu
+  ];
+  for (const pattern of patterns) {
+    const match = value.match(pattern)?.[0];
+    if (match) return match.replace(/\s+/gu, " ").trim();
+  }
+  return "";
+}
+
+function programmesNeedStage(sport: string): boolean {
+  return ["f1", "motogp", "golf", "judo", "tennis"].includes(sport);
+}
+
+function aggregateLiveStatus(broadcasts: TonightBroadcast[]): LiveStatus {
+  const statuses = new Set(broadcasts.map((broadcast) => broadcast.liveStatus));
+  if (statuses.has("confirmed")) return "confirmed";
+  if (statuses.has("probable")) return "probable";
+  if (statuses.size === 1 && statuses.has("delayed")) return "delayed";
+  return "unknown";
 }
 
 function normalize(value: string): string {

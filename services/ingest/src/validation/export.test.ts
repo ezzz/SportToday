@@ -30,7 +30,7 @@ test("génère un CSV Excel français et un classeur XLSX", async () => {
 
 function fixtureReport(): TonightReport {
   return {
-    iteration: "poc2",
+    iteration: "poc21",
     source: "xmltvfr",
     date: "2026-08-17",
     timeZone: "Europe/Paris",
@@ -66,7 +66,11 @@ function fixtureReport(): TonightReport {
         startAtLocal: "17/08/2026 21:00",
         timeLabel: "21:00",
         endTimeLabel: "23:00",
-        timeRangeLabel: "21:00–23:00"
+        timeRangeLabel: "21:00–23:00",
+        subTitle: "Ligue 1. 1re journée.",
+        isPreviouslyShown: false,
+        liveStatus: "confirmed",
+        liveEvidence: "direct explicite dans le programme"
       }]
     }]
   };

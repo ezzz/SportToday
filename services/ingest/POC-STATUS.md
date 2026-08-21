@@ -70,6 +70,13 @@ seule journée de championnat occupe toute la vue. Les résultats détaillés et
 la mesure sur la validation du 20 août sont conservés dans
 [`POC2-RESULTS.md`](./POC2-RESULTS.md).
 
+POC-2.1 exploite maintenant `<previously-shown/>` et `<sub-title>`, sépare les
+tours/sessions/jours et qualifie chaque créneau indépendamment. Le rejeu du 21
+août et les limites restantes sont détaillés dans
+[`POC21-RESULTS.md`](./POC21-RESULTS.md). Après validation utilisateur, la
+prochaine étape conservée est le matching ciblé XMLTVFr ↔ TheSportsDB décrit
+dans [`POC3-PLAN.md`](./POC3-PLAN.md).
+
 Sur le programme du `2026-08-17`, la première sélection POC-1 faisait notamment
 ressortir :
 

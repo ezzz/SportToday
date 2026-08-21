@@ -35,14 +35,18 @@ export async function initializeDatabase(filePath: string): Promise<DatabaseSync
       source_id TEXT NOT NULL,
       channel_source_id TEXT NOT NULL,
       title TEXT NOT NULL,
+      sub_title TEXT,
       description TEXT,
       categories_json TEXT NOT NULL,
       start_at TEXT NOT NULL,
       stop_at TEXT,
+      is_previously_shown INTEGER NOT NULL DEFAULT 0,
       fetched_at TEXT NOT NULL,
       PRIMARY KEY(source, source_id)
     );
   `);
+  ensureColumn(database, "source_programme", "sub_title", "TEXT");
+  ensureColumn(database, "source_programme", "is_previously_shown", "INTEGER NOT NULL DEFAULT 0");
   return database;
 }
 
@@ -64,19 +68,27 @@ export function importXmltv(
   }
 
   const insertProgramme = database.prepare(`INSERT OR REPLACE INTO source_programme
-    (source, source_id, channel_source_id, title, description, categories_json, start_at, stop_at, fetched_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    (source, source_id, channel_source_id, title, sub_title, description, categories_json, start_at, stop_at, is_previously_shown, fetched_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   for (const programme of parsed.programmes) {
     insertProgramme.run(
       source,
       programme.sourceId,
       programme.channelSourceId,
       programme.title,
+      programme.subTitle ?? null,
       programme.description ?? null,
       JSON.stringify(programme.categories),
       programme.startAt,
       programme.stopAt ?? null,
+      programme.isPreviouslyShown ? 1 : 0,
       snapshot.fetchedAt
     );
   }
+}
+
+function ensureColumn(database: DatabaseSync, table: string, column: string, definition: string): void {
+  const columns = database.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name?: unknown }>;
+  if (columns.some((candidate) => candidate.name === column)) return;
+  database.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
 }

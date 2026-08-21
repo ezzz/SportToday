@@ -16,6 +16,11 @@ Les premiers résultats de smoke test sont conservés dans
 [`POC-STATUS.md`](./POC-STATUS.md). Ils ne remplacent pas le benchmark de
 fraîcheur prévu sur plusieurs jours.
 
+La qualification par créneau de POC-2.1 est synthétisée dans
+[`POC21-RESULTS.md`](./POC21-RESULTS.md). Le matching XMLTVFr ↔ TheSportsDB
+prévu juste après sa validation est conservé dans
+[`POC3-PLAN.md`](./POC3-PLAN.md).
+
 La procédure détaillée d'annotation et de décision est dans
 [`VALIDATION.md`](./VALIDATION.md).
 
@@ -78,7 +83,9 @@ initiale affiche les directs confirmés ou probables de la soirée. Un événeme
 commencé avant 20 h reste visible s'il se termine après 20 h. Les filtres donnent
 accès aux statuts `À confirmer`, aux différés, aux émissions, à la journée
 complète et à un ou plusieurs sports. Les heures de début et de fin sont
-affichées. La liste des sports est construite à partir des résultats du jour et
+affichées. Depuis POC-2.1, le statut et le filtre s'appliquent à chaque créneau
+de diffusion : une rediffusion d'une carte mixte n'apparaît plus dans
+`Direct`. La liste des sports est construite à partir des résultats du jour et
 `Tous les sports` est actif par défaut. `--limit=12`
 limite chaque vue filtrée aux douze résultats les mieux classés, avec au plus
 deux cartes par compétition, et non le nombre total de programmes indexés.
@@ -88,7 +95,7 @@ d'erreur. Les commentaires sont facultatifs. La sauvegarde est automatique
 dans :
 
 ```text
-reports/validation-poc2-tonight-xmltvfr-2026-08-17.json
+reports/validation-poc21-tonight-xmltvfr-2026-08-17.json
 ```
 
 Ce fichier est directement lisible par l'assistant une fois la validation

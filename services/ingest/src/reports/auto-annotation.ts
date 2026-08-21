@@ -21,13 +21,14 @@ export interface AutoAnnotation {
 
 export function autoAnnotate(programme: DayProgramme): AutoAnnotation {
   const title = programme.title.toLocaleLowerCase("fr-FR");
+  const subTitle = (programme.subTitle ?? "").toLocaleLowerCase("fr-FR");
   const description = (programme.description ?? "").toLocaleLowerCase("fr-FR");
   const categories = programme.categories.join(" ").toLocaleLowerCase("fr-FR");
-  const text = `${title} ${description} ${categories}`;
+  const text = `${title} ${subTitle} ${description} ${categories}`;
   const detectedSport = correctedSport(programme, title);
   const fiction = /dessin animé|animation|fiction|série|film|jeunesse/.test(categories);
   const promotion = /foot 2 rue|la chaîne officielle|vivez en direct les évènements|la premier league sur canal\+|à bientôt sur|autopromotion|bande annonce|publicité/.test(text);
-  const editorial = /résumé|review|magazine|analyse|inside|best of|journal|documentaire|histoires? de|stories|portrait|la vie à|le podium|avant-course|après-course|débrief/.test(title)
+  const editorial = /résumé|review|magazine|analyse|inside|best of|journal|documentaire|histoires? de|stories|portrait|la vie à|le podium|avant-(?:course|match)|après-(?:course|match)|débrief/.test(title)
     || /retour sur (?:la|le) (?:carrière|saison)|portrait de|documentaire consacré/.test(description);
   const eventPattern = /grand prix|masters?\b|premier league|ligue [1-3]\b|championnat|match|trophée|tour de |tour d['’]|atp\b|wta\b|roland|open d|ufc|combat|finale|demi-finale|quart de finale|cyclassics|arctic race/;
 
@@ -63,7 +64,11 @@ export function autoAnnotate(programme: DayProgramme): AutoAnnotation {
   // A phrase such as "vivez en direct" can belong to an autopromotion. The
   // live/delayed field is only meaningful once the programme is considered
   // sporting; keep it unknown for fiction, promotion and other emissions.
-  const liveStatus = isSport === "false" || editorial ? "unknown" : inferLiveStatus(programme, text);
+  const liveStatus = isSport === "false" || editorial
+    ? "unknown"
+    : programme.isPreviouslyShown
+      ? "delayed"
+      : inferLiveStatus(programme, text);
   const isLive: TriState = liveStatus === "confirmed"
     ? "true"
     : liveStatus === "delayed"
@@ -71,7 +76,7 @@ export function autoAnnotate(programme: DayProgramme): AutoAnnotation {
       : "unknown";
   const competition = isSport === "false"
     ? ""
-    : extractCompetition(programme.title) || extractCompetition(programme.description ?? "");
+    : extractCompetition(programme.title) || extractCompetition(programme.subTitle ?? "") || extractCompetition(programme.description ?? "");
   const participants = isSport === "false" ? "" : extractParticipants(programme.title);
   const contentCategory: ContentCategory = isSport === "false"
     ? "Emission"
@@ -149,7 +154,7 @@ function extractParticipants(title: string): string {
   if (separators.length !== 1) return "";
   const match = segment.match(/^(.+?)\s+(?:\/|vs\.?|contre)\s+(.+)$/iu);
   if (!match?.[1] || !match[2]) return "";
-  const left = match[1].trim();
+  const left = match[1].split(/\s+-\s+/u).at(-1)?.trim() ?? match[1].trim();
   const right = match[2].trim();
   if (left.length > 80 || right.length > 80) return "";
   return `${left} | ${right}`;

@@ -24,7 +24,7 @@ test("sauvegarde les verdicts et retire les entrées en attente ou obsolètes", 
       }
     };
     await saveValidation(filePath, initial);
-    assert.match(validationPath(directory, report), /validation-poc2-tonight-xmltvfr-2026-08-17\.json$/u);
+    assert.match(validationPath(directory, report), /validation-poc21-tonight-xmltvfr-2026-08-17\.json$/u);
     const loaded = await loadValidation(filePath, report);
     assert.deepEqual(loaded.items, {});
 
@@ -39,7 +39,7 @@ test("sauvegarde les verdicts et retire les entrées en attente ou obsolètes", 
 
 function fixtureReport(): TonightReport {
   return {
-    iteration: "poc2",
+    iteration: "poc21",
     source: "xmltvfr",
     date: "2026-08-17",
     timeZone: "Europe/Paris",

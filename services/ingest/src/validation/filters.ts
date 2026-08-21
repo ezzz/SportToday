@@ -26,8 +26,8 @@ export function filteredReport(
   sports: readonly string[] = []
 ): TonightReport {
   const matching = report.items
-    .filter((item) => matchesCategory(item, category))
-    .filter((item) => matchesPeriod(item, report, period))
+    .map((item) => ({ ...item, broadcasts: matchingBroadcasts(item, report, category, period) }))
+    .filter((item) => item.broadcasts.length > 0)
     .filter((item) => matchesSports(item, sports));
   const items = diversifiedSelection(matching, Math.max(1, report.limit));
   return { ...report, selectedCount: items.length, items };
@@ -39,11 +39,9 @@ export function matchesSports(item: TonightItem, sports: readonly string[]): boo
 
 export function matchesCategory(item: TonightItem, category: CategoryFilter): boolean {
   if (category === "all") return true;
-  if (category === "live") {
-    return item.liveStatus === "confirmed" || item.liveStatus === "probable";
-  }
-  if (category === "uncertain") return item.liveStatus === "unknown" && item.contentCategory !== "Emission";
-  if (category === "delayed") return item.liveStatus === "delayed";
+  if (category === "live") return item.broadcasts.some((broadcast) => broadcast.liveStatus === "confirmed" || broadcast.liveStatus === "probable");
+  if (category === "uncertain") return item.contentCategory !== "Emission" && item.broadcasts.some((broadcast) => broadcast.liveStatus === "unknown");
+  if (category === "delayed") return item.broadcasts.some((broadcast) => broadcast.liveStatus === "delayed");
   return item.contentCategory === "Emission";
 }
 
@@ -51,12 +49,33 @@ export function matchesPeriod(item: TonightItem, report: TonightReport, period: 
   if (period === "day") return true;
   const start = Date.parse(report.eveningStartUtc);
   const end = Date.parse(report.windowEndUtc);
-  return item.broadcasts.some((broadcast) => {
-    const broadcastStart = Date.parse(broadcast.startAtUtc);
-    const parsedStop = Date.parse(broadcast.stopAtUtc);
-    const broadcastStop = Number.isFinite(parsedStop) && parsedStop > broadcastStart ? parsedStop : broadcastStart;
-    return broadcastStart < end && (broadcastStop > start || broadcastStart >= start);
+  return item.broadcasts.some((broadcast) => broadcastOverlaps(broadcast.startAtUtc, broadcast.stopAtUtc, start, end));
+}
+
+export function matchingBroadcasts(
+  item: TonightItem,
+  report: TonightReport,
+  category: CategoryFilter,
+  period: PeriodFilter
+): TonightItem["broadcasts"] {
+  const periodStart = Date.parse(report.eveningStartUtc);
+  const periodEnd = Date.parse(report.windowEndUtc);
+  return item.broadcasts.filter((broadcast) => {
+    const categoryMatch = category === "all"
+      || (category === "live" && (broadcast.liveStatus === "confirmed" || broadcast.liveStatus === "probable"))
+      || (category === "uncertain" && item.contentCategory !== "Emission" && broadcast.liveStatus === "unknown")
+      || (category === "delayed" && broadcast.liveStatus === "delayed")
+      || (category === "editorial" && item.contentCategory === "Emission");
+    const periodMatch = period === "day" || broadcastOverlaps(broadcast.startAtUtc, broadcast.stopAtUtc, periodStart, periodEnd);
+    return categoryMatch && periodMatch;
   });
+}
+
+function broadcastOverlaps(startAtUtc: string, stopAtUtc: string, periodStart: number, periodEnd: number): boolean {
+  const broadcastStart = Date.parse(startAtUtc);
+  const parsedStop = Date.parse(stopAtUtc);
+  const broadcastStop = Number.isFinite(parsedStop) && parsedStop > broadcastStart ? parsedStop : broadcastStart;
+  return broadcastStart < periodEnd && (broadcastStop > periodStart || broadcastStart >= periodStart);
 }
 
 export function diversifiedSelection(items: readonly TonightItem[], limit: number, competitionCap = 2): TonightItem[] {

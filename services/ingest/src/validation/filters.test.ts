@@ -34,6 +34,26 @@ test("limite à deux événements par compétition dans la sélection principale
   assert.deepEqual(selected.items.map(({ id }) => id), ["league-1", "league-2", "tennis"]);
 });
 
+test("filtre les créneaux d'une même carte individuellement", () => {
+  const mixed = item("mixed", "Sport Live", "2026-08-17T19:00:00.000Z", "probable", "2026-08-17T21:00:00.000Z");
+  mixed.broadcasts.push({
+    ...mixed.broadcasts[0]!,
+    sourceId: "mixed-replay",
+    startAtUtc: "2026-08-17T21:30:00.000Z",
+    stopAtUtc: "2026-08-17T23:00:00.000Z",
+    timeLabel: "21:30",
+    endTimeLabel: "23:00",
+    timeRangeLabel: "21:30–23:00",
+    isPreviouslyShown: true,
+    liveStatus: "delayed",
+    liveEvidence: "rediffusion déclarée par XMLTV"
+  });
+  const report = fixtureReport([mixed]);
+
+  assert.deepEqual(filteredReport(report, "live", "evening").items[0]?.broadcasts.map(({ sourceId }) => sourceId), ["mixed"]);
+  assert.deepEqual(filteredReport(report, "delayed", "evening").items[0]?.broadcasts.map(({ sourceId }) => sourceId), ["mixed-replay"]);
+});
+
 function item(
   id: string,
   contentCategory: TonightItem["contentCategory"],
@@ -65,14 +85,18 @@ function item(
       startAtLocal: startAtUtc,
       timeLabel: startAtUtc.slice(11, 16),
       endTimeLabel: stopAtUtc.slice(11, 16),
-      timeRangeLabel: stopAtUtc ? `${startAtUtc.slice(11, 16)}–${stopAtUtc.slice(11, 16)}` : startAtUtc.slice(11, 16)
+      timeRangeLabel: stopAtUtc ? `${startAtUtc.slice(11, 16)}–${stopAtUtc.slice(11, 16)}` : startAtUtc.slice(11, 16),
+      subTitle: "",
+      isPreviouslyShown: liveStatus === "delayed",
+      liveStatus,
+      liveEvidence: "test"
     }]
   };
 }
 
 function fixtureReport(items: TonightItem[]): TonightReport {
   return {
-    iteration: "poc2",
+    iteration: "poc21",
     source: "xmltvfr",
     date: "2026-08-17",
     timeZone: "Europe/Paris",

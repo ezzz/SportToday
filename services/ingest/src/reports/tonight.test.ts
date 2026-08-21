@@ -13,7 +13,7 @@ test("sélectionne la journée, exclut la fiction et regroupe les diffusions", (
   const tooLate = programme("late", "Tennis : Masters 1000 de Paris", "2026-08-17T22:40:00.000Z", "Eurosport 1", ["Tennis"], ["tennis"]);
   const report = buildTonightReport(dayReport("2026-08-17", [morning, first, duplicate, fiction]), dayReport("2026-08-18", [late, tooLate]));
 
-  assert.equal(report.iteration, "poc2");
+  assert.equal(report.iteration, "poc21");
   assert.equal(report.programmeCount, 5);
   const masters = report.items.find((item) => item.title.includes("Masters 1000"));
   assert.equal(masters?.broadcasts.length, 1);
@@ -30,6 +30,7 @@ test("sépare les directs probables des rediffusions et met les chaînes douteus
   probable.description = "Première période du match de la Journée 3 opposant Paris et Lyon.";
   const previousRound = programme("previous", "Football : Ligue 3 | Rouen / Caen", "2026-08-17T10:00:00.000Z", "Canal+ Foot", ["Football"], ["football"]);
   previousRound.description = "Première période du match de la Journée 2 opposant Rouen et Caen.";
+  previousRound.isPreviouslyShown = true;
   const replay = programme("replay", "Rugby : finale", "2026-08-17T20:00:00.000Z", "Canal+ Sport", ["Rugby"], ["rugby"]);
   replay.description = "Retour sur la finale 2025 où les deux équipes s'affrontaient.";
   const obsolete = programme("obsolete", "Football : Premier League | Arsenal / Chelsea", "2026-08-17T20:30:00.000Z", "PereNoel.fr", ["Football"], ["football"]);
@@ -53,6 +54,24 @@ test("respecte le changement d'heure Europe/Paris", () => {
   assert.equal(report.windowEndUtc, "2026-10-25T23:30:00.000Z");
 });
 
+test("qualifie chaque créneau et sépare les tours grâce au sous-titre XMLTV", () => {
+  const replay = programme("golf-replay", "Golf : Open de St. Louis", "2026-08-17T07:00:00.000Z", "Golf+", ["Sport"], ["golf"]);
+  replay.subTitle = "Open de St. Louis. 1er tour. Circuit américain.";
+  replay.isPreviouslyShown = true;
+  const live = programme("golf-live", "Golf : Open de St. Louis", "2026-08-17T19:00:00.000Z", "Golf+", ["Sport"], ["golf"]);
+  live.subTitle = "Open de St. Louis. 2e tour. Circuit américain.";
+  live.description = "Du 17 au 20 août, le tournoi réunit les meilleurs joueurs encore en lice.";
+
+  const report = buildTonightReport(dayReport("2026-08-17", [replay, live]));
+  const firstRound = report.items.find((item) => item.title.includes("1er tour"));
+  const secondRound = report.items.find((item) => item.title.includes("2e tour"));
+
+  assert.equal(firstRound?.broadcasts[0]?.liveStatus, "delayed");
+  assert.equal(firstRound?.broadcasts[0]?.liveEvidence, "rediffusion déclarée par XMLTV");
+  assert.equal(secondRound?.broadcasts[0]?.liveStatus, "probable");
+  assert.equal(report.items.length, 2);
+});
+
 function programme(
   sourceId: string,
   title: string,
@@ -71,6 +90,7 @@ function programme(
     categories,
     startAt,
     stopAt: new Date(new Date(startAt).getTime() + 90 * 60_000).toISOString(),
+    isPreviouslyShown: false,
     isSportCandidate: sportSignals.length > 0,
     sportSignals,
     localStartAt: startAt

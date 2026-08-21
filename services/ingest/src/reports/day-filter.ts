@@ -39,10 +39,12 @@ export function buildDayReport(
       p.source_id,
       p.channel_source_id,
       p.title,
+      p.sub_title,
       p.description,
       p.categories_json,
       p.start_at,
       p.stop_at,
+      p.is_previously_shown,
       c.display_name AS channel_name
     FROM source_programme p
     LEFT JOIN source_channel c
@@ -60,10 +62,12 @@ export function buildDayReport(
       sourceId: String(row.source_id ?? ""),
       channelSourceId: String(row.channel_source_id ?? ""),
       title: String(row.title ?? ""),
+      ...(row.sub_title ? { subTitle: String(row.sub_title) } : {}),
       ...(row.description ? { description: String(row.description) } : {}),
       categories,
       startAt: String(row.start_at),
-      ...(row.stop_at ? { stopAt: String(row.stop_at) } : {})
+      ...(row.stop_at ? { stopAt: String(row.stop_at) } : {}),
+      isPreviouslyShown: Number(row.is_previously_shown ?? 0) === 1
     };
     const signals = sportSignals(programme);
     return {

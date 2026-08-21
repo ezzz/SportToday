@@ -90,7 +90,7 @@ function exportRows(report: TonightReport, validation: ValidationFile): ExportRo
       item.competition,
       item.participants,
       categoryLabel(item),
-      liveLabel(item.liveStatus),
+      liveLabel(item.broadcasts.map((broadcast) => broadcast.liveStatus)),
       String(item.score),
       item.selectionReasons.join(" | "),
       verdictLabel(itemValidation?.verdict ?? "pending"),
@@ -100,12 +100,19 @@ function exportRows(report: TonightReport, validation: ValidationFile): ExportRo
 }
 
 function categoryLabel(item: TonightItem): string {
-  if (item.liveStatus === "unknown" && item.contentCategory !== "Emission") return "À confirmer";
-  return item.contentCategory;
+  if (item.contentCategory === "Emission") return "Emission";
+  const statuses = new Set(item.broadcasts.map((broadcast) => broadcast.liveStatus));
+  if (statuses.has("confirmed") || statuses.has("probable")) return "Sport Live";
+  if ([...statuses].every((status) => status === "delayed")) return "Sport différé";
+  return "À confirmer";
 }
 
 function broadcastLabel(item: TonightItem): string {
-  return item.broadcasts.map((broadcast) => `${broadcast.timeRangeLabel || broadcast.timeLabel} — ${broadcast.channel}`).join(" | ");
+  return item.broadcasts.map((broadcast) => [
+    `${broadcast.timeRangeLabel || broadcast.timeLabel} — ${broadcast.channel}`,
+    liveStatusLabel(broadcast.liveStatus),
+    broadcast.subTitle
+  ].filter(Boolean).join(" — ")).join(" | ");
 }
 
 function verdictLabel(verdict: ValidationVerdict): string {
@@ -122,7 +129,11 @@ function verdictLabel(verdict: ValidationVerdict): string {
   return labels[verdict];
 }
 
-function liveLabel(value: TonightItem["liveStatus"]): string {
+function liveLabel(values: TonightItem["liveStatus"][]): string {
+  return [...new Set(values)].map(liveStatusLabel).join(" | ");
+}
+
+function liveStatusLabel(value: TonightItem["liveStatus"]): string {
   const labels: Record<TonightItem["liveStatus"], string> = {
     confirmed: "Direct confirmé",
     probable: "Direct probable",

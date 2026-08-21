@@ -21,10 +21,12 @@ export interface ProgrammeRecord {
   sourceId: string;
   channelSourceId: string;
   title: string;
+  subTitle?: string;
   description?: string;
   categories: string[];
   startAt: string;
   stopAt?: string;
+  isPreviouslyShown: boolean;
 }
 
 export interface ParsedXmltv {
