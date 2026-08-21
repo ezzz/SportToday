@@ -1601,7 +1601,7 @@ DATA-10 Mesurer fraîcheur
 DATA-11 Mesurer trous / complétude
 DATA-12 Tester classification sport
 DATA-13 Tester live / replay
-DATA-14 Tester matching TheSportsDB — prochain POC-3 après validation POC-2.1
+DATA-14 Tester matching TheSportsDB — POC-3 ciblé gratuit : 3/8 matchs retrouvés, mesure multi-dates à poursuivre
 DATA-15 Mesurer couverture OTT
 DATA-16 Vérifier conditions de réutilisation
 DATA-17 Comparer avec sources officielles

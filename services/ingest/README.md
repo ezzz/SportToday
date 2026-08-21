@@ -19,7 +19,8 @@ fraîcheur prévu sur plusieurs jours.
 La qualification par créneau de POC-2.1 est synthétisée dans
 [`POC21-RESULTS.md`](./POC21-RESULTS.md). Le matching XMLTVFr ↔ TheSportsDB
 prévu juste après sa validation est conservé dans
-[`POC3-PLAN.md`](./POC3-PLAN.md).
+[`POC3-PLAN.md`](./POC3-PLAN.md), avec les premiers résultats dans
+[`POC3-RESULTS.md`](./POC3-RESULTS.md).
 
 La procédure détaillée d'annotation et de décision est dans
 [`VALIDATION.md`](./VALIDATION.md).
@@ -53,6 +54,7 @@ npm run xmltv:tonight -- --source=xmltvfr --limit=12
 npm run validation:web -- --source=xmltvfr --limit=12
 npm run xmltv:export-csv -- --source=xmltvfr --date=2026-08-17
 npm run sportsdb:fetch -- --date=2026-08-17
+npm run sportsdb:poc3 -- --source=xmltvfr --date=2026-08-21 --limit=8
 ```
 
 ## Validation produit « aujourd’hui / ce soir »
@@ -119,6 +121,13 @@ programmes XMLTV et les événements retournés.
 ```bash
 npm run xmltv:export-csv -- --source=xmltvfr --date=2026-08-17 --with-sportsdb
 ```
+
+`sportsdb:poc3` évite la limite très restrictive de la requête journalière
+gratuite en recherchant chaque affiche Football séparément. Il compare ensuite
+l'heure de diffusion XMLTV à l'heure de l'événement, teste les diffuseurs
+retournés et écrit `reports/poc3-sportsdb-<source>-<date>.json`. Le panel est
+plafonné à huit affiches pour respecter les 30 requêtes/minute de la clé
+publique.
 
 Le matching utilise les participants, la compétition, le sport et la
 proximité horaire. Il ajoute dans le CSV les colonnes `sportsDbEventId`,

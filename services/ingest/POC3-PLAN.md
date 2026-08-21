@@ -1,6 +1,10 @@
 # POC-3 — matching XMLTVFr avec TheSportsDB
 
-Statut : **prochaine étape, à lancer après validation de POC-2.1**.
+Statut : **première passe gratuite exécutée le 21 août 2026**.
+
+Les résultats sont conservés dans
+[`POC3-RESULTS.md`](./POC3-RESULTS.md). Le matching ciblé retrouve 3 des 8
+affiches Football du panel, contre zéro avec la collecte journalière globale.
 
 ## Question à trancher
 
@@ -79,6 +83,5 @@ Le POC doit déterminer si :
 - un test Premium limité dans le temps est justifié ;
 - TheSportsDB doit rester optionnel pour les sports difficiles à apparier.
 
-POC-3 ne sera lancé qu'après le verdict utilisateur sur POC-2.1, afin de
-mesurer son gain sur les seuls cas encore incertains.
-
+La prochaine passe doit automatiser la mesure sur plusieurs dates avant toute
+décision d'abonnement ou promotion dans le classement principal.

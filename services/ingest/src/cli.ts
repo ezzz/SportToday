@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { config, isXmltvSource } from "./config.js";
 import { buildDayReport, writeDayReport } from "./reports/day-filter.js";
+import { buildPoc3SportsDbReport, writePoc3SportsDbReport } from "./reports/poc3-sportsdb.js";
 import { writeReport } from "./reports/report.js";
 import { buildTonightReport, writeTonightReport } from "./reports/tonight.js";
 import { writeValidationCsv } from "./reports/validation-csv.js";
@@ -32,8 +33,41 @@ if (command === "fetch") {
   await serveValidation();
 } else if (command === "sportsdb:fetch") {
   await fetchSportsDb();
+} else if (command === "sportsdb:poc3") {
+  await reportPoc3SportsDb();
 } else {
   printHelp();
+}
+
+async function reportPoc3SportsDb(): Promise<void> {
+  const source = xmltvSourceArgument();
+  const date = argumentValue("--date") ?? todayInTimeZone(config.timeZone);
+  const limit = numericArgument("--limit", 12);
+  const database = openDatabase(config.sqlitePath);
+  try {
+    const tonight = buildTonightReport(
+      buildDayReport(database, source, date, config.timeZone),
+      buildDayReport(database, source, nextDate(date), config.timeZone),
+      limit
+    );
+    const report = await buildPoc3SportsDbReport(tonight, new TheSportsDbSource(), limit);
+    const filePath = await writePoc3SportsDbReport(config.reportsRoot, report);
+    console.log(`POC-3 TheSportsDB ciblé — ${source} ${date}`);
+    console.log(`  événements testés: ${report.targetCount}`);
+    console.log(`  correspondances: ${report.matchedCount} (${report.highConfidenceCount} fortes, ${report.mediumConfidenceCount} moyennes)`);
+    console.log(`  directs probables: ${report.probableLiveBroadcastCount}`);
+    console.log(`  différés probables: ${report.probableDelayedBroadcastCount}`);
+    console.log(`  événements avec diffuseur français retourné: ${report.frenchTvChannelMatchCount}`);
+    console.log(`  report: ${filePath}`);
+    for (const item of report.items) {
+      console.log(`  ${item.match ? "MATCH" : "-----"}  ${item.participants}  →  ${item.match?.name ?? "aucune correspondance"}`);
+      for (const broadcast of item.broadcasts) {
+        console.log(`         ${broadcast.timeRangeLabel} ${broadcast.channel}  ${broadcast.suggestion}  delta=${broadcast.timeDeltaMinutes ?? "?"} min`);
+      }
+    }
+  } finally {
+    database.close();
+  }
 }
 
 async function reportTonight(): Promise<void> {
@@ -272,5 +306,6 @@ Usage:
   npm run xmltv:export-csv -- --source=xmltvfr --date=YYYY-MM-DD --with-sportsdb
   npm run validation:web -- --source=xmltvfr [--date=YYYY-MM-DD] --limit=12 --port=4173
   npm run sportsdb:fetch -- --date=YYYY-MM-DD
+  npm run sportsdb:poc3 -- --source=xmltvfr --date=YYYY-MM-DD --limit=12
 `);
 }

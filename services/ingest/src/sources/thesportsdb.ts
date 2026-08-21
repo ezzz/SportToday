@@ -22,4 +22,27 @@ export class TheSportsDbSource {
     }
     return response.json();
   }
+
+  async searchEvents(eventName: string, date: string): Promise<unknown> {
+    const endpoint = new URL(`${config.thesportsdb.baseUrl}/${config.thesportsdb.apiKey}/searchevents.php`);
+    endpoint.searchParams.set("e", eventName);
+    endpoint.searchParams.set("d", date);
+    return this.request(endpoint);
+  }
+
+  async tvBroadcastsForEvent(eventId: string): Promise<unknown> {
+    const endpoint = new URL(`${config.thesportsdb.baseUrl}/${config.thesportsdb.apiKey}/lookuptv.php`);
+    endpoint.searchParams.set("id", eventId);
+    return this.request(endpoint);
+  }
+
+  private async request(endpoint: URL): Promise<unknown> {
+    const response = await fetch(endpoint, {
+      headers: { "user-agent": "SportToday-data-poc/0.1" }
+    });
+    if (!response.ok) {
+      throw new Error(`thesportsdb: HTTP ${response.status} ${response.statusText}`);
+    }
+    return response.json();
+  }
 }

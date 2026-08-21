@@ -77,6 +77,11 @@ août et les limites restantes sont détaillés dans
 prochaine étape conservée est le matching ciblé XMLTVFr ↔ TheSportsDB décrit
 dans [`POC3-PLAN.md`](./POC3-PLAN.md).
 
+La première passe POC-3 gratuite retrouve désormais 3 affiches Football sur 8
+et produit des écarts horaires exploitables, notamment pour distinguer
+l'avant-match et la rediffusion de Marseille / Strasbourg. Le détail et les
+alternatives DATA sont dans [`POC3-RESULTS.md`](./POC3-RESULTS.md).
+
 Sur le programme du `2026-08-17`, la première sélection POC-1 faisait notamment
 ressortir :
 
