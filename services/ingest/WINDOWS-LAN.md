@@ -1,6 +1,6 @@
 # Utiliser SportToday depuis un téléphone sur le Wi-Fi local
 
-Le script prévu pour un PC Windows est [`scripts/run-poc4-windows.ps1`](../../scripts/run-poc4-windows.ps1). Il installe les dépendances, compile le site, prépare les trois dates (aujourd'hui, demain et après-demain) et écoute sur le réseau local. XMLTVFr est utilisé par défaut ; XMLTVFREE peut être demandé avec `-Source xmltvfree` pour un test séparé.
+Le script prévu pour un PC Windows est [`scripts/run-poc4-windows.ps1`](../../scripts/run-poc4-windows.ps1). Il installe les dépendances, récupère automatiquement XMLTVFr au premier lancement si la base SQLite n'existe pas, compile le site, prépare les trois dates (aujourd'hui, demain et après-demain) et écoute sur le réseau local. XMLTVFr est utilisé par défaut ; XMLTVFREE peut être demandé avec `-Source xmltvfree` pour un test séparé.
 
 ## Installation initiale
 
@@ -36,6 +36,12 @@ Le script prévu pour un PC Windows est [`scripts/run-poc4-windows.ps1`](../../s
    Si PowerShell indique que `.env` vient d'être créé, compléter la clé puis relancer exactement la même commande.
 
 `-AllowFirewall` ajoute une règle entrante uniquement au profil réseau **Privé**. Si le PC n'est pas administrateur, autoriser manuellement le port TCP `4173` lorsque Windows le demande, ou relancer PowerShell en administrateur.
+
+Pour actualiser XMLTV à chaque relance, ajouter `-FetchEpg` :
+
+```powershell
+.\scripts\run-poc4-windows.ps1 -FetchEpg -AllowFirewall
+```
 
 ## Utilisation depuis le téléphone
 

@@ -3,6 +3,7 @@ param(
   [switch]$Install,
   [switch]$AllowFirewall,
   [switch]$RefreshEvents,
+  [switch]$FetchEpg,
   [ValidateSet("xmltvfr", "xmltvfree")]
   [string]$Source = "xmltvfr",
   [string]$Date = "",
@@ -50,7 +51,7 @@ if ($AllowFirewall) {
   try {
     $ruleName = "SportToday POC4 TCP $Port"
     if (-not (Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue)) {
-      New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Protocol TCP -LocalPort $Port -Action Allow -Profile Private | Out-Null
+      New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Protocol TCP -LocalPort $Port -Action Allow -Profile Private -ErrorAction Stop | Out-Null
       Write-Host "Règle pare-feu privée ajoutée pour le port TCP $Port."
     }
   } catch {
@@ -63,6 +64,13 @@ try {
   Write-Host "Compilation du POC..."
   & npm.cmd run build
   if ($LASTEXITCODE -ne 0) { throw "La compilation a échoué." }
+
+  $sqlitePath = Join-Path $ingestRoot "data\sporttoday.sqlite"
+  if ($FetchEpg -or -not (Test-Path $sqlitePath)) {
+    Write-Host "Base SQLite absente ou actualisation demandée : récupération XMLTVFr..."
+    & npm.cmd run xmltv:fetch -- --source=xmltvfr
+    if ($LASTEXITCODE -ne 0) { throw "La récupération XMLTVFr a échoué." }
+  }
 
   $arguments = @("dist/cli.js", "poc4:web", "--source=$Source", "--limit=10", "--port=$Port", "--host=0.0.0.0")
   if ($Date) { $arguments += "--date=$Date" }
