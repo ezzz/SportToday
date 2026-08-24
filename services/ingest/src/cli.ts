@@ -2,10 +2,12 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { config, isXmltvSource } from "./config.js";
+import { loadEventCatalogue } from "./events/catalogue.js";
 import { buildDayReport, writeDayReport } from "./reports/day-filter.js";
 import { buildPoc3SportsDbReport, writePoc3SportsDbReport } from "./reports/poc3-sportsdb.js";
+import { buildPoc4EventReport, writePoc4EventReport } from "./reports/poc4-events.js";
 import { writeReport } from "./reports/report.js";
-import { buildTonightReport, writeTonightReport } from "./reports/tonight.js";
+import { buildTonightReport, writeTonightReport, type TonightReport } from "./reports/tonight.js";
 import { writeValidationCsv } from "./reports/validation-csv.js";
 import { XmltvFrSource } from "./sources/xmltvfr.js";
 import { XmltvFreeSource } from "./sources/xmltvfree.js";
@@ -35,8 +37,83 @@ if (command === "fetch") {
   await fetchSportsDb();
 } else if (command === "sportsdb:poc3") {
   await reportPoc3SportsDb();
+} else if (command === "poc4:report") {
+  await reportPoc4(false);
+} else if (command === "poc4:web") {
+  await reportPoc4(true);
 } else {
   printHelp();
+}
+
+async function reportPoc4(serve: boolean): Promise<void> {
+  const source = xmltvSourceArgument();
+  const date = argumentValue("--date") ?? todayInTimeZone(config.timeZone);
+  const limit = numericArgument("--limit", 10);
+  const port = numericArgument("--port", 4173);
+  const host = argumentValue("--host") ?? "127.0.0.1";
+  const database = openDatabase(config.sqlitePath);
+  try {
+    const dates = serve ? [date, nextDate(date), nextDate(nextDate(date))] : [date];
+    const bundles = Object.fromEntries(await Promise.all(dates.map(async (selectedDate) => {
+      const bundle = await buildPoc4Bundle(database, source, selectedDate, limit);
+      await writePoc4EventReport(config.reportsRoot, bundle.report);
+      return [selectedDate, bundle] as const;
+    })));
+    const bundle = bundles[date];
+    if (!bundle) throw new Error(`Rapport POC-4 introuvable pour ${date}.`);
+    const { report, programmeReport } = bundle;
+    const filePath = path.join(config.reportsRoot, `poc4-events-${source}-${date}.json`);
+    console.log(`POC-4.1 événements — ${source} ${date}`);
+    console.log(`  catalogue: ${report.catalogueEventCount} (${report.footballEventCount} football, ${report.f1EventCount} F1)`);
+    console.log(`  diffusions retrouvées: ${report.matchedEventCount}`);
+    console.log(`  sans diffusion XMLTV: ${report.unmatchedEventCount}`);
+    for (const error of report.eventSourceErrors ?? []) console.log(`  source indisponible: ${error}`);
+    console.log(`  report: ${filePath}`);
+    for (const item of report.items.slice(0, limit)) {
+      const channels = item.broadcasts.map((broadcast) => `${broadcast.channel} ${broadcast.timeRangeLabel}`).join(" | ");
+      console.log(`  [${item.eventImportance}] ${item.eventTimeLabel} ${item.title} → ${channels || "diffusion non retrouvée"}`);
+    }
+    if (serve) {
+      const server = await startValidationServer({
+        report,
+        programmeReport,
+        reportsRoot: config.reportsRoot,
+        reportsByDate: bundles,
+        host,
+        port
+      });
+      console.log(`Validation POC-4.1 disponible sur ${server.url}`);
+      console.log(`  dates disponibles: ${dates.join(", ")}`);
+      console.log(`  validations: ${server.validationFile}`);
+      console.log("  Ctrl+C pour arrêter le serveur.");
+    }
+  } finally {
+    database.close();
+  }
+}
+
+interface Poc4Bundle {
+  report: TonightReport;
+  programmeReport: TonightReport;
+}
+
+async function buildPoc4Bundle(
+  database: ReturnType<typeof openDatabase>,
+  source: "xmltvfr" | "xmltvfree",
+  date: string,
+  limit: number
+): Promise<Poc4Bundle> {
+  const day = buildDayReport(database, source, date, config.timeZone);
+  const followingDay = buildDayReport(database, source, nextDate(date), config.timeZone);
+  const programmeReport = buildTonightReport(day, followingDay, Math.max(12, limit));
+  const catalogue = await loadEventCatalogue(date, {
+    dataRoot: config.dataRoot,
+    timeZone: config.timeZone,
+    refresh: hasFlag("--refresh-events")
+  });
+  const report = buildPoc4EventReport(catalogue.events, day, followingDay, limit);
+  report.eventSourceErrors = catalogue.sourceErrors;
+  return { report, programmeReport };
 }
 
 async function reportPoc3SportsDb(): Promise<void> {
@@ -307,5 +384,7 @@ Usage:
   npm run validation:web -- --source=xmltvfr [--date=YYYY-MM-DD] --limit=12 --port=4173
   npm run sportsdb:fetch -- --date=YYYY-MM-DD
   npm run sportsdb:poc3 -- --source=xmltvfr --date=YYYY-MM-DD --limit=12
+  npm run poc4:report -- --source=xmltvfr [--date=YYYY-MM-DD] --limit=10 [--refresh-events]
+  npm run poc4:web -- --source=xmltvfr [--date=YYYY-MM-DD] --limit=10 --port=4173 [--host=0.0.0.0] [--refresh-events]
 `);
 }

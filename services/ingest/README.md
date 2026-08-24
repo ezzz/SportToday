@@ -25,6 +25,10 @@ prévu juste après sa validation est conservé dans
 La procédure détaillée d'annotation et de décision est dans
 [`VALIDATION.md`](./VALIDATION.md).
 
+Le pivot vers une synthèse orientée événements est cadré dans
+[`POC4-PLAN.md`](./POC4-PLAN.md). La vue événementielle viendra compléter la
+vue XMLTV classique, qui restera utile pour contrôler l'exhaustivité.
+
 ## Prérequis
 
 - Node.js 22.5 ou supérieur ;
@@ -55,7 +59,44 @@ npm run validation:web -- --source=xmltvfr --limit=12
 npm run xmltv:export-csv -- --source=xmltvfr --date=2026-08-17
 npm run sportsdb:fetch -- --date=2026-08-17
 npm run sportsdb:poc3 -- --source=xmltvfr --date=2026-08-21 --limit=8
+npm run poc4:report -- --source=xmltvfr --date=2026-08-23 --limit=10
+npm run poc4:web -- --source=xmltvfr --date=2026-08-23 --limit=10
 ```
+
+Pour utiliser l'interface depuis un téléphone connecté au Wi-Fi d'un PC
+Windows, suivre [`WINDOWS-LAN.md`](./WINDOWS-LAN.md). Le script
+[`scripts/run-poc4-windows.ps1`](../../scripts/run-poc4-windows.ps1) installe,
+compile et lance le serveur sur le réseau privé.
+
+## POC-4.1 — vue orientée événements
+
+POC-4.1 récupère d'abord les matchs des compétitions Football suivies via
+API-Football et les sessions F1 via Jolpica. Il rattache ensuite les créneaux
+XMLTVFr à l'heure officielle de chaque événement.
+
+La clé API-Football doit rester uniquement dans `.env` :
+
+```dotenv
+API_FOOTBALL_KEY=...
+```
+
+Les réponses sont mises en cache sous `data/raw/api-football` et
+`data/raw/jolpica-f1`. Utiliser `--refresh-events` uniquement pour forcer une
+nouvelle requête :
+
+```bash
+npm run poc4:report -- --source=xmltvfr --date=2026-08-23 --refresh-events
+```
+
+La page POC-4 propose deux vues : `À la une`, construite depuis le catalogue
+d'événements, et `Tous les programmes TV`, qui conserve la sélection XMLTV
+historique comme contrôle secondaire. En mode web, les boutons `Aujourd'hui`,
+`Demain` et `Après-demain` chargent les trois rapports préparés au lancement.
+
+Dans `À la une`, le filtre `Direct + à confirmer` regroupe volontairement les
+événements sportifs dont le statut de diffusion reste incomplet. Les événements
+officiels sans diffusion XMLTV sont conservés et signalés en jaune ; le filtre
+`Différé` reste séparé pour ne pas les mettre en avant.
 
 ## Validation produit « aujourd’hui / ce soir »
 
@@ -81,13 +122,14 @@ reports/tonight-xmltvfr-2026-08-17.json
 ```
 
 La seconde démarre l'interface locale sur `http://127.0.0.1:4173`. La vue
-initiale affiche les directs confirmés ou probables de la soirée. Un événement
+initiale regroupe les directs confirmés, probables et les événements à confirmer
+de la soirée. Un événement
 commencé avant 20 h reste visible s'il se termine après 20 h. Les filtres donnent
-accès aux statuts `À confirmer`, aux différés, aux émissions, à la journée
+accès au groupe `Direct + à confirmer`, aux différés, aux émissions, à la journée
 complète et à un ou plusieurs sports. Les heures de début et de fin sont
 affichées. Depuis POC-2.1, le statut et le filtre s'appliquent à chaque créneau
 de diffusion : une rediffusion d'une carte mixte n'apparaît plus dans
-`Direct`. La liste des sports est construite à partir des résultats du jour et
+`Direct + à confirmer`. La liste des sports est construite à partir des résultats du jour et
 `Tous les sports` est actif par défaut. `--limit=12`
 limite chaque vue filtrée aux douze résultats les mieux classés, avec au plus
 deux cartes par compétition, et non le nombre total de programmes indexés.
@@ -107,7 +149,8 @@ active :
 - un CSV UTF-8 avec séparateur `;`, ouvert directement par Excel français ;
 - un fichier XLSX avec filtres, en-têtes figés et colonnes dimensionnées.
 
-Le serveur écoute uniquement sur `127.0.0.1`. `Ctrl+C` l'arrête.
+Le serveur écoute uniquement sur `127.0.0.1` par défaut. Le script Windows
+utilise explicitement `0.0.0.0` pour le réseau privé local. `Ctrl+C` l'arrête.
 
 `xmltv:fetch` télécharge les flux configurés, conserve chaque snapshot brut
 dans `data/raw/<source>/` et importe les chaînes/programmes dans SQLite.

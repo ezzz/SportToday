@@ -25,6 +25,14 @@ export function filteredReport(
   period: PeriodFilter,
   sports: readonly string[] = []
 ): TonightReport {
+  if (report.viewMode === "event-first") {
+    const matching = report.items
+      .filter((item) => matchesCategory(item, category))
+      .filter((item) => matchesPeriod(item, report, period))
+      .filter((item) => matchesSports(item, sports));
+    const items = diversifiedSelection(matching, Math.max(1, report.limit));
+    return { ...report, selectedCount: items.length, items };
+  }
   const matching = report.items
     .map((item) => ({ ...item, broadcasts: matchingBroadcasts(item, report, category, period) }))
     .filter((item) => item.broadcasts.length > 0)
@@ -39,7 +47,15 @@ export function matchesSports(item: TonightItem, sports: readonly string[]): boo
 
 export function matchesCategory(item: TonightItem, category: CategoryFilter): boolean {
   if (category === "all") return true;
-  if (category === "live") return item.broadcasts.some((broadcast) => broadcast.liveStatus === "confirmed" || broadcast.liveStatus === "probable");
+  if (item.eventSource) {
+    if (category === "live") return item.broadcasts.length === 0 || item.broadcasts.some((broadcast) => broadcast.liveStatus !== "delayed");
+    if (category === "uncertain") {
+      return item.broadcastMatchConfidence === "none"
+        || item.broadcasts.some((broadcast) => broadcast.liveStatus === "unknown");
+    }
+    return false;
+  }
+  if (category === "live") return item.contentCategory !== "Emission" && item.broadcasts.some((broadcast) => broadcast.liveStatus !== "delayed");
   if (category === "uncertain") return item.contentCategory !== "Emission" && item.broadcasts.some((broadcast) => broadcast.liveStatus === "unknown");
   if (category === "delayed") return item.broadcasts.some((broadcast) => broadcast.liveStatus === "delayed");
   return item.contentCategory === "Emission";
@@ -49,6 +65,9 @@ export function matchesPeriod(item: TonightItem, report: TonightReport, period: 
   if (period === "day") return true;
   const start = Date.parse(report.eveningStartUtc);
   const end = Date.parse(report.windowEndUtc);
+  if (item.eventStartAtUtc) {
+    return broadcastOverlaps(item.eventStartAtUtc, item.eventEndAtUtc ?? item.eventStartAtUtc, start, end);
+  }
   return item.broadcasts.some((broadcast) => broadcastOverlaps(broadcast.startAtUtc, broadcast.stopAtUtc, start, end));
 }
 
@@ -62,7 +81,7 @@ export function matchingBroadcasts(
   const periodEnd = Date.parse(report.windowEndUtc);
   return item.broadcasts.filter((broadcast) => {
     const categoryMatch = category === "all"
-      || (category === "live" && (broadcast.liveStatus === "confirmed" || broadcast.liveStatus === "probable"))
+      || (category === "live" && item.contentCategory !== "Emission" && broadcast.liveStatus !== "delayed")
       || (category === "uncertain" && item.contentCategory !== "Emission" && broadcast.liveStatus === "unknown")
       || (category === "delayed" && broadcast.liveStatus === "delayed")
       || (category === "editorial" && item.contentCategory === "Emission");

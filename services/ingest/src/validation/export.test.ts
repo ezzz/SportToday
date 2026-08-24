@@ -20,7 +20,7 @@ test("génère un CSV Excel français et un classeur XLSX", async () => {
 
   const csv = validationCsv(report, validation);
   assert.deepEqual([...csv.subarray(0, 3)], [0xef, 0xbb, 0xbf]);
-  assert.match(csv.toString("utf8"), /"Date";"Diffusions"/u);
+  assert.match(csv.toString("utf8"), /"Date";"Horaire officiel";"Source événement";"Diffusions"/u);
   assert.match(csv.toString("utf8"), /"OK";"Chaîne et horaire vérifiés"/u);
 
   const xlsx = await validationXlsx(report, validation);

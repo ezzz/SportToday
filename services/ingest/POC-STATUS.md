@@ -60,8 +60,9 @@ manuelle `isSport` reste vide jusqu'à ta validation.
 
 Le rapport couvre désormais toute la journée jusqu'à 00 h 30, regroupe les
 diffusions similaires et classe les principaux événements. Depuis POC-2,
-l'interface démarre sur `Direct + Soirée` et sépare les statuts incertains dans
-`À confirmer`. Le filtre soirée utilise la plage début-fin : un événement déjà
+l'interface démarre sur `Direct + à confirmer` en soirée : les informations
+incomplètes restent visibles sans être séparées du direct. Le filtre soirée
+utilise la plage début-fin : un événement déjà
 commencé mais encore en cours à 20 h est conservé.
 
 Les chaînes obsolètes ou génériques identifiées sont mises en quarantaine et
@@ -81,6 +82,35 @@ La première passe POC-3 gratuite retrouve désormais 3 affiches Football sur 8
 et produit des écarts horaires exploitables, notamment pour distinguer
 l'avant-match et la rediffusion de Marseille / Strasbourg. Le détail et les
 alternatives DATA sont dans [`POC3-RESULTS.md`](./POC3-RESULTS.md).
+
+## POC-4 — synthèse orientée événements
+
+Le retour produit confirme que la grille directement issue de XMLTV mélange
+trop de matchs et donne une mauvaise synthèse, en particulier pour le football.
+Le cadrage POC-4 est désormais documenté dans
+[`POC4-PLAN.md`](./POC4-PLAN.md).
+
+La prochaine vue principale partira d'une watchlist de compétitions et
+d'événements prioritaires, puis rattachera les diffusions XMLTV. La vue
+programme TV actuelle sera conservée en vue secondaire. Le périmètre initial
+est limité au Football, Tennis, F1 et Golf.
+
+La verticale F1 de POC-4.1 est fonctionnelle sur le 23 août 2026 : la course
+du Grand Prix des Pays-Bas est récupérée à 15 h depuis Jolpica et rattachée aux
+créneaux Canal+ de 15 h dans XMLTVFr. Les programmes d'avant-course et la
+rediffusion ultérieure sont écartés des diffusions directes retenues.
+
+La verticale Football est maintenant testée avec la clé API-Football réelle.
+Sur le `2026-08-24`, le catalogue retourne 5 matchs suivis : 1 Premier League,
+2 de La Liga et 2 de Serie A. XMLTVFr rattache les 2 diffusions de Fulham /
+Chelsea ; les 4 autres événements restent visibles et signalés comme sans
+diffusion. La vue principale les regroupe par compétition afin de contrôler la
+complétude sans multiplier les modes de validation.
+
+Le site POC4 prépare également trois dates au démarrage — aujourd'hui, demain
+et après-demain — avec un fichier de validation JSON distinct par date. La
+procédure de déploiement sur un PC Windows du réseau domestique est décrite
+dans [`WINDOWS-LAN.md`](./WINDOWS-LAN.md).
 
 Sur le programme du `2026-08-17`, la première sélection POC-1 faisait notamment
 ressortir :

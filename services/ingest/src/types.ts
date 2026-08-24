@@ -1,4 +1,4 @@
-export type SourceId = "xmltvfr" | "xmltvfree" | "thesportsdb";
+export type SourceId = "xmltvfr" | "xmltvfree" | "thesportsdb" | "api-football" | "jolpica-f1";
 
 export interface RawSnapshot {
   source: SourceId;

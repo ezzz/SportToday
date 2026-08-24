@@ -5,6 +5,8 @@ import type { ItemValidation, ValidationFile, ValidationVerdict } from "./store.
 
 const headers = [
   "Date",
+  "Horaire officiel",
+  "Source événement",
   "Diffusions",
   "Titre",
   "Sport",
@@ -34,12 +36,14 @@ export async function validationXlsx(report: TonightReport, validation: Validati
   worksheet.addRow([...headers]);
   for (const row of exportRows(report, validation)) worksheet.addRow(row);
 
-  worksheet.autoFilter = { from: "A1", to: `L${Math.max(1, worksheet.rowCount)}` };
+  worksheet.autoFilter = { from: "A1", to: `N${Math.max(1, worksheet.rowCount)}` };
   worksheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
   worksheet.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF172033" } };
   worksheet.getRow(1).alignment = { vertical: "middle" };
   worksheet.columns = [
     { width: 13 },
+    { width: 18 },
+    { width: 18 },
     { width: 34 },
     { width: 38 },
     { width: 16 },
@@ -54,10 +58,10 @@ export async function validationXlsx(report: TonightReport, validation: Validati
   ];
   for (const row of worksheet.getRows(2, Math.max(0, worksheet.rowCount - 1)) ?? []) {
     row.alignment = { vertical: "top", wrapText: true };
-    const verdict = String(row.getCell(11).value ?? "");
-    if (verdict === "OK") row.getCell(11).fill = solidFill("FFDDF5E5");
-    else if (verdict === "À valider") row.getCell(11).fill = solidFill("FFFFF3CD");
-    else row.getCell(11).fill = solidFill("FFFADBD8");
+    const verdict = String(row.getCell(13).value ?? "");
+    if (verdict === "OK") row.getCell(13).fill = solidFill("FFDDF5E5");
+    else if (verdict === "À valider") row.getCell(13).fill = solidFill("FFFFF3CD");
+    else row.getCell(13).fill = solidFill("FFFADBD8");
   }
 
   const summary = workbook.addWorksheet("Résumé");
@@ -84,6 +88,8 @@ function exportRows(report: TonightReport, validation: ValidationFile): ExportRo
     const itemValidation = validation.items[item.id];
     return [
       report.date,
+      item.eventTimeLabel ?? "",
+      item.eventSource ?? "XMLTV",
       broadcastLabel(item),
       item.title,
       item.sport,
@@ -101,9 +107,10 @@ function exportRows(report: TonightReport, validation: ValidationFile): ExportRo
 
 function categoryLabel(item: TonightItem): string {
   if (item.contentCategory === "Emission") return "Emission";
+  if (item.eventSource) return "Événement sportif";
   const statuses = new Set(item.broadcasts.map((broadcast) => broadcast.liveStatus));
   if (statuses.has("confirmed") || statuses.has("probable")) return "Sport Live";
-  if ([...statuses].every((status) => status === "delayed")) return "Sport différé";
+  if (statuses.size > 0 && [...statuses].every((status) => status === "delayed")) return "Sport différé";
   return "À confirmer";
 }
 

@@ -16,6 +16,8 @@ import { validationHtml } from "./ui.js";
 
 export interface ValidationServerOptions {
   report: TonightReport;
+  programmeReport?: TonightReport;
+  reportsByDate?: Record<string, { report: TonightReport; programmeReport?: TonightReport }>;
   reportsRoot: string;
   host?: string;
   port?: number;
@@ -24,16 +26,41 @@ export interface ValidationServerOptions {
 export async function startValidationServer(options: ValidationServerOptions): Promise<{ url: string; validationFile: string }> {
   const host = options.host ?? "127.0.0.1";
   const port = options.port ?? 4173;
-  const filePath = validationPath(options.reportsRoot, options.report);
-  let validation = await loadValidation(filePath, options.report);
-  await saveValidation(filePath, validation);
+  const reportsByDate = options.reportsByDate ?? {
+    [options.report.date]: {
+      report: options.report,
+      ...(options.programmeReport ? { programmeReport: options.programmeReport } : {})
+    }
+  };
+  const defaultDate = options.report.date;
+  const validations = new Map<string, ValidationFile>();
+  const filePaths = new Map<string, string>();
+  for (const bundle of Object.values(reportsByDate)) {
+    const filePath = validationPath(options.reportsRoot, bundle.report);
+    const loaded = await loadValidation(filePath, bundle.report);
+    await saveValidation(filePath, loaded);
+    validations.set(bundle.report.date, loaded);
+    filePaths.set(bundle.report.date, filePath);
+  }
   let writeQueue = Promise.resolve();
 
-  const persist = async (next: ValidationFile): Promise<ValidationFile> => {
-    validation = next;
-    writeQueue = writeQueue.then(() => saveValidation(filePath, validation));
-    await writeQueue;
+  const bundleForDate = (date: string | null | undefined): { report: TonightReport; programmeReport?: TonightReport } => {
+    const bundle = reportsByDate[date ?? ""] ?? reportsByDate[defaultDate];
+    if (!bundle) throw new Error("Date indisponible.");
+    return bundle;
+  };
+  const validationForDate = (date: string): ValidationFile => {
+    const validation = validations.get(date);
+    if (!validation) throw new Error("Date indisponible.");
     return validation;
+  };
+  const persist = async (date: string, next: ValidationFile): Promise<ValidationFile> => {
+    validations.set(date, next);
+    const filePath = filePaths.get(date);
+    if (!filePath) throw new Error("Date indisponible.");
+    writeQueue = writeQueue.then(() => saveValidation(filePath, next));
+    await writeQueue;
+    return next;
   };
 
   const server = createServer(async (request, response) => {
@@ -42,28 +69,43 @@ export async function startValidationServer(options: ValidationServerOptions): P
       const url = new URL(request.url ?? "/", `http://${request.headers.host ?? `${host}:${port}`}`);
       if (request.method === "GET" && url.pathname === "/") return sendHtml(response, validationHtml());
       if (request.method === "GET" && url.pathname === "/api/report") {
-        return sendJson(response, { report: options.report, validation, validationFile: filePath });
+        const bundle = bundleForDate(url.searchParams.get("date"));
+        const selectedDate = bundle.report.date;
+        return sendJson(response, {
+          report: bundle.report,
+          programmeReport: bundle.programmeReport ?? null,
+          validation: validationForDate(selectedDate),
+          validationFile: filePaths.get(selectedDate),
+          availableDates: Object.keys(reportsByDate).sort()
+        });
       }
       if (request.method === "POST" && url.pathname === "/api/validation") {
         const body = await readJson(request);
+        const bundle = bundleForDate(stringField(body, "date", false));
+        const selectedDate = bundle.report.date;
+        const selectedValidation = validationForDate(selectedDate);
         const itemId = stringField(body, "itemId");
         const verdict = body.verdict;
         const note = stringField(body, "note", false);
-        if (!options.report.items.some((item) => item.id === itemId)) return sendJson(response, { error: "Événement inconnu." }, 404);
+        if (!bundle.report.items.some((item) => item.id === itemId)) return sendJson(response, { error: "Événement inconnu." }, 404);
         if (!isValidationVerdict(verdict)) return sendJson(response, { error: "Verdict invalide." }, 400);
-        return sendJson(response, await persist(updateItemValidation(validation, itemId, verdict, note)));
+        return sendJson(response, await persist(selectedDate, updateItemValidation(selectedValidation, itemId, verdict, note)));
       }
       if (request.method === "POST" && url.pathname === "/api/missing-event") {
         const body = await readJson(request);
-        return sendJson(response, await persist(updateMissingEventNote(validation, stringField(body, "note", false))));
+        const bundle = bundleForDate(stringField(body, "date", false));
+        const selectedDate = bundle.report.date;
+        return sendJson(response, await persist(selectedDate, updateMissingEventNote(validationForDate(selectedDate), stringField(body, "note", false))));
       }
       if (request.method === "GET" && url.pathname === "/export.csv") {
-        const report = exportReport(options.report, url);
-        return sendDownload(response, validationCsv(report, validation), `validation-tonight-${options.report.date}.csv`, "text/csv; charset=utf-8");
+        const bundle = bundleForDate(url.searchParams.get("date"));
+        const report = exportReport(bundle.report, url);
+        return sendDownload(response, validationCsv(report, validationForDate(bundle.report.date)), `validation-tonight-${bundle.report.date}.csv`, "text/csv; charset=utf-8");
       }
       if (request.method === "GET" && url.pathname === "/export.xlsx") {
-        const report = exportReport(options.report, url);
-        return sendDownload(response, await validationXlsx(report, validation), `validation-tonight-${options.report.date}.xlsx`, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        const bundle = bundleForDate(url.searchParams.get("date"));
+        const report = exportReport(bundle.report, url);
+        return sendDownload(response, await validationXlsx(report, validationForDate(bundle.report.date)), `validation-tonight-${bundle.report.date}.xlsx`, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       }
       if (request.method === "GET" && url.pathname === "/favicon.ico") {
         response.writeHead(204);
@@ -83,7 +125,7 @@ export async function startValidationServer(options: ValidationServerOptions): P
       resolve();
     });
   });
-  return { url: `http://${host}:${port}`, validationFile: filePath };
+  return { url: `http://${host === "0.0.0.0" ? "127.0.0.1" : host}:${port}`, validationFile: filePaths.get(defaultDate)! };
 }
 
 function exportReport(report: TonightReport, url: URL): TonightReport {

@@ -18,6 +18,13 @@ export const config = {
   thesportsdb: {
     baseUrl: process.env.THESPORTSDB_BASE_URL ?? "https://www.thesportsdb.com/api/v1/json",
     apiKey: process.env.THESPORTSDB_API_KEY ?? "123"
+  },
+  apiFootball: {
+    baseUrl: process.env.API_FOOTBALL_BASE_URL ?? "https://v3.football.api-sports.io",
+    apiKey: process.env.API_FOOTBALL_KEY ?? ""
+  },
+  jolpicaF1: {
+    baseUrl: process.env.JOLPICA_F1_BASE_URL ?? "https://api.jolpi.ca/ergast/f1"
   }
 } as const;
 

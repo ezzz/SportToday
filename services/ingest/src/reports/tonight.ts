@@ -24,6 +24,7 @@ export interface TonightBroadcast {
   isPreviouslyShown: boolean;
   liveStatus: LiveStatus;
   liveEvidence: string;
+  broadcastAlignedToEvent?: boolean;
 }
 
 export interface TonightItem {
@@ -41,10 +42,21 @@ export interface TonightItem {
   score: number;
   selectionReasons: string[];
   broadcasts: TonightBroadcast[];
+  eventStartAtUtc?: string;
+  eventEndAtUtc?: string;
+  eventTimeLabel?: string;
+  eventSource?: "api-football" | "jolpica-f1";
+  eventSourceId?: string;
+  eventStatus?: string;
+  eventStage?: string;
+  eventImportance?: "A" | "B" | "C";
+  eventTimeConfidence?: "confirmed" | "estimated";
+  broadcastMatchConfidence?: "high" | "medium" | "none";
 }
 
 export interface TonightReport {
-  iteration: "poc21";
+  iteration: "poc21" | "poc41";
+  viewMode?: "programme-first" | "event-first";
   source: DayReport["source"];
   date: string;
   timeZone: string;
@@ -58,6 +70,12 @@ export interface TonightReport {
   selectedCount: number;
   limit: number;
   items: TonightItem[];
+  catalogueEventCount?: number;
+  matchedEventCount?: number;
+  unmatchedEventCount?: number;
+  footballEventCount?: number;
+  f1EventCount?: number;
+  eventSourceErrors?: string[];
 }
 
 export function buildTonightReport(
@@ -99,6 +117,7 @@ export function buildTonightReport(
 
   return {
     iteration: "poc21",
+    viewMode: "programme-first",
     source: report.source,
     date: report.date,
     timeZone: report.timeZone,

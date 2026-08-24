@@ -1514,6 +1514,9 @@ benchmark manuel L'Équipe, sans collecte automatisée
 analyse fraîcheur
 analyse OTT
 rapport de décision
+POC-4.1 : catalogue d'événements Football + F1 et vue « À la une »
+POC-4.2 : sessions Tennis + journées/tours Golf
+POC-4.3 : décision fournisseurs événementiels et éventuel TheSportsDB Premium
 ```
 
 ---
@@ -1608,6 +1611,16 @@ DATA-17 Comparer avec sources officielles
 DATA-18 Valider la sélection produit « Direct + soirée » puis les vues secondaires
 DATA-19 Consolider les anomalies et ajuster le classement
 DATA-20 Choisir stratégie DATA MVP
+DATA-21 Cadrer une watchlist de compétitions prioritaires
+DATA-22 Normaliser le modèle canonique SportEvent
+DATA-23 Intégrer une source événementielle Football
+DATA-24 Intégrer une source événementielle F1
+DATA-25 Rattacher les diffusions XMLTV aux événements
+DATA-26 Construire la vue « À la une » orientée événements
+DATA-27 Ajouter Tennis et Golf avec sessions/fenêtres de diffusion
+DATA-28 Décider si TheSportsDB Premium est nécessaire
+DATA-29 Regrouper la vue événementielle par compétition et priorité
+DATA-30 Compacter les événements et signaler les horaires alignés
 ```
 
 ### Definition of Done EPIC 2

@@ -13,8 +13,8 @@ test("filtre par catégorie et par soirée avec une limite par vue", () => {
     item("overlap-live", "Sport Live", "2026-08-17T17:30:00.000Z", "confirmed", "2026-08-17T18:30:00.000Z")
   ]);
 
-  assert.deepEqual(filteredReport(report, "live", "evening").items.map(({ id }) => id), ["evening-live", "overlap-live"]);
-  assert.deepEqual(filteredReport(report, "live", "day").items.map(({ id }) => id), ["morning-live", "evening-live", "overlap-live"]);
+  assert.deepEqual(filteredReport(report, "live", "evening").items.map(({ id }) => id), ["evening-live", "evening-unknown", "overlap-live"]);
+  assert.deepEqual(filteredReport(report, "live", "day").items.map(({ id }) => id), ["morning-live", "evening-live", "evening-unknown", "overlap-live"]);
   assert.deepEqual(filteredReport(report, "uncertain", "evening").items.map(({ id }) => id), ["evening-unknown"]);
   assert.deepEqual(filteredReport(report, "delayed", "evening").items.map(({ id }) => id), ["evening-delayed"]);
   assert.deepEqual(filteredReport(report, "all", "day", ["tennis"]).items.map(({ id }) => id), []);
@@ -52,6 +52,19 @@ test("filtre les créneaux d'une même carte individuellement", () => {
 
   assert.deepEqual(filteredReport(report, "live", "evening").items[0]?.broadcasts.map(({ sourceId }) => sourceId), ["mixed"]);
   assert.deepEqual(filteredReport(report, "delayed", "evening").items[0]?.broadcasts.map(({ sourceId }) => sourceId), ["mixed-replay"]);
+});
+
+test("conserve un événement POC4 sans diffusion dans la vue live", () => {
+  const event = item("official-event", "Sport Live", "2026-08-17T19:00:00.000Z", "unknown");
+  event.broadcasts = [];
+  event.eventSource = "api-football";
+  event.eventStartAtUtc = "2026-08-17T19:00:00.000Z";
+  event.eventEndAtUtc = "2026-08-17T21:15:00.000Z";
+  event.broadcastMatchConfidence = "none";
+  const report = { ...fixtureReport([event]), iteration: "poc41" as const, viewMode: "event-first" as const };
+
+  assert.deepEqual(filteredReport(report, "live", "evening").items.map(({ id }) => id), ["official-event"]);
+  assert.deepEqual(filteredReport(report, "uncertain", "evening").items.map(({ id }) => id), ["official-event"]);
 });
 
 function item(
