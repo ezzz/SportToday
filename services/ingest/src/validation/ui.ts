@@ -312,7 +312,10 @@ export function validationHtml(): string {
         const leftScore=Math.max(...left[1].map(item=>item.score));
         const rightScore=Math.max(...right[1].map(item=>item.score));
         return rightScore-leftScore||left[0].localeCompare(right[0],'fr');
-      }).map(([competition,group])=>'<section class="competition-group"><div class="competition-heading"><h2>'+escapeHtml(competition)+'</h2><span>'+group.length+' événement'+(group.length>1?'s':'')+'</span></div>'+group.map(item=>cardHtml(item,report)).join('')+'</section>').join('');
+      }).map(([competition,group])=>{
+        const sport=group[0]?.sport ? sportLabel(group[0].sport)+' - ' : '';
+        return '<section class="competition-group"><div class="competition-heading"><h2>'+escapeHtml(sport+competition)+'</h2><span>'+group.length+' événement'+(group.length>1?'s':'')+'</span></div>'+group.map(item=>cardHtml(item,report)).join('')+'</section>';
+      }).join('');
     }
 
     function cardHtml(item,report) {

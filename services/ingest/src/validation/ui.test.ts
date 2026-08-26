@@ -17,6 +17,7 @@ test("sauvegarde un commentaire sans reconstruire la carte et perdre le focus", 
   assert.match(html, /data-view="events">À la une/u);
   assert.match(html, /Diffusion française non retrouvée/u);
   assert.match(html, /function renderEventGroups\(items,report\)/u);
+  assert.match(html, /sportLabel\(group\[0\]\.sport\)\+' - '/u);
   assert.match(html, /data-aligned=/u);
   assert.match(html, /Détails et validation ponctuelle/u);
   assert.match(html, /id="refresh"/u);
