@@ -1,6 +1,6 @@
 # POC-4 — synthèse orientée événements
 
-Statut : **POC-4.1 en cours d'implémentation depuis le 23 août 2026**.
+Statut : **POC-4.2 en cours d'implémentation depuis le 26 août 2026**.
 
 ## Objectif
 
@@ -100,9 +100,11 @@ source EPG principale :
 | Sport | Source POC | Rôle |
 |---|---|---|
 | Football | [API-Football](https://api-sports.io/sports/football) ou [football-data.org](https://www.football-data.org/pricing) | calendrier, équipes, compétition |
-| Tennis | [Live Tennis API](https://docs.livetennisapi.com/) | tournois, matchs à venir, horaires évolutifs |
+| Volleyball | [API-Volleyball](https://api-sports.io/sports/volleyball) | matchs, compétitions et horaires |
+| Tennis | [API-Tennis](https://api-tennis.com/documentation) | tournois, matchs à venir, horaires évolutifs |
 | F1 | [Jolpica F1](https://github.com/jolpica/jolpica-f1) | calendrier et sessions |
-| Golf | [SlashGolf](https://slashgolf.dev/) | calendrier et tournois PGA/LIV |
+| Golf | ESPN scoreboard public (adaptateur POC) | tournoi et journée ; à remplacer par une API sous licence si nécessaire |
+| Athlétisme | [World Athletics Diamond League](https://worldathletics.org/competitions/diamond-league/calendar-results) | calendrier des étapes ; horaires journaliers parfois estimés |
 
 TheSportsDB reste une piste multifournisseur. Son offre gratuite est trop
 limitée pour découvrir exhaustivement une journée ; son offre Premium ne sera
@@ -139,7 +141,9 @@ Chaque ligne événementielle affiche l'heure officielle et l'intitulé sur la
 même ligne. Les tags et la validation ponctuelle sont repliés. Une diffusion
 est colorée en vert lorsqu'elle est déclarée directe, ou lorsqu'elle est
 `Direct probable` et que son début est aligné à quinze minutes près sur
-l'horaire officiel.
+l'horaire officiel. La barre supérieure conserve uniquement Vue, Date et
+`Actualiser`; les autres critères sont regroupés dans un panneau repliable.
+Les métriques et le contrôle d'exhaustivité sont placés sous les résultats.
 
 ## Critères de validation
 
@@ -167,10 +171,13 @@ Construire le modèle canonique, la watchlist, le classement, le rattachement
 XMLTV et la nouvelle vue. Football représente le cas de densité élevée ; F1
 représente le cas d'un calendrier structuré.
 
-### POC-4.2 — Tennis + Golf
+### POC-4.2 — Volleyball + Tennis + Golf + Athlétisme
 
-Ajouter les sessions, horaires estimés, fenêtres de diffusion et regroupement
-par tournoi.
+Ajouter les matchs et sessions, horaires estimés, fenêtres de diffusion et
+regroupement par tournoi/étape. API-Volleyball est activée avec la clé
+API-Sports existante. API-Tennis nécessite une clé distincte. Les connecteurs
+Golf et Diamond League sont explicitement des solutions de POC et devront être
+requalifiés avant une utilisation durable.
 
 ### POC-4.3 — décision fournisseurs
 

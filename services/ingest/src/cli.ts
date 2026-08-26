@@ -55,7 +55,7 @@ async function reportPoc4(serve: boolean): Promise<void> {
   try {
     const dates = serve ? [date, nextDate(date), nextDate(nextDate(date))] : [date];
     const bundles = Object.fromEntries(await Promise.all(dates.map(async (selectedDate) => {
-      const bundle = await buildPoc4Bundle(database, source, selectedDate, limit);
+      const bundle = await buildPoc4Bundle(database, source, selectedDate, limit, hasFlag("--refresh-events"));
       await writePoc4EventReport(config.reportsRoot, bundle.report);
       return [selectedDate, bundle] as const;
     })));
@@ -64,7 +64,11 @@ async function reportPoc4(serve: boolean): Promise<void> {
     const { report, programmeReport } = bundle;
     const filePath = path.join(config.reportsRoot, `poc4-events-${source}-${date}.json`);
     console.log(`POC-4.1 événements — ${source} ${date}`);
-    console.log(`  catalogue: ${report.catalogueEventCount} (${report.footballEventCount} football, ${report.f1EventCount} F1)`);
+    const eventBreakdown = Object.entries(report.eventCounts ?? { football: report.footballEventCount ?? 0, f1: report.f1EventCount ?? 0 })
+      .filter(([, count]) => count > 0)
+      .map(([sport, count]) => `${sport}=${count}`)
+      .join(", ");
+    console.log(`  catalogue: ${report.catalogueEventCount} (${eventBreakdown || "aucun sport"})`);
     console.log(`  diffusions retrouvées: ${report.matchedEventCount}`);
     console.log(`  sans diffusion XMLTV: ${report.unmatchedEventCount}`);
     for (const error of report.eventSourceErrors ?? []) console.log(`  source indisponible: ${error}`);
@@ -80,7 +84,27 @@ async function reportPoc4(serve: boolean): Promise<void> {
         reportsRoot: config.reportsRoot,
         reportsByDate: bundles,
         host,
-        port
+        port,
+        refreshReports: async () => {
+          const refreshDatabase = openDatabase(config.sqlitePath);
+          try {
+            try {
+              await refreshXmltvSource(refreshDatabase, source);
+            } catch (error) {
+              // Keep the last known EPG if a transient provider error occurs;
+              // the event catalogues can still be refreshed independently.
+              console.error(`Actualisation XMLTV impossible : ${error instanceof Error ? error.message : String(error)}`);
+            }
+            const refreshed = Object.fromEntries(await Promise.all(dates.map(async (selectedDate) => {
+              const refreshedBundle = await buildPoc4Bundle(refreshDatabase, source, selectedDate, limit, true);
+              await writePoc4EventReport(config.reportsRoot, refreshedBundle.report);
+              return [selectedDate, refreshedBundle] as const;
+            })));
+            return refreshed;
+          } finally {
+            refreshDatabase.close();
+          }
+        }
       });
       console.log(`Validation POC-4.1 disponible sur ${server.url}`);
       console.log(`  dates disponibles: ${dates.join(", ")}`);
@@ -101,7 +125,8 @@ async function buildPoc4Bundle(
   database: ReturnType<typeof openDatabase>,
   source: "xmltvfr" | "xmltvfree",
   date: string,
-  limit: number
+  limit: number,
+  refreshEvents = false
 ): Promise<Poc4Bundle> {
   const day = buildDayReport(database, source, date, config.timeZone);
   const followingDay = buildDayReport(database, source, nextDate(date), config.timeZone);
@@ -109,11 +134,18 @@ async function buildPoc4Bundle(
   const catalogue = await loadEventCatalogue(date, {
     dataRoot: config.dataRoot,
     timeZone: config.timeZone,
-    refresh: hasFlag("--refresh-events")
+    refresh: refreshEvents
   });
   const report = buildPoc4EventReport(catalogue.events, day, followingDay, limit);
   report.eventSourceErrors = catalogue.sourceErrors;
   return { report, programmeReport };
+}
+
+async function refreshXmltvSource(database: ReturnType<typeof openDatabase>, source: "xmltvfr" | "xmltvfree"): Promise<void> {
+  const snapshot = await sourceObject(source).fetch();
+  const stored = await storeSnapshot(config.dataRoot, snapshot);
+  const parsed = await sourceObject(source).parse(snapshot);
+  importXmltv(database, source, snapshot, stored, parsed);
 }
 
 async function reportPoc3SportsDb(): Promise<void> {

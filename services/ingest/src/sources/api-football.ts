@@ -11,7 +11,8 @@ export class ApiFootballSource {
     endpoint.searchParams.set("date", date);
     endpoint.searchParams.set("timezone", timeZone);
     const response = await fetch(endpoint, {
-      headers: { "x-apisports-key": config.apiFootball.apiKey }
+      headers: { "x-apisports-key": config.apiFootball.apiKey },
+      signal: AbortSignal.timeout(15_000)
     });
     if (!response.ok) throw new Error(`api-football: HTTP ${response.status} ${response.statusText}`);
     const payload: unknown = await response.json();

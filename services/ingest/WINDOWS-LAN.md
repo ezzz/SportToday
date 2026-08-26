@@ -25,7 +25,7 @@ Le script prévu pour un PC Windows est [`scripts/run-poc4-windows.ps1`](../../s
 
    Puis supprimer le dossier Windows incomplet et refaire le `git clone`.
 
-3. Ouvrir `services\ingest\.env`. S'il n'existe pas encore, le script créera une copie de `.env.example` au premier lancement. Renseigner au minimum `API_FOOTBALL_KEY` avec la clé API-Football personnelle. La clé reste sur le PC et n'est jamais affichée par le site.
+3. Ouvrir `services\ingest\.env`. S'il n'existe pas encore, le script créera une copie de `.env.example` au premier lancement. Renseigner au minimum `API_FOOTBALL_KEY` avec la clé API-Football personnelle. Cette clé active aussi API-Volleyball par défaut. `API_TENNIS_KEY` est facultative (compte séparé) ; Golf et Diamond League utilisent leurs connecteurs POC publics optionnels. Les clés restent sur le PC et ne sont jamais affichées par le site.
 4. Dans PowerShell, depuis la racine du dépôt :
 
    ```powershell

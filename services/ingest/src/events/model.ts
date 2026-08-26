@@ -1,12 +1,13 @@
 import type { TonightBroadcast } from "../reports/tonight.js";
 
-export type EventSport = "football" | "f1";
+/** Sports currently supported by the event-first reference catalogue. */
+export type EventSport = "football" | "f1" | "volleyball" | "tennis" | "golf" | "athletics";
 export type EventImportance = "A" | "B" | "C";
 export type EventTimeConfidence = "confirmed" | "estimated";
 
 export interface SportEvent {
   id: string;
-  source: "api-football" | "jolpica-f1";
+  source: "api-football" | "jolpica-f1" | "api-volleyball" | "api-tennis" | "espn-golf" | "world-athletics";
   sourceEventId: string;
   sport: EventSport;
   title: string;

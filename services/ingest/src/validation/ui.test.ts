@@ -19,4 +19,8 @@ test("sauvegarde un commentaire sans reconstruire la carte et perdre le focus", 
   assert.match(html, /function renderEventGroups\(items,report\)/u);
   assert.match(html, /data-aligned=/u);
   assert.match(html, /Détails et validation ponctuelle/u);
+  assert.match(html, /id="refresh"/u);
+  assert.match(html, /Filtres supplémentaires et validation/u);
+  assert.match(html, /Exhaustivité et qualité des sources/u);
+  assert.match(html, /async function refreshReports()/u);
 });

@@ -70,19 +70,36 @@ compile et lance le serveur sur le réseau privé.
 
 ## POC-4.1 — vue orientée événements
 
-POC-4.1 récupère d'abord les matchs des compétitions Football suivies via
-API-Football et les sessions F1 via Jolpica. Il rattache ensuite les créneaux
-XMLTVFr à l'heure officielle de chaque événement.
+POC-4.1 récupère d'abord les événements de référence puis rattache les créneaux
+XMLTVFr à leur horaire officiel lorsque cela est possible. Football vient
+d'API-Football et la F1 de Jolpica. Le même catalogue accepte désormais
+Volleyball via API-Sports, Tennis via API-Tennis (clé distincte), Golf via le
+scoreboard public ESPN et la Diamond League via la page calendrier World
+Athletics.
 
 La clé API-Football doit rester uniquement dans `.env` :
 
 ```dotenv
 API_FOOTBALL_KEY=...
+API_VOLLEYBALL_KEY=...
+API_TENNIS_KEY=...
+ESPN_GOLF_ENABLED=true
+WORLD_ATHLETICS_URL=https://worldathletics.org/competitions/diamond-league/calendar-results
 ```
 
-Les réponses sont mises en cache sous `data/raw/api-football` et
-`data/raw/jolpica-f1`. Utiliser `--refresh-events` uniquement pour forcer une
-nouvelle requête :
+API-Volleyball réutilise par défaut `API_FOOTBALL_KEY` et reste limité aux
+compétitions suivies (Champions League, Nations League, EuroVolley, Ligue A,
+etc.). API-Tennis est une source séparée et reste inactive tant que
+`API_TENNIS_KEY` n'est pas renseignée. Le connecteur Golf ESPN et le calendrier
+World Athletics sont des ajouts de POC : ils peuvent être désactivés ou
+remplacés si leurs conditions d'utilisation ou leur stabilité ne conviennent
+pas. Les horaires Diamond League issus d'un calendrier journalier sans heure
+sont marqués « estimés ».
+
+Les réponses sont mises en cache sous `data/raw/<source-evenement>` (par
+exemple `api-football`, `api-volleyball`, `api-tennis`, `espn-golf`,
+`world-athletics` et `jolpica-f1`). Utiliser `--refresh-events` uniquement pour
+forcer une nouvelle requête :
 
 ```bash
 npm run poc4:report -- --source=xmltvfr --date=2026-08-23 --refresh-events
@@ -133,6 +150,11 @@ de diffusion : une rediffusion d'une carte mixte n'apparaît plus dans
 `Tous les sports` est actif par défaut. `--limit=12`
 limite chaque vue filtrée aux douze résultats les mieux classés, avec au plus
 deux cartes par compétition, et non le nombre total de programmes indexés.
+
+Le bouton `Actualiser` réimporte le flux XMLTV sélectionné puis force le
+rafraîchissement des catalogues d'événements pour les trois dates proposées.
+Les réponses brutes restent archivées sous `data/raw/` et les validations déjà
+effectuées sont conservées quand les identifiants d'événements restent stables.
 
 Chaque événement se valide en un clic avec `OK`, `Doute` ou une raison
 d'erreur. Les commentaires sont facultatifs. La sauvegarde est automatique
@@ -224,7 +246,13 @@ src/
 │   ├── xmltv.ts
 │   ├── xmltvfr.ts
 │   ├── xmltvfree.ts
-│   └── thesportsdb.ts
+│   ├── thesportsdb.ts
+│   ├── api-football.ts
+│   ├── api-volleyball.ts
+│   ├── api-tennis.ts
+│   ├── espn-golf.ts
+│   ├── world-athletics.ts
+│   └── jolpica-f1.ts
 ├── storage/
 │   ├── snapshot-store.ts
 │   └── sqlite.ts

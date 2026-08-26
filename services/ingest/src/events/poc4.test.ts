@@ -1,10 +1,18 @@
 import assert from "node:assert/strict";
+import { mkdtemp, rm } from "node:fs/promises";
 import test from "node:test";
+import os from "node:os";
+import path from "node:path";
 
+import { loadEventCatalogue } from "./catalogue.js";
 import { buildPoc4EventReport } from "../reports/poc4-events.js";
 import type { DayProgramme, DayReport } from "../reports/day-filter.js";
 import { parseApiFootballEvents } from "../sources/api-football.js";
+import { parseApiTennisEvents } from "../sources/api-tennis.js";
+import { parseApiVolleyballEvents } from "../sources/api-volleyball.js";
+import { parseEspnGolfEvents } from "../sources/espn-golf.js";
 import { parseJolpicaEvents } from "../sources/jolpica-f1.js";
+import { parseWorldAthleticsEvents } from "../sources/world-athletics.js";
 
 test("filtre API-Football sur la watchlist et classe une grande affiche", () => {
   const events = parseApiFootballEvents({
@@ -74,6 +82,48 @@ test("écarte l'avant-course terminé au départ et un magazine sur un autre Gra
   const report = buildPoc4EventReport([event], dayReport("2026-08-23", [preShow, otherRace, race]));
 
   assert.deepEqual(report.items[0]?.broadcasts.map((broadcast) => broadcast.channel), ["Canal+"]);
+});
+
+test("parse les références Volleyball, Tennis, Golf et Diamond League", () => {
+  const volleyball = parseApiVolleyballEvents({ response: [{
+    id: 1, date: "2026-08-26T18:00:00+00:00", country: { name: "France" },
+    league: { name: "Ligue A", type: "League" },
+    teams: { home: { name: "Tours VB" }, away: { name: "Montpellier" } }, status: { short: "NS" }
+  }] });
+  const tennis = parseApiTennisEvents({ success: 1, result: [{
+    event_key: "2", event_date: "2026-08-26", event_time: "20:00",
+    event_first_player: "A. Player", event_second_player: "B. Player",
+    tournament_name: "US Open", tournament_round: "Quarterfinal"
+  }] });
+  const golf = parseEspnGolfEvents({ tours: [{ events: [{ id: "3", name: "The Open", date: "2026-08-26T10:00:00Z" }] }] }, "2026-08-26");
+  const athletics = parseWorldAthleticsEvents('<script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"calendar":[{"id":"4","name":"Weltklasse Zürich","startDate":"2026-08-26","endDate":"2026-08-27","disciplines":"Track and Field"}]}}}</script>', "2026-08-26");
+
+  assert.equal(volleyball[0]?.sport, "volleyball");
+  assert.equal(tennis[0]?.competition, "US Open");
+  assert.equal(golf[0]?.sport, "golf");
+  assert.equal(athletics[0]?.competition, "Diamond League");
+  assert.equal(athletics[0]?.timeConfidence, "estimated");
+});
+
+test("agrège les sources événementielles disponibles dans le catalogue", async () => {
+  const dataRoot = await mkdtemp(path.join(os.tmpdir(), "sporttoday-catalogue-"));
+  try {
+    const catalogue = await loadEventCatalogue("2026-08-26", {
+      dataRoot,
+      timeZone: "Europe/Paris",
+      apiFootball: { fixturesForDate: async () => ({ errors: [], response: [fixture(10, 2, "UEFA Champions League", "Semi-finals", "Paris Saint Germain", "Real Madrid")] }) },
+      apiVolleyball: { gamesForDate: async () => ({ response: [{ id: 11, date: "2026-08-26T18:00:00Z", country: { name: "France" }, league: { name: "Ligue A" }, teams: { home: { name: "Tours" }, away: { name: "Montpellier" } }, status: { short: "NS" } }] }) },
+      apiTennis: { fixturesForDate: async () => ({ success: 1, result: [{ event_key: "12", event_date: "2026-08-26", event_time: "20:00", event_first_player: "A", event_second_player: "B", tournament_name: "US Open" }] }) },
+      espnGolf: { scoreboardForDate: async () => ({ tours: [{ events: [{ id: "13", name: "The Open", date: "2026-08-26T10:00:00Z" }] }] }) },
+      worldAthletics: { calendarForDate: async () => '<script id="__NEXT_DATA__">{"events":[{"id":"14","name":"Diamond League","startDate":"2026-08-26","disciplines":"Track and Field"}]}</script>' },
+      jolpicaF1: { scheduleForSeason: async () => ({ MRData: { RaceTable: { Races: [] } } }) }
+    });
+    assert.equal(catalogue.events.length, 5);
+    assert.deepEqual(catalogue.eventCounts, { football: 1, volleyball: 1, tennis: 1, golf: 1, athletics: 1 });
+    assert.equal(catalogue.sourceErrors.length, 0);
+  } finally {
+    await rm(dataRoot, { recursive: true, force: true });
+  }
 });
 
 function fixture(id: number, leagueId: number, leagueName: string, round: string, home: string, away: string) {

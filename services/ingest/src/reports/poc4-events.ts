@@ -45,7 +45,11 @@ export function buildPoc4EventReport(
     matchedEventCount,
     unmatchedEventCount: items.length - matchedEventCount,
     footballEventCount: events.filter((event) => event.sport === "football").length,
-    f1EventCount: events.filter((event) => event.sport === "f1").length
+    f1EventCount: events.filter((event) => event.sport === "f1").length,
+    eventCounts: events.reduce<Record<string, number>>((counts, event) => {
+      counts[event.sport] = (counts[event.sport] ?? 0) + 1;
+      return counts;
+    }, {})
   };
 }
 
@@ -112,8 +116,7 @@ interface ProgrammeMatch {
 
 function matchProgramme(event: SportEvent, programme: DayProgramme, timeZone: string): ProgrammeMatch | null {
   const sport = programme.sportSignals;
-  if (event.sport === "football" && !sport.includes("football")) return null;
-  if (event.sport === "f1" && !sport.includes("f1")) return null;
+  if (!eventSportMatchesProgramme(event.sport, sport)) return null;
   const text = `${programme.title} ${programme.subTitle ?? ""} ${programme.description ?? ""}`;
   const startDelta = minutesBetween(programme.startAt, event.startAtUtc);
   const endAt = event.endAtUtc ?? inferredEnd(event);
@@ -122,11 +125,16 @@ function matchProgramme(event: SportEvent, programme: DayProgramme, timeZone: st
   const eventStart = Date.parse(event.startAtUtc);
   let score = 0;
   const reasons: string[] = [];
-  if (event.sport === "football") {
+  if (["football", "volleyball", "tennis"].includes(event.sport)) {
     const participantMatches = event.participants.filter((participant) => entityMatches(participant, text)).length;
-    if (participantMatches < 2) return null;
-    score += 80;
-    reasons.push("deux équipes reconnues dans le programme");
+    if (event.participants.length >= 2 && participantMatches < 2) return null;
+    score += event.participants.length >= 2 ? 80 : 45;
+    reasons.push(event.sport === "tennis" ? "joueurs reconnus dans le programme" : "participants reconnus dans le programme");
+  } else if (["golf", "athletics"].includes(event.sport)) {
+    const competitionMatch = meaningfulTokens(event.competition).some((token) => meaningfulTokens(text).includes(token));
+    if (!competitionMatch && Math.abs(startDelta) > (event.sport === "athletics" ? 720 : 240)) return null;
+    score += competitionMatch ? 62 : 35;
+    reasons.push(competitionMatch ? "compétition reconnue dans le programme" : "créneau du sport rapproché de l'événement");
   } else {
     const stageMatch = f1StageMatches(event.stage, text);
     const raceMatch = f1RaceMatches(event, text);
@@ -197,14 +205,28 @@ function toEventBroadcast(programme: DayProgramme, event: SportEvent, timeZone: 
 }
 
 function inferredEnd(event: SportEvent): string {
-  const minutes = event.sport === "football"
-    ? 135
+  const minutes = event.sport === "football" || event.sport === "volleyball" || event.sport === "tennis"
+    ? 150
+    : event.sport === "golf" || event.sport === "athletics"
+      ? 240
     : /course/iu.test(event.stage)
       ? 180
       : /qualifications/iu.test(event.stage)
         ? 120
         : 90;
   return new Date(Date.parse(event.startAtUtc) + minutes * 60_000).toISOString();
+}
+
+function eventSportMatchesProgramme(eventSport: SportEvent["sport"], signals: readonly string[]): boolean {
+  const expected: Record<SportEvent["sport"], readonly string[]> = {
+    football: ["football"],
+    f1: ["f1"],
+    volleyball: ["volley", "volleyball"],
+    tennis: ["tennis"],
+    golf: ["golf"],
+    athletics: ["athlétisme", "athletisme"]
+  };
+  return expected[eventSport].some((signal) => signals.includes(signal));
 }
 
 function programmeOverlaps(programme: DayProgramme, instant: string, minimumCoverageMinutes = 0): boolean {

@@ -45,7 +45,7 @@ export interface TonightItem {
   eventStartAtUtc?: string;
   eventEndAtUtc?: string;
   eventTimeLabel?: string;
-  eventSource?: "api-football" | "jolpica-f1";
+  eventSource?: "api-football" | "jolpica-f1" | "api-volleyball" | "api-tennis" | "espn-golf" | "world-athletics";
   eventSourceId?: string;
   eventStatus?: string;
   eventStage?: string;
@@ -75,6 +75,7 @@ export interface TonightReport {
   unmatchedEventCount?: number;
   footballEventCount?: number;
   f1EventCount?: number;
+  eventCounts?: Record<string, number>;
   eventSourceErrors?: string[];
 }
 

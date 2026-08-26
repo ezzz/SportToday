@@ -23,6 +23,21 @@ export const config = {
     baseUrl: process.env.API_FOOTBALL_BASE_URL ?? "https://v3.football.api-sports.io",
     apiKey: process.env.API_FOOTBALL_KEY ?? ""
   },
+  apiVolleyball: {
+    baseUrl: process.env.API_VOLLEYBALL_BASE_URL ?? "https://v1.volleyball.api-sports.io",
+    apiKey: process.env.API_VOLLEYBALL_KEY ?? process.env.API_FOOTBALL_KEY ?? ""
+  },
+  apiTennis: {
+    baseUrl: process.env.API_TENNIS_BASE_URL ?? "https://api.api-tennis.com/tennis/",
+    apiKey: process.env.API_TENNIS_KEY ?? ""
+  },
+  espnGolf: {
+    baseUrl: process.env.ESPN_BASE_URL ?? "https://site.api.espn.com/apis/site/v2/sports/golf",
+    enabled: process.env.ESPN_GOLF_ENABLED !== "false"
+  },
+  worldAthletics: {
+    baseUrl: process.env.WORLD_ATHLETICS_URL ?? "https://worldathletics.org/competitions/diamond-league/calendar-results"
+  },
   jolpicaF1: {
     baseUrl: process.env.JOLPICA_F1_BASE_URL ?? "https://api.jolpi.ca/ergast/f1"
   }

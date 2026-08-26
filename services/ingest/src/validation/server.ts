@@ -21,12 +21,13 @@ export interface ValidationServerOptions {
   reportsRoot: string;
   host?: string;
   port?: number;
+  refreshReports?: () => Promise<Record<string, { report: TonightReport; programmeReport?: TonightReport }>>;
 }
 
 export async function startValidationServer(options: ValidationServerOptions): Promise<{ url: string; validationFile: string }> {
   const host = options.host ?? "127.0.0.1";
   const port = options.port ?? 4173;
-  const reportsByDate = options.reportsByDate ?? {
+  const reportsByDate: Record<string, { report: TonightReport; programmeReport?: TonightReport }> = options.reportsByDate ?? {
     [options.report.date]: {
       report: options.report,
       ...(options.programmeReport ? { programmeReport: options.programmeReport } : {})
@@ -78,6 +79,19 @@ export async function startValidationServer(options: ValidationServerOptions): P
           validationFile: filePaths.get(selectedDate),
           availableDates: Object.keys(reportsByDate).sort()
         });
+      }
+      if (request.method === "POST" && url.pathname === "/api/refresh") {
+        if (!options.refreshReports) return sendJson(response, { refreshed: false, availableDates: Object.keys(reportsByDate).sort() });
+        const refreshed = await options.refreshReports();
+        for (const [date, bundle] of Object.entries(refreshed)) {
+          reportsByDate[date] = bundle;
+          const filePath = validationPath(options.reportsRoot, bundle.report);
+          const loaded = await loadValidation(filePath, bundle.report);
+          await saveValidation(filePath, loaded);
+          validations.set(date, loaded);
+          filePaths.set(date, filePath);
+        }
+        return sendJson(response, { refreshed: true, availableDates: Object.keys(reportsByDate).sort() });
       }
       if (request.method === "POST" && url.pathname === "/api/validation") {
         const body = await readJson(request);

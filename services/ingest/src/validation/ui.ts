@@ -18,6 +18,14 @@ export function validationHtml(): string {
     .filter-row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding:7px 0; }
     .filter-row + .filter-row { border-top:1px solid #edf0f4; }
     .filter-label { width:92px; color:#637087; font-size:13px; font-weight:700; }
+    .primary-row { display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+    .primary-row .filter-row { flex:1 1 280px; min-width:260px; padding:0; }
+    .primary-row .filter-label { width:auto; }
+    .refresh-button { white-space:nowrap; background:#172033; color:white; border-color:#172033; }
+    .refresh-button:disabled { opacity:.65; cursor:wait; }
+    .advanced-filters { margin-top:12px; border-top:1px solid #edf0f4; padding-top:10px; }
+    .advanced-filters > summary { cursor:pointer; color:#50627e; font-size:13px; font-weight:700; }
+    .advanced-filters[open] > summary { margin-bottom:4px; }
     .toolbar-actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:9px; padding-top:12px; border-top:1px solid #edf0f4; }
     .toolbar-actions .spacer { flex:1; }
     button,.button { appearance:none; border:1px solid #cbd3df; background:white; color:#182033; border-radius:8px; padding:8px 12px; cursor:pointer; font:inherit; text-decoration:none; }
@@ -43,12 +51,11 @@ export function validationHtml(): string {
     h2 { margin:0 0 7px; font-size:19px; }
     .badges,.broadcasts { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
     .badge { background:#eef1f6; border-radius:999px; padding:4px 8px; font-size:12px; }
-    .broadcast { background:#eaf3ff; color:#164d81; border-radius:7px; padding:6px 9px; font-size:13px; }
-    .broadcast[data-aligned="true"] { background:#dff5e7; color:#176540; border-color:#b7e4c5; }
-    .broadcast[data-live="delayed"] { background:#f3edf9; color:#654080; }
-    .broadcast[data-live="unknown"] { background:#f2f3f5; color:#596477; }
-    .broadcast small { display:block; margin-top:3px; opacity:.82; }
-    .official-time { display:inline-flex; gap:7px; align-items:center; background:#e7f7ee; color:#176540; border-radius:8px; padding:7px 10px; margin:4px 0 7px; font-size:14px; }
+    .broadcast { border-radius:7px; padding:6px 9px; font-size:13px; border:1px solid transparent; }
+    .broadcast[data-tone="green"] { background:#dff5e7; color:#176540; border-color:#b7e4c5; }
+    .broadcast[data-tone="yellow"] { background:#fff3cf; color:#765500; border-color:#ead48b; }
+    .broadcast[data-tone="red"] { background:#fbe8e8; color:#9a3030; border-color:#efbcbc; }
+    .official-time { display:inline-flex; align-items:center; background:#e7f7ee; color:#176540; border-radius:8px; padding:7px 10px; margin:4px 0 7px; font-size:14px; }
     .unmatched { background:#fff3cf; color:#765500; border-radius:8px; padding:8px 10px; margin:8px 0; font-size:13px; }
     .source-note { color:#637087; font-size:12px; margin-left:5px; }
     .description { color:#4f5c70; margin:10px 0; line-height:1.45; }
@@ -61,9 +68,16 @@ export function validationHtml(): string {
     .verdicts button[data-value="off_topic"],.verdicts button[data-value^="wrong_"],.verdicts button[data-value="duplicate"] { background:#fbe8e8; }
     textarea { width:100%; border:1px solid #cbd3df; border-radius:8px; padding:9px; margin-top:9px; resize:vertical; font:inherit; min-height:42px; }
     .missing label { display:block; font-weight:700; margin-bottom:6px; }
-    .result-note { color:#637087; font-size:13px; margin:-7px 0 14px; }
+    .result-note { color:#637087; font-size:13px; margin:0; }
     .source-warning { background:#fff3cf; color:#765500; border:1px solid #ead48b; border-radius:9px; padding:10px 12px; margin:0 0 14px; }
     .empty { text-align:center; color:#637087; padding:36px; }
+    .bottom-panels { display:grid; gap:10px; margin-top:16px; }
+    .bottom-panels .summary { margin:0; }
+    .exhaustivity-panel { background:white; border:1px solid #dfe4ec; border-radius:12px; padding:14px; }
+    .exhaustivity-panel h2 { font-size:16px; margin:0 0 8px; }
+    .bottom-panels .source-warning,.bottom-panels .result-note { margin:0; }
+    .secondary-details { margin-top:9px; }
+    .secondary-details > summary { cursor:pointer; }
     @media (max-width:700px) { .card-head { display:block; } .filter-label { width:100%; } .toolbar-actions .spacer { display:none; width:100%; } }
   </style>
 </head>
@@ -71,53 +85,64 @@ export function validationHtml(): string {
   <header><h1>Quel sport regarder ?</h1><p id="subtitle">Chargement de la sélection…</p></header>
   <main>
     <section class="toolbar">
-      <div class="filter-row view-row" id="view-filters" hidden>
-        <span class="filter-label">Vue</span>
-        <button class="view-filter active" data-view="events">À la une</button>
-        <button class="view-filter" data-view="programmes">Tous les programmes TV</button>
+      <div class="primary-row">
+        <div class="filter-row view-row" id="view-filters" hidden>
+          <span class="filter-label">Vue</span>
+          <button class="view-filter active" data-view="events">À la une</button>
+          <button class="view-filter" data-view="programmes">Tous les programmes TV</button>
+        </div>
+        <div class="filter-row date-row" id="date-filters">
+          <span class="filter-label">Date</span>
+          <span id="date-buttons"><button class="date-filter active">Chargement…</button></span>
+        </div>
+        <button class="button refresh-button" id="refresh" type="button">↻ Actualiser</button>
       </div>
-      <div class="filter-row" id="date-filters">
-        <span class="filter-label">Date</span>
-        <span id="date-buttons"><button class="date-filter active">Chargement…</button></span>
-      </div>
-      <div class="filter-row">
-        <span class="filter-label">Programme</span>
-        <button class="category-filter active" data-category="live">● Direct + à confirmer</button>
-        <button class="category-filter" data-category="delayed">Différé</button>
-        <button class="category-filter" data-category="editorial">Émission</button>
-        <button class="category-filter" data-category="all">Tous</button>
-      </div>
-      <div class="filter-row">
-        <span class="filter-label">Période</span>
-        <button class="period-filter active" data-period="evening">Soirée · en cours dès 20 h</button>
-        <button class="period-filter" data-period="day">Aujourd’hui · journée complète</button>
-      </div>
-      <div class="filter-row" id="sport-filters">
-        <span class="filter-label">Sport</span>
-        <span id="sport-buttons"><button class="sport-filter active" data-sport="all">Tous les sports</button></span>
-      </div>
-      <div class="filter-row">
-        <span class="filter-label">Validation</span>
-        <button class="validation-filter active" data-validation="all">Tous</button>
-        <button class="validation-filter" data-validation="pending">À valider</button>
-        <button class="validation-filter" data-validation="ok">OK</button>
-        <button class="validation-filter" data-validation="issues">Doutes / erreurs</button>
-      </div>
-      <div class="toolbar-actions">
-        <span class="save-state" id="save-state">Connexion…</span>
-        <span class="spacer"></span>
-        <a class="button" id="export-csv" href="/export.csv?category=live&amp;period=evening">Exporter CSV</a>
-        <a class="button" id="export-xlsx" href="/export.xlsx?category=live&amp;period=evening">Exporter XLSX</a>
-      </div>
+      <details class="advanced-filters">
+        <summary>Filtres supplémentaires et validation</summary>
+        <div class="filter-row">
+          <span class="filter-label">Programme</span>
+          <button class="category-filter active" data-category="live">● Direct + à confirmer</button>
+          <button class="category-filter" data-category="delayed">Différé</button>
+          <button class="category-filter" data-category="editorial">Émission</button>
+          <button class="category-filter" data-category="all">Tous</button>
+        </div>
+        <div class="filter-row">
+          <span class="filter-label">Période</span>
+          <button class="period-filter active" data-period="evening">Soirée · en cours dès 20 h</button>
+          <button class="period-filter" data-period="day">Aujourd’hui · journée complète</button>
+        </div>
+        <div class="filter-row" id="sport-filters">
+          <span class="filter-label">Sport</span>
+          <span id="sport-buttons"><button class="sport-filter active" data-sport="all">Tous les sports</button></span>
+        </div>
+        <div class="filter-row">
+          <span class="filter-label">Validation</span>
+          <button class="validation-filter active" data-validation="all">Tous</button>
+          <button class="validation-filter" data-validation="pending">À valider</button>
+          <button class="validation-filter" data-validation="ok">OK</button>
+          <button class="validation-filter" data-validation="issues">Doutes / erreurs</button>
+        </div>
+        <div class="toolbar-actions">
+          <span class="save-state" id="save-state">Connexion…</span>
+          <span class="spacer"></span>
+          <a class="button" id="export-csv" href="/export.csv?category=live&amp;period=evening">Exporter CSV</a>
+          <a class="button" id="export-xlsx" href="/export.xlsx?category=live&amp;period=evening">Exporter XLSX</a>
+        </div>
+      </details>
     </section>
-    <section class="summary" id="summary"></section>
-    <p class="source-warning" id="source-warning" hidden></p>
-    <p class="result-note" id="result-note"></p>
+    <section class="cards" id="cards"><div class="empty">Chargement…</div></section>
     <section class="missing">
       <label for="missing-event">Un événement majeur manque-t-il à cette sélection ?</label>
       <textarea id="missing-event" placeholder="Facultatif — indique ici un événement important absent"></textarea>
     </section>
-    <section class="cards" id="cards"><div class="empty">Chargement…</div></section>
+    <section class="bottom-panels">
+      <section class="summary" id="summary"></section>
+      <section class="exhaustivity-panel">
+        <h2>Exhaustivité et qualité des sources</h2>
+        <p class="source-warning" id="source-warning" hidden></p>
+        <p class="result-note" id="result-note"></p>
+      </section>
+    </section>
   </main>
   <script>
     const verdicts = [
@@ -152,6 +177,20 @@ export function validationHtml(): string {
     }
 
     async function load() { await loadDate(); }
+
+    async function refreshReports() {
+      const button=document.getElementById('refresh');
+      if (button) { button.disabled=true; button.textContent='Actualisation…'; }
+      setSaving();
+      try {
+        const selectedDate=state?.report?.date||'';
+        const response=await fetch('/api/refresh',{method:'POST'});
+        if (!response.ok) throw new Error('Impossible d’actualiser les données.');
+        await loadDate(selectedDate);
+      } finally {
+        if (button) { button.disabled=false; button.textContent='↻ Actualiser'; }
+      }
+    }
 
     function renderDateFilters() {
       const dates = state.availableDates || [state.report.date];
@@ -210,7 +249,7 @@ export function validationHtml(): string {
     }
 
     function sportLabel(value) {
-      const labels={football:'Football',footvolley:'FootVolley',tennis:'Tennis',cyclisme:'Cyclisme',rugby:'Rugby',boxe:'Boxe',basket:'Basket',golf:'Golf',f1:'Formule 1',motonautisme:'Motonautisme',motogp:'MotoGP',judo:'Judo',ski:'Ski',handball:'Handball',volley:'Volley',athlétisme:'Athlétisme',natation:'Natation'};
+      const labels={football:'Football',footvolley:'FootVolley',tennis:'Tennis',cyclisme:'Cyclisme',rugby:'Rugby',boxe:'Boxe',basket:'Basket',golf:'Golf',f1:'Formule 1',motonautisme:'Motonautisme',motogp:'MotoGP',judo:'Judo',ski:'Ski',handball:'Handball',volley:'Volley',volleyball:'Volleyball',athlétisme:'Athlétisme',natation:'Natation'};
       return labels[value]||value.charAt(0).toLocaleUpperCase('fr-FR')+value.slice(1);
     }
 
@@ -285,14 +324,24 @@ export function validationHtml(): string {
       const statusBadge=visibleStatuses.length>1?'Statuts mixtes':liveLabels[visibleStatuses[0]];
       const badges = [item.sport,item.competition,item.participants,eventFirst&&item.eventImportance?'Priorité '+item.eventImportance:'',category,statusBadge,item.titleQuality==='unclear'?'Intitulé peu précis':''].filter(Boolean);
       const buttons = verdicts.map(([value,label]) => '<button data-action="verdict" data-id="'+item.id+'" data-value="'+value+'" class="'+(validation.verdict===value?'selected':'')+'">'+label+'</button>').join('');
-      const official=eventFirst?'<span class="official-time"><strong>'+escapeHtml(item.eventTimeLabel)+'</strong><span class="source-note">heure officielle · '+escapeHtml(item.eventSource)+'</span></span>':'';
-      const broadcasts=item.broadcasts.length?'<div class="broadcasts">'+item.broadcasts.map(b=>'<span class="broadcast" data-live="'+escapeHtml(b.liveStatus)+'" data-aligned="'+(b.liveStatus==='confirmed'||(b.liveStatus==='probable'&&b.broadcastAlignedToEvent)?'true':'false')+'"><strong>'+escapeHtml(b.timeRangeLabel||b.timeLabel)+'</strong> · '+escapeHtml(b.channel)+' · '+escapeHtml(liveLabels[b.liveStatus])+(b.subTitle?'<small>'+escapeHtml(b.subTitle)+'</small>':'')+'</span>').join('')+'</div>':'<div class="unmatched">Diffusion française non retrouvée dans XMLTV pour le moment.</div>';
-      const secondary=eventFirst?'<details class="secondary-details"><summary>Détails et validation ponctuelle</summary>'+(item.description?'<p class="description">'+escapeHtml(item.description)+'</p>':'')+'<p><strong>Pourquoi ?</strong> Score '+item.score+' · '+escapeHtml(item.selectionReasons.join(' · '))+'</p><div class="validation"><div class="verdicts">'+buttons+'</div><textarea data-action="note" data-id="'+item.id+'" placeholder="Commentaire facultatif">'+escapeHtml(validation.note)+'</textarea></div></details>':'';
+      const official=eventFirst?'<span class="official-time"><strong>'+escapeHtml(item.eventTimeLabel)+'</strong></span>':'';
+      const broadcasts=item.broadcasts.length?'<div class="broadcasts">'+item.broadcasts.map(b=>'<span class="broadcast" data-tone="'+broadcastTone(b)+'" data-live="'+escapeHtml(b.liveStatus)+'" data-aligned="'+(b.liveStatus==='confirmed'||(b.liveStatus==='probable'&&b.broadcastAlignedToEvent)?'true':'false')+'"><strong>'+escapeHtml(b.timeRangeLabel||b.timeLabel)+'</strong> · '+escapeHtml(b.channel)+'</span>').join('')+'</div>':'<div class="unmatched">Diffusion française non retrouvée dans XMLTV pour le moment.</div>';
+      const details = '<details class="secondary-details"><summary>'+(eventFirst?'Détails et validation ponctuelle':'Détails du programme')+'</summary>'+
+        '<div class="badges">'+badges.map(value=>'<span class="badge">'+escapeHtml(value)+'</span>').join('')+'</div>'+
+        (item.description?'<p class="description">'+escapeHtml(item.description)+'</p>':'')+
+        '<p><strong>Pourquoi ?</strong> Score '+item.score+' · '+escapeHtml(item.selectionReasons.join(' · '))+'</p>'+
+        (eventFirst?'<div class="validation"><div class="verdicts">'+buttons+'</div><textarea data-action="note" data-id="'+item.id+'" placeholder="Commentaire facultatif">'+escapeHtml(validation.note)+'</textarea></div>':'')+
+        '</details>';
       return '<article class="card" data-verdict="'+validation.verdict+'">'+
         '<div class="card-head"><div class="card-main"><div class="event-line">'+official+'<h2>'+escapeHtml(item.title)+'</h2></div>'+
-        '<div class="badges">'+badges.map(value=>'<span class="badge">'+escapeHtml(value)+'</span>').join('')+'</div>'+
         broadcasts+
-        (eventFirst?secondary:(item.description?'<p class="description">'+escapeHtml(item.description)+'</p>':'')+'<details><summary>Pourquoi cet événement ? Score '+item.score+'</summary><p>'+escapeHtml(item.selectionReasons.join(' · '))+'</p></details>')+'</div></div></article>';
+        details+'</div></div></article>';
+    }
+
+    function broadcastTone(broadcast) {
+      if (broadcast.liveStatus==='delayed') return 'red';
+      if (broadcast.liveStatus==='confirmed'||(broadcast.liveStatus==='probable'&&broadcast.broadcastAlignedToEvent)) return 'green';
+      return 'yellow';
     }
 
     async function saveItem(id, patch, rerender=true) {
@@ -306,6 +355,8 @@ export function validationHtml(): string {
     }
 
     document.addEventListener('click', event => {
+      const refresh = event.target.closest('#refresh');
+      if (refresh) { refreshReports().catch(showError); return; }
       const date = event.target.closest('.date-filter');
       if (date && date.dataset.date) { loadDate(date.dataset.date).catch(showError); return; }
       const view = event.target.closest('.view-filter');

@@ -8,7 +8,8 @@ export class JolpicaF1Source {
     const endpoint = new URL(`${config.jolpicaF1.baseUrl}/${season}/races/`);
     endpoint.searchParams.set("limit", "100");
     const response = await fetch(endpoint, {
-      headers: { "user-agent": "SportToday-data-poc/0.1" }
+      headers: { "user-agent": "SportToday-data-poc/0.1" },
+      signal: AbortSignal.timeout(15_000)
     });
     if (!response.ok) throw new Error(`jolpica-f1: HTTP ${response.status} ${response.statusText}`);
     return response.json();
