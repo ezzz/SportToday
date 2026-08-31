@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 
 import type { TonightReport } from "../reports/tonight.js";
+import type { CoverageReport } from "../reports/coverage.js";
 import { validationCsv, validationXlsx } from "./export.js";
 import { filteredReport, parseCategoryFilter, parsePeriodFilter, parseSportFilters } from "./filters.js";
 import {
@@ -17,20 +18,22 @@ import { validationHtml } from "./ui.js";
 export interface ValidationServerOptions {
   report: TonightReport;
   programmeReport?: TonightReport;
-  reportsByDate?: Record<string, { report: TonightReport; programmeReport?: TonightReport }>;
+  coverageReport?: CoverageReport;
+  reportsByDate?: Record<string, { report: TonightReport; programmeReport?: TonightReport; coverageReport?: CoverageReport }>;
   reportsRoot: string;
   host?: string;
   port?: number;
-  refreshReports?: () => Promise<Record<string, { report: TonightReport; programmeReport?: TonightReport }>>;
+  refreshReports?: () => Promise<Record<string, { report: TonightReport; programmeReport?: TonightReport; coverageReport?: CoverageReport }>>;
 }
 
 export async function startValidationServer(options: ValidationServerOptions): Promise<{ url: string; validationFile: string }> {
   const host = options.host ?? "127.0.0.1";
   const port = options.port ?? 4173;
-  const reportsByDate: Record<string, { report: TonightReport; programmeReport?: TonightReport }> = options.reportsByDate ?? {
+  const reportsByDate: Record<string, { report: TonightReport; programmeReport?: TonightReport; coverageReport?: CoverageReport }> = options.reportsByDate ?? {
     [options.report.date]: {
       report: options.report,
-      ...(options.programmeReport ? { programmeReport: options.programmeReport } : {})
+      ...(options.programmeReport ? { programmeReport: options.programmeReport } : {}),
+      ...(options.coverageReport ? { coverageReport: options.coverageReport } : {})
     }
   };
   const defaultDate = options.report.date;
@@ -45,7 +48,7 @@ export async function startValidationServer(options: ValidationServerOptions): P
   }
   let writeQueue = Promise.resolve();
 
-  const bundleForDate = (date: string | null | undefined): { report: TonightReport; programmeReport?: TonightReport } => {
+  const bundleForDate = (date: string | null | undefined): { report: TonightReport; programmeReport?: TonightReport; coverageReport?: CoverageReport } => {
     const bundle = reportsByDate[date ?? ""] ?? reportsByDate[defaultDate];
     if (!bundle) throw new Error("Date indisponible.");
     return bundle;
@@ -75,6 +78,7 @@ export async function startValidationServer(options: ValidationServerOptions): P
         return sendJson(response, {
           report: bundle.report,
           programmeReport: bundle.programmeReport ?? null,
+          coverageReport: bundle.coverageReport ?? null,
           validation: validationForDate(selectedDate),
           validationFile: filePaths.get(selectedDate),
           availableDates: Object.keys(reportsByDate).sort()

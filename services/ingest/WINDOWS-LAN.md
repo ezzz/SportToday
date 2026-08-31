@@ -65,3 +65,7 @@ Pour rejouer une date précise pendant un test :
 ```
 
 Le serveur est destiné à un réseau domestique privé. Ne pas ouvrir le port sur un profil **Public**, ne pas le rediriger sur Internet et ne pas placer la clé API dans un fichier commité.
+
+À chaque lancement POC-4, le diagnostic de couverture est également généré
+dans `services\ingest\reports\poc4-coverage-<source>-<date>.json` et visible
+dans le panneau « Exhaustivité et qualité des sources » de la page.

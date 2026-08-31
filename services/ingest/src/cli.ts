@@ -6,6 +6,7 @@ import { loadEventCatalogue } from "./events/catalogue.js";
 import { buildDayReport, writeDayReport } from "./reports/day-filter.js";
 import { buildPoc3SportsDbReport, writePoc3SportsDbReport } from "./reports/poc3-sportsdb.js";
 import { buildPoc4EventReport, writePoc4EventReport } from "./reports/poc4-events.js";
+import { buildCoverageReport, writeCoverageReport, type CoverageReport } from "./reports/coverage.js";
 import { writeReport } from "./reports/report.js";
 import { buildTonightReport, writeTonightReport, type TonightReport } from "./reports/tonight.js";
 import { writeValidationCsv } from "./reports/validation-csv.js";
@@ -41,6 +42,8 @@ if (command === "fetch") {
   await reportPoc4(false);
 } else if (command === "poc4:web") {
   await reportPoc4(true);
+} else if (command === "poc4:coverage") {
+  await reportPoc4Coverage();
 } else {
   printHelp();
 }
@@ -57,11 +60,12 @@ async function reportPoc4(serve: boolean): Promise<void> {
     const bundles = Object.fromEntries(await Promise.all(dates.map(async (selectedDate) => {
       const bundle = await buildPoc4Bundle(database, source, selectedDate, limit, hasFlag("--refresh-events"));
       await writePoc4EventReport(config.reportsRoot, bundle.report);
+      await writeCoverageReport(config.reportsRoot, bundle.coverageReport);
       return [selectedDate, bundle] as const;
     })));
     const bundle = bundles[date];
     if (!bundle) throw new Error(`Rapport POC-4 introuvable pour ${date}.`);
-    const { report, programmeReport } = bundle;
+    const { report, programmeReport, coverageReport } = bundle;
     const filePath = path.join(config.reportsRoot, `poc4-events-${source}-${date}.json`);
     console.log(`POC-4.1 événements — ${source} ${date}`);
     const eventBreakdown = Object.entries(report.eventCounts ?? { football: report.footballEventCount ?? 0, f1: report.f1EventCount ?? 0 })
@@ -71,6 +75,8 @@ async function reportPoc4(serve: boolean): Promise<void> {
     console.log(`  catalogue: ${report.catalogueEventCount} (${eventBreakdown || "aucun sport"})`);
     console.log(`  diffusions retrouvées: ${report.matchedEventCount}`);
     console.log(`  sans diffusion XMLTV: ${report.unmatchedEventCount}`);
+    console.log(`  chaînes prioritaires: ${coverageReport.observedPriorityChannelCount}/${coverageReport.observedPriorityChannelCount + coverageReport.missingPriorityChannelCount + coverageReport.emptyPriorityChannelCount} présentes (${coverageReport.emptyPriorityChannelCount} sans programme)`);
+    console.log(`  couverture événements: ${coverageReport.matchedEventCount}/${coverageReport.expectedEventCount} avec diffusion XMLTV`);
     for (const error of report.eventSourceErrors ?? []) console.log(`  source indisponible: ${error}`);
     console.log(`  report: ${filePath}`);
     for (const item of report.items.slice(0, limit)) {
@@ -81,6 +87,7 @@ async function reportPoc4(serve: boolean): Promise<void> {
       const server = await startValidationServer({
         report,
         programmeReport,
+        coverageReport,
         reportsRoot: config.reportsRoot,
         reportsByDate: bundles,
         host,
@@ -98,6 +105,7 @@ async function reportPoc4(serve: boolean): Promise<void> {
             const refreshed = Object.fromEntries(await Promise.all(dates.map(async (selectedDate) => {
               const refreshedBundle = await buildPoc4Bundle(refreshDatabase, source, selectedDate, limit, true);
               await writePoc4EventReport(config.reportsRoot, refreshedBundle.report);
+              await writeCoverageReport(config.reportsRoot, refreshedBundle.coverageReport);
               return [selectedDate, refreshedBundle] as const;
             })));
             return refreshed;
@@ -119,6 +127,7 @@ async function reportPoc4(serve: boolean): Promise<void> {
 interface Poc4Bundle {
   report: TonightReport;
   programmeReport: TonightReport;
+  coverageReport: CoverageReport;
 }
 
 async function buildPoc4Bundle(
@@ -138,7 +147,27 @@ async function buildPoc4Bundle(
   });
   const report = buildPoc4EventReport(catalogue.events, day, followingDay, limit);
   report.eventSourceErrors = catalogue.sourceErrors;
-  return { report, programmeReport };
+  const coverageReport = buildCoverageReport(catalogue.events, day, report);
+  return { report, programmeReport, coverageReport };
+}
+
+async function reportPoc4Coverage(): Promise<void> {
+  const source = xmltvSourceArgument();
+  const date = argumentValue("--date") ?? todayInTimeZone(config.timeZone);
+  const database = openDatabase(config.sqlitePath);
+  try {
+    const bundle = await buildPoc4Bundle(database, source, date, numericArgument("--limit", 10), hasFlag("--refresh-events"));
+    const filePath = await writeCoverageReport(config.reportsRoot, bundle.coverageReport);
+    console.log(`POC-4.3 couverture — ${source} ${date}`);
+    console.log(`  chaînes source: ${bundle.coverageReport.sourceChannelCount}`);
+    console.log(`  chaînes prioritaires présentes: ${bundle.coverageReport.observedPriorityChannelCount}`);
+    console.log(`  chaînes prioritaires absentes: ${bundle.coverageReport.missingPriorityChannelCount}`);
+    console.log(`  chaînes présentes mais vides: ${bundle.coverageReport.emptyPriorityChannelCount}`);
+    console.log(`  événements avec diffusion: ${bundle.coverageReport.matchedEventCount}/${bundle.coverageReport.expectedEventCount}`);
+    console.log(`  report: ${filePath}`);
+  } finally {
+    database.close();
+  }
 }
 
 async function refreshXmltvSource(database: ReturnType<typeof openDatabase>, source: "xmltvfr" | "xmltvfree"): Promise<void> {
@@ -418,5 +447,6 @@ Usage:
   npm run sportsdb:poc3 -- --source=xmltvfr --date=YYYY-MM-DD --limit=12
   npm run poc4:report -- --source=xmltvfr [--date=YYYY-MM-DD] --limit=10 [--refresh-events]
   npm run poc4:web -- --source=xmltvfr [--date=YYYY-MM-DD] --limit=10 --port=4173 [--host=0.0.0.0] [--refresh-events]
+  npm run poc4:coverage -- --source=xmltvfr [--date=YYYY-MM-DD] [--refresh-events]
 `);
 }

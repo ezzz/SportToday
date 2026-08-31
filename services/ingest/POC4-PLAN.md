@@ -1,6 +1,6 @@
 # POC-4 — synthèse orientée événements
 
-Statut : **POC-4.2 en cours d'implémentation depuis le 26 août 2026**.
+Statut : **POC-4.3A — audit de couverture EPG implémenté, à mesurer sur des journées réelles**.
 
 ## Objectif
 
@@ -179,7 +179,32 @@ API-Sports existante. API-Tennis nécessite une clé distincte. Les connecteurs
 Golf et Diamond League sont explicitement des solutions de POC et devront être
 requalifiés avant une utilisation durable.
 
-### POC-4.3 — décision fournisseurs
+### POC-4.3A — audit de couverture EPG
+
+Cette sous-étape précède la décision de changer de fournisseur. Elle sépare
+les chaînes absentes du flux, les chaînes présentes mais sans programme sur la
+journée, et les événements officiels sans programme XMLTV rattaché.
+
+Le rapport `poc4-coverage-<source>-<date>.json` contient :
+
+- une watchlist de chaînes sportives françaises et les variantes de leurs noms
+  XMLTV ;
+- le nombre de programmes et de candidats sportifs par chaîne ;
+- les chaînes prioritaires alimentées, vides ou absentes du répertoire source ;
+- les événements du catalogue rattachés ou non à une diffusion XMLTV ;
+- les erreurs éventuelles des sources événementielles.
+
+La page web affiche ces indicateurs dans le panneau d'exhaustivité placé sous
+les résultats. La watchlist est un outil de diagnostic et n'encode pas les
+droits de diffusion d'une compétition.
+
+Commande dédiée :
+
+```bash
+npm run poc4:coverage -- --source=xmltvfr --date=YYYY-MM-DD --refresh-events
+```
+
+### POC-4.3B — décision fournisseurs
 
 Comparer couverture, fraîcheur, qualité des horaires et coût. Décider si
 TheSportsDB Premium est nécessaire ou si les sources spécialisées suffisent.

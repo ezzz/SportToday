@@ -61,6 +61,7 @@ npm run sportsdb:fetch -- --date=2026-08-17
 npm run sportsdb:poc3 -- --source=xmltvfr --date=2026-08-21 --limit=8
 npm run poc4:report -- --source=xmltvfr --date=2026-08-23 --limit=10
 npm run poc4:web -- --source=xmltvfr --date=2026-08-23 --limit=10
+npm run poc4:coverage -- --source=xmltvfr --date=2026-08-23 --refresh-events
 ```
 
 Pour utiliser l'interface depuis un téléphone connecté au Wi-Fi d'un PC
@@ -173,6 +174,14 @@ active :
 
 Le serveur écoute uniquement sur `127.0.0.1` par défaut. Le script Windows
 utilise explicitement `0.0.0.0` pour le réseau privé local. `Ctrl+C` l'arrête.
+
+Le POC-4.3A ajoute un audit de couverture des chaînes prioritaires. Chaque
+rapport POC-4 écrit désormais aussi `reports/poc4-coverage-<source>-<date>.json`
+et la page web affiche les chaînes alimentées, présentes mais vides ou
+absentes du répertoire XMLTV, ainsi que les événements officiels sans
+diffusion rattachée. Pour générer uniquement ce diagnostic, utiliser
+`npm run poc4:coverage`. La liste des chaînes est une watchlist de contrôle et
+ne constitue pas une information de droits TV.
 
 `xmltv:fetch` télécharge les flux configurés, conserve chaque snapshot brut
 dans `data/raw/<source>/` et importe les chaînes/programmes dans SQLite.

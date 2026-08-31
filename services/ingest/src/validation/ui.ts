@@ -76,6 +76,23 @@ export function validationHtml(): string {
     .exhaustivity-panel { background:white; border:1px solid #dfe4ec; border-radius:12px; padding:14px; }
     .exhaustivity-panel h2 { font-size:16px; margin:0 0 8px; }
     .bottom-panels .source-warning,.bottom-panels .result-note { margin:0; }
+    .coverage-panel { margin-top:12px; border-top:1px solid #edf0f4; padding-top:12px; }
+    .coverage-metrics { display:flex; flex-wrap:wrap; gap:7px; margin:8px 0 10px; }
+    .coverage-metric { background:#eef1f6; border-radius:8px; padding:6px 9px; font-size:12px; }
+    .coverage-metric strong { font-size:15px; margin-right:4px; }
+    .coverage-table { width:100%; border-collapse:collapse; font-size:12px; }
+    .coverage-table th,.coverage-table td { text-align:left; border-bottom:1px solid #edf0f4; padding:6px 4px; vertical-align:top; }
+    .coverage-table th { color:#637087; font-weight:700; }
+    .coverage-status { border-radius:999px; padding:3px 7px; white-space:nowrap; }
+    .coverage-status[data-status="present"] { background:#dff5e7; color:#176540; }
+    .coverage-status[data-status="present_empty"] { background:#fff3cf; color:#765500; }
+    .coverage-status[data-status="missing"] { background:#fbe8e8; color:#9a3030; }
+    .coverage-events { margin-top:10px; }
+    .coverage-events > summary { cursor:pointer; }
+    .coverage-events ul { margin:8px 0 0; padding-left:20px; }
+    .coverage-events li { margin:4px 0; }
+    .coverage-events li[data-status="unmatched"] { color:#9a3030; }
+    .coverage-muted { color:#637087; }
     .secondary-details { margin-top:9px; }
     .secondary-details > summary { cursor:pointer; }
     @media (max-width:700px) { .card-head { display:block; } .filter-label { width:100%; } .toolbar-actions .spacer { display:none; width:100%; } }
@@ -141,6 +158,15 @@ export function validationHtml(): string {
         <h2>Exhaustivité et qualité des sources</h2>
         <p class="source-warning" id="source-warning" hidden></p>
         <p class="result-note" id="result-note"></p>
+        <section class="coverage-panel" id="coverage-panel" hidden>
+          <h2>Couverture EPG des chaînes prioritaires</h2>
+          <div class="coverage-metrics" id="coverage-metrics"></div>
+          <div id="coverage-table-wrap"></div>
+          <details class="coverage-events">
+            <summary id="coverage-events-summary">Événements de référence non rattachés</summary>
+            <div id="coverage-events-list"></div>
+          </details>
+        </section>
       </section>
     </section>
   </main>
@@ -226,6 +252,7 @@ export function validationHtml(): string {
       document.getElementById('result-note').textContent = eventFirst
         ? (activeCategory==='live' ? 'Direct et à confirmer sont regroupés. Les événements sans diffusion XMLTV restent visibles et sont signalés en jaune.' : visible.length+' événement'+(visible.length>1?'s':'')+' officiel'+(visible.length>1?'s':'')+' dans le catalogue filtré.')
         : hidden>0 ? visible.length+' événements principaux affichés sur '+filtered.length+' · maximum 2 par compétition pour diversifier la sélection.' : '';
+      renderCoverage();
       document.getElementById('cards').innerHTML = visible.length
         ? (eventFirst ? renderEventGroups(visible,report) : visible.map(item=>cardHtml(item,report)).join(''))
         : '<div class="empty">Aucun événement dans ce filtre.</div>';
@@ -237,6 +264,30 @@ export function validationHtml(): string {
       document.querySelector('.toolbar-actions').hidden=!eventFirst;
       document.querySelector('.missing').hidden=!eventFirst;
       document.querySelectorAll('.validation-filter').forEach(button=>button.disabled=!eventFirst);
+    }
+
+    function renderCoverage() {
+      const coverage=state.coverageReport;
+      const panel=document.getElementById('coverage-panel');
+      if (!coverage) { panel.hidden=true; return; }
+      panel.hidden=false;
+      const metrics=[
+        [coverage.sourceChannelCount,'chaînes dans le flux'],
+        [coverage.observedPriorityChannelCount,'prioritaires alimentées'],
+        [coverage.missingPriorityChannelCount,'prioritaires absentes'],
+        [coverage.emptyPriorityChannelCount,'prioritaires vides'],
+        [coverage.matchedEventCount+'/'+coverage.expectedEventCount,'événements rattachés']
+      ];
+      document.getElementById('coverage-metrics').innerHTML=metrics.map(([value,label])=>'<span class="coverage-metric"><strong>'+escapeHtml(value)+'</strong>'+escapeHtml(label)+'</span>').join('');
+      const statusLabel={present:'Programmes trouvés',present_empty:'Chaîne présente · aucun programme',missing:'Chaîne absente du flux'};
+      document.getElementById('coverage-table-wrap').innerHTML='<table class="coverage-table"><thead><tr><th>Chaîne</th><th>Statut</th><th>Programmes</th><th>Sport</th><th>Nom observé</th></tr></thead><tbody>'+coverage.channels.map(channel=>'<tr><td>'+escapeHtml(channel.label)+'</td><td><span class="coverage-status" data-status="'+escapeHtml(channel.status)+'">'+escapeHtml(statusLabel[channel.status])+'</span></td><td>'+channel.programmeCount+'</td><td>'+channel.sportProgrammeCount+'</td><td class="coverage-muted">'+escapeHtml(channel.observedChannelNames.join(', ')||'—')+'</td></tr>').join('')+'</tbody></table>';
+      const unmatched=coverage.events.filter(event=>event.status==='unmatched');
+      document.getElementById('coverage-events-summary').textContent=unmatched.length+' événement'+(unmatched.length>1?'s':'')+' de référence sans diffusion XMLTV';
+      document.getElementById('coverage-events-list').innerHTML=unmatched.length?'<ul>'+unmatched.slice(0,20).map(event=>'<li data-status="unmatched"><strong>'+escapeHtml(event.importance)+' · '+escapeHtml(event.title)+'</strong> <span class="coverage-muted">('+escapeHtml(event.competition)+' · '+escapeHtml(formatCoverageTime(event.startAtUtc))+')</span></li>').join('')+'</ul>':'<p class="coverage-muted">Tous les événements de référence ont au moins une diffusion rattachée.</p>';
+    }
+
+    function formatCoverageTime(value) {
+      return new Intl.DateTimeFormat('fr-FR',{dateStyle:'short',timeStyle:'short',timeZone:state.report.timeZone}).format(new Date(value));
     }
 
     function renderSportFilters() {

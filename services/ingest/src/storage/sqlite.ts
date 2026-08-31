@@ -28,6 +28,7 @@ export async function initializeDatabase(filePath: string): Promise<DatabaseSync
       source_id TEXT NOT NULL,
       display_name TEXT NOT NULL,
       icon_url TEXT,
+      last_seen_at TEXT,
       PRIMARY KEY(source, source_id)
     );
     CREATE TABLE IF NOT EXISTS source_programme (
@@ -47,6 +48,7 @@ export async function initializeDatabase(filePath: string): Promise<DatabaseSync
   `);
   ensureColumn(database, "source_programme", "sub_title", "TEXT");
   ensureColumn(database, "source_programme", "is_previously_shown", "INTEGER NOT NULL DEFAULT 0");
+  ensureColumn(database, "source_channel", "last_seen_at", "TEXT");
   return database;
 }
 
@@ -62,9 +64,9 @@ export function importXmltv(
   insertSnapshot.run(source, snapshot.fetchedAt, snapshot.url, stored.path, stored.sha256);
 
   const insertChannel = database.prepare(`INSERT OR REPLACE INTO source_channel
-    (source, source_id, display_name, icon_url) VALUES (?, ?, ?, ?)`);
+    (source, source_id, display_name, icon_url, last_seen_at) VALUES (?, ?, ?, ?, ?)`);
   for (const channel of parsed.channels) {
-    insertChannel.run(source, channel.sourceId, channel.displayName, channel.iconUrl ?? null);
+    insertChannel.run(source, channel.sourceId, channel.displayName, channel.iconUrl ?? null, snapshot.fetchedAt);
   }
 
   const insertProgramme = database.prepare(`INSERT OR REPLACE INTO source_programme

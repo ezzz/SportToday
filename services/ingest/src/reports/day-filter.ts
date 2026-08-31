@@ -22,6 +22,8 @@ export interface DayReport {
   sportCandidateCount: number;
   sports: Array<{ sport: string; programmeCount: number }>;
   channels: Array<{ channelName: string; programmeCount: number; sportCandidateCount: number }>;
+  /** All channels known to the source, including channels with no programme on this date. */
+  availableChannels?: Array<{ channelSourceId: string; channelName: string }>;
   programmes: DayProgramme[];
 }
 
@@ -54,6 +56,16 @@ export function buildDayReport(
       AND p.start_at < ?
     ORDER BY p.start_at ASC
   `).all(source, windowStart.toISOString(), windowEnd.toISOString()) as Array<Record<string, unknown>>;
+  const channelRows = database.prepare(`
+    SELECT source_id, display_name
+    FROM source_channel
+    WHERE source = ?
+      AND (
+        last_seen_at = (SELECT MAX(last_seen_at) FROM source_channel WHERE source = ?)
+        OR (last_seen_at IS NULL AND (SELECT MAX(last_seen_at) FROM source_channel WHERE source = ?) IS NULL)
+      )
+    ORDER BY display_name ASC
+  `).all(source, source, source) as Array<Record<string, unknown>>;
 
   const programmes = rows.map((row) => {
     const categories = parseCategories(row.categories_json);
@@ -105,6 +117,10 @@ export function buildDayReport(
     channels: [...channelMap.entries()]
       .map(([channelName, counts]) => ({ channelName, ...counts }))
       .sort((left, right) => right.sportCandidateCount - left.sportCandidateCount || left.channelName.localeCompare(right.channelName)),
+    availableChannels: channelRows.map((row) => ({
+      channelSourceId: String(row.source_id ?? ""),
+      channelName: String(row.display_name ?? row.source_id ?? "")
+    })).filter((channel) => channel.channelName),
     programmes
   };
 }
