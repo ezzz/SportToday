@@ -50,19 +50,26 @@ if (command === "fetch") {
 
 async function reportPoc4(serve: boolean): Promise<void> {
   const source = xmltvSourceArgument();
-  const date = argumentValue("--date") ?? todayInTimeZone(config.timeZone);
+  const requestedDate = argumentValue("--date");
+  const date = requestedDate ?? todayInTimeZone(config.timeZone);
   const limit = numericArgument("--limit", 10);
   const port = numericArgument("--port", 4173);
   const host = argumentValue("--host") ?? "127.0.0.1";
+  const refreshHours = numericArgument("--refresh-hours", 6);
   const database = openDatabase(config.sqlitePath);
   try {
-    const dates = serve ? [date, nextDate(date), nextDate(nextDate(date))] : [date];
-    const bundles = Object.fromEntries(await Promise.all(dates.map(async (selectedDate) => {
-      const bundle = await buildPoc4Bundle(database, source, selectedDate, limit, hasFlag("--refresh-events"));
+    const dates = poc4Dates(serve, date);
+    const buildBundles = async (
+      targetDatabase: ReturnType<typeof openDatabase>,
+      targetDates: readonly string[],
+      refreshEvents: boolean
+    ): Promise<Record<string, Poc4Bundle>> => Object.fromEntries(await Promise.all(targetDates.map(async (selectedDate) => {
+      const bundle = await buildPoc4Bundle(targetDatabase, source, selectedDate, limit, refreshEvents);
       await writePoc4EventReport(config.reportsRoot, bundle.report);
       await writeCoverageReport(config.reportsRoot, bundle.coverageReport);
       return [selectedDate, bundle] as const;
     })));
+    const bundles = await buildBundles(database, dates, hasFlag("--refresh-events"));
     const bundle = bundles[date];
     if (!bundle) throw new Error(`Rapport POC-4 introuvable pour ${date}.`);
     const { report, programmeReport, coverageReport } = bundle;
@@ -73,14 +80,16 @@ async function reportPoc4(serve: boolean): Promise<void> {
       .map(([sport, count]) => `${sport}=${count}`)
       .join(", ");
     console.log(`  catalogue: ${report.catalogueEventCount} (${eventBreakdown || "aucun sport"})`);
-    console.log(`  diffusions retrouvées: ${report.matchedEventCount}`);
-    console.log(`  sans diffusion XMLTV: ${report.unmatchedEventCount}`);
+    const rightsEventCount = report.items.filter((item) => item.broadcasts.some((broadcast) => broadcast.provenance === "rights")).length;
+    console.log(`  événements avec diffusion ou plateforme: ${report.matchedEventCount}`);
+    console.log(`  sans diffusion ni plateforme: ${report.unmatchedEventCount}`);
+    if (rightsEventCount > 0) console.log(`  plateformes couvertes par droits: ${rightsEventCount}`);
     console.log(`  chaînes prioritaires: ${coverageReport.observedPriorityChannelCount}/${coverageReport.observedPriorityChannelCount + coverageReport.missingPriorityChannelCount + coverageReport.emptyPriorityChannelCount} présentes (${coverageReport.emptyPriorityChannelCount} sans programme)`);
-    console.log(`  couverture événements: ${coverageReport.matchedEventCount}/${coverageReport.expectedEventCount} avec diffusion XMLTV`);
+    console.log(`  couverture événements: ${coverageReport.matchedEventCount}/${coverageReport.expectedEventCount} avec EPG XMLTV · ${coverageReport.rightsOnlyEventCount} par droits seuls`);
     for (const error of report.eventSourceErrors ?? []) console.log(`  source indisponible: ${error}`);
     console.log(`  report: ${filePath}`);
     for (const item of report.items.slice(0, limit)) {
-      const channels = item.broadcasts.map((broadcast) => `${broadcast.channel} ${broadcast.timeRangeLabel}`).join(" | ");
+      const channels = item.broadcasts.map((broadcast) => `${broadcast.platform ?? broadcast.channel} ${broadcast.timeRangeLabel}`).join(" | ");
       console.log(`  [${item.eventImportance}] ${item.eventTimeLabel} ${item.title} → ${channels || "diffusion non retrouvée"}`);
     }
     if (serve) {
@@ -90,25 +99,23 @@ async function reportPoc4(serve: boolean): Promise<void> {
         coverageReport,
         reportsRoot: config.reportsRoot,
         reportsByDate: bundles,
+        refreshIntervalMs: refreshHours * 3_600_000,
+        log: (message) => console.log(message),
         host,
         port,
         refreshReports: async () => {
           const refreshDatabase = openDatabase(config.sqlitePath);
           try {
             try {
-              await refreshXmltvSource(refreshDatabase, source);
+              await refreshXmltvSource(refreshDatabase, source, (message) => console.log(`[refresh] ${message}`));
             } catch (error) {
               // Keep the last known EPG if a transient provider error occurs;
               // the event catalogues can still be refreshed independently.
-              console.error(`Actualisation XMLTV impossible : ${error instanceof Error ? error.message : String(error)}`);
+              console.error(`[refresh] XMLTV impossible : ${error instanceof Error ? error.message : String(error)}`);
             }
-            const refreshed = Object.fromEntries(await Promise.all(dates.map(async (selectedDate) => {
-              const refreshedBundle = await buildPoc4Bundle(refreshDatabase, source, selectedDate, limit, true);
-              await writePoc4EventReport(config.reportsRoot, refreshedBundle.report);
-              await writeCoverageReport(config.reportsRoot, refreshedBundle.coverageReport);
-              return [selectedDate, refreshedBundle] as const;
-            })));
-            return refreshed;
+            const refreshedDates = poc4Dates(true, requestedDate ?? todayInTimeZone(config.timeZone));
+            console.log(`[refresh] reconstruction des journées ${refreshedDates.join(", ")}…`);
+            return buildBundles(refreshDatabase, refreshedDates, true);
           } finally {
             refreshDatabase.close();
           }
@@ -117,6 +124,7 @@ async function reportPoc4(serve: boolean): Promise<void> {
       console.log(`Validation POC-4.1 disponible sur ${server.url}`);
       console.log(`  dates disponibles: ${dates.join(", ")}`);
       console.log(`  validations: ${server.validationFile}`);
+      console.log(`  actualisation planifiée: ${refreshHours > 0 ? `toutes les ${refreshHours} h` : "désactivée"}`);
       console.log("  Ctrl+C pour arrêter le serveur.");
     }
   } finally {
@@ -163,18 +171,28 @@ async function reportPoc4Coverage(): Promise<void> {
     console.log(`  chaînes prioritaires présentes: ${bundle.coverageReport.observedPriorityChannelCount}`);
     console.log(`  chaînes prioritaires absentes: ${bundle.coverageReport.missingPriorityChannelCount}`);
     console.log(`  chaînes présentes mais vides: ${bundle.coverageReport.emptyPriorityChannelCount}`);
-    console.log(`  événements avec diffusion: ${bundle.coverageReport.matchedEventCount}/${bundle.coverageReport.expectedEventCount}`);
+    console.log(`  événements avec EPG: ${bundle.coverageReport.matchedEventCount}/${bundle.coverageReport.expectedEventCount}`);
+    console.log(`  événements couverts par droits seuls: ${bundle.coverageReport.rightsOnlyEventCount}`);
     console.log(`  report: ${filePath}`);
   } finally {
     database.close();
   }
 }
 
-async function refreshXmltvSource(database: ReturnType<typeof openDatabase>, source: "xmltvfr" | "xmltvfree"): Promise<void> {
+async function refreshXmltvSource(
+  database: ReturnType<typeof openDatabase>,
+  source: "xmltvfr" | "xmltvfree",
+  log?: (message: string) => void
+): Promise<void> {
+  log?.(`téléchargement XMLTV ${source}…`);
   const snapshot = await sourceObject(source).fetch();
+  log?.(`téléchargé (${Math.round(snapshot.body.byteLength / 1_000_000)} Mo), archivage…`);
   const stored = await storeSnapshot(config.dataRoot, snapshot);
+  log?.("analyse du flux…");
   const parsed = await sourceObject(source).parse(snapshot);
+  log?.(`${parsed.channels.length} chaînes et ${parsed.programmes.length} programmes, import…`);
   importXmltv(database, source, snapshot, stored, parsed);
+  log?.("import XMLTV terminé.");
 }
 
 async function reportPoc3SportsDb(): Promise<void> {
@@ -425,6 +443,10 @@ function nextDate(value: string): string {
   return date.toISOString().slice(0, 10);
 }
 
+function poc4Dates(serve: boolean, date: string): string[] {
+  return serve ? [date, nextDate(date)] : [date];
+}
+
 function todayInTimeZone(timeZone: string): string {
   const parts = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
   const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
@@ -446,7 +468,7 @@ Usage:
   npm run sportsdb:fetch -- --date=YYYY-MM-DD
   npm run sportsdb:poc3 -- --source=xmltvfr --date=YYYY-MM-DD --limit=12
   npm run poc4:report -- --source=xmltvfr [--date=YYYY-MM-DD] --limit=10 [--refresh-events]
-  npm run poc4:web -- --source=xmltvfr [--date=YYYY-MM-DD] --limit=10 --port=4173 [--host=0.0.0.0] [--refresh-events]
+  npm run poc4:web -- --source=xmltvfr [--date=YYYY-MM-DD] --limit=10 --port=4173 [--host=0.0.0.0] [--refresh-events] [--refresh-hours=6]
   npm run poc4:coverage -- --source=xmltvfr [--date=YYYY-MM-DD] [--refresh-events]
 `);
 }

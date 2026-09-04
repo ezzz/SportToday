@@ -106,15 +106,17 @@ forcer une nouvelle requête :
 npm run poc4:report -- --source=xmltvfr --date=2026-08-23 --refresh-events
 ```
 
-La page POC-4 propose deux vues : `À la une`, construite depuis le catalogue
-d'événements, et `Tous les programmes TV`, qui conserve la sélection XMLTV
+La page POC-4 propose deux vues : `À voir`, construite depuis le catalogue
+d'événements, et `Agenda TV`, qui conserve la sélection XMLTV
 historique comme contrôle secondaire. En mode web, les boutons `Aujourd'hui`,
-`Demain` et `Après-demain` chargent les trois rapports préparés au lancement.
+`Demain` chargent les deux rapports préparés au lancement.
 
-Dans `À la une`, le filtre `Direct + à confirmer` regroupe volontairement les
-événements sportifs dont le statut de diffusion reste incomplet. Les événements
-officiels sans diffusion XMLTV sont conservés et signalés en jaune ; le filtre
-`Différé` reste séparé pour ne pas les mettre en avant.
+Dans `À voir`, une courte section `À ne pas manquer` met en avant les événements
+les mieux classés avec un diffuseur identifié, puis les résultats sont regroupés
+par sport et compétition sur des lignes compactes. Les plateformes de streaming
+issues d'une règle de droits sont distinctes des chaînes XMLTV. Un événement
+officiel sans chaîne ni plateforme est conservé dans l'agenda avec le libellé
+`Diffuseur non identifié` ; le filtre `Différé` reste séparé.
 
 ## Validation produit « aujourd’hui / ce soir »
 
@@ -140,22 +142,23 @@ reports/tonight-xmltvfr-2026-08-17.json
 ```
 
 La seconde démarre l'interface locale sur `http://127.0.0.1:4173`. La vue
-initiale regroupe les directs confirmés, probables et les événements à confirmer
+initiale regroupe les directs identifiés et les événements à compléter
 de la soirée. Un événement
 commencé avant 20 h reste visible s'il se termine après 20 h. Les filtres donnent
-accès au groupe `Direct + à confirmer`, aux différés, aux émissions, à la journée
+accès au groupe `Direct`, aux différés, aux émissions, à la journée
 complète et à un ou plusieurs sports. Les heures de début et de fin sont
 affichées. Depuis POC-2.1, le statut et le filtre s'appliquent à chaque créneau
 de diffusion : une rediffusion d'une carte mixte n'apparaît plus dans
-`Direct + à confirmer`. La liste des sports est construite à partir des résultats du jour et
+`Direct`. La liste des sports est construite à partir des résultats du jour et
 `Tous les sports` est actif par défaut. `--limit=12`
 limite chaque vue filtrée aux douze résultats les mieux classés, avec au plus
 deux cartes par compétition, et non le nombre total de programmes indexés.
 
-Le bouton `Actualiser` réimporte le flux XMLTV sélectionné puis force le
-rafraîchissement des catalogues d'événements pour les trois dates proposées.
-Les réponses brutes restent archivées sous `data/raw/` et les validations déjà
-effectuées sont conservées quand les identifiants d'événements restent stables.
+Le serveur actualise XMLTV et les catalogues d'événements automatiquement toutes
+les six heures par défaut. Modifier l'intervalle avec `--refresh-hours=12`, ou
+le désactiver avec `--refresh-hours=0`. Les réponses brutes restent archivées
+sous `data/raw/` et les validations déjà effectuées sont conservées quand les
+identifiants d'événements restent stables.
 
 Chaque événement se valide en un clic avec `OK`, `Doute` ou une raison
 d'erreur. Les commentaires sont facultatifs. La sauvegarde est automatique

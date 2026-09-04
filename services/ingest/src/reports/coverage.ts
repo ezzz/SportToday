@@ -16,7 +16,7 @@ export interface CoverageChannelRule {
 export const coverageChannelRules: readonly CoverageChannelRule[] = [
   { id: "canal-foot", label: "Canal+ Foot", priority: 100, aliases: ["canal foot"] },
   { id: "canal-sport", label: "Canal+ Sport", priority: 98, aliases: ["canal sport"] },
-  { id: "canal-sport-360", label: "Canal+ Sport 360", priority: 96, aliases: ["canal sport 360", "canal sport360", "sport 360"] },
+  { id: "canal-sport-360", label: "Canal+ Sport 360", priority: 96, aliases: ["canal sport 360", "canal sport360"] },
   { id: "canal-live", label: "Canal+ Live", priority: 90, aliases: ["canal live"] },
   { id: "bein-sports-1", label: "beIN Sports 1", priority: 95, aliases: ["bein sports 1", "bein 1"] },
   { id: "bein-sports-2", label: "beIN Sports 2", priority: 94, aliases: ["bein sports 2", "bein 2"] },
@@ -35,7 +35,7 @@ export const coverageChannelRules: readonly CoverageChannelRule[] = [
 ] as const;
 
 export type CoverageChannelStatus = "present" | "present_empty" | "missing";
-export type CoverageEventStatus = "matched" | "unmatched";
+export type CoverageEventStatus = "matched" | "rights_only" | "unmatched";
 
 export interface CoverageChannel {
   id: string;
@@ -57,9 +57,10 @@ export interface CoverageEvent {
   importance: SportEvent["importance"];
   startAtUtc: string;
   status: CoverageEventStatus;
-  broadcastCount: number;
+  epgBroadcastCount: number;
+  rightsProviderCount: number;
   channels: string[];
-  reason: "matched" | "no_epg_match";
+  reason: "matched" | "rights_only" | "no_epg_match";
 }
 
 export interface CoverageReport {
@@ -76,6 +77,7 @@ export interface CoverageReport {
   emptyPriorityChannelCount: number;
   expectedEventCount: number;
   matchedEventCount: number;
+  rightsOnlyEventCount: number;
   unmatchedEventCount: number;
   channels: CoverageChannel[];
   events: CoverageEvent[];
@@ -100,7 +102,13 @@ export function buildCoverageReport(
   const eventCoverage = events.map((event): CoverageEvent => {
     const item = reportItems.get(event.id);
     const broadcasts = item?.broadcasts ?? [];
-    const matched = broadcasts.length > 0;
+    const epgBroadcasts = broadcasts.filter((broadcast) => broadcast.provenance !== "rights");
+    const rightsProviders = broadcasts.filter((broadcast) => broadcast.provenance === "rights");
+    const status: CoverageEventStatus = epgBroadcasts.length > 0
+      ? "matched"
+      : rightsProviders.length > 0
+        ? "rights_only"
+        : "unmatched";
     return {
       eventId: event.id,
       title: event.title,
@@ -108,15 +116,17 @@ export function buildCoverageReport(
       competition: event.competition,
       importance: event.importance,
       startAtUtc: event.startAtUtc,
-      status: matched ? "matched" : "unmatched",
-      broadcastCount: broadcasts.length,
-      channels: unique(broadcasts.map((broadcast) => broadcast.channel)),
-      reason: matched ? "matched" : "no_epg_match"
+      status,
+      epgBroadcastCount: epgBroadcasts.length,
+      rightsProviderCount: rightsProviders.length,
+      channels: unique(epgBroadcasts.map((broadcast) => broadcast.channel)),
+      reason: status === "matched" ? "matched" : status === "rights_only" ? "rights_only" : "no_epg_match"
     };
-  }).sort((left, right) => Number(left.status === "matched") - Number(right.status === "matched")
+  }).sort((left, right) => statusOrder(left.status) - statusOrder(right.status)
     || importanceOrder(left.importance) - importanceOrder(right.importance)
     || left.startAtUtc.localeCompare(right.startAtUtc));
   const matchedEventCount = eventCoverage.filter((event) => event.status === "matched").length;
+  const rightsOnlyEventCount = eventCoverage.filter((event) => event.status === "rights_only").length;
 
   return {
     iteration: "poc43",
@@ -132,11 +142,16 @@ export function buildCoverageReport(
     emptyPriorityChannelCount: channels.filter((channel) => channel.status === "present_empty").length,
     expectedEventCount: eventCoverage.length,
     matchedEventCount,
-    unmatchedEventCount: eventCoverage.length - matchedEventCount,
+    rightsOnlyEventCount,
+    unmatchedEventCount: eventCoverage.length - matchedEventCount - rightsOnlyEventCount,
     channels,
     events: eventCoverage,
     eventSourceErrors: eventReport.eventSourceErrors ?? []
   };
+}
+
+function statusOrder(status: CoverageEventStatus): number {
+  return status === "unmatched" ? 0 : status === "rights_only" ? 1 : 2;
 }
 
 export async function writeCoverageReport(reportsRoot: string, report: CoverageReport): Promise<string> {

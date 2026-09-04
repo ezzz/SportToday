@@ -21,8 +21,6 @@ export function validationHtml(): string {
     .primary-row { display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
     .primary-row .filter-row { flex:1 1 280px; min-width:260px; padding:0; }
     .primary-row .filter-label { width:auto; }
-    .refresh-button { white-space:nowrap; background:#172033; color:white; border-color:#172033; }
-    .refresh-button:disabled { opacity:.65; cursor:wait; }
     .advanced-filters { margin-top:12px; border-top:1px solid #edf0f4; padding-top:10px; }
     .advanced-filters > summary { cursor:pointer; color:#50627e; font-size:13px; font-weight:700; }
     .advanced-filters[open] > summary { margin-bottom:4px; }
@@ -36,11 +34,26 @@ export function validationHtml(): string {
     .metric strong { display:block; font-size:22px; }
     .metric span { color:#637087; font-size:13px; }
     .cards { display:grid; gap:14px; }
+    .highlights { display:grid; gap:8px; margin-bottom:8px; }
+    .section-heading { display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin:4px 2px; color:#26334b; }
+    .section-heading h2 { margin:0; font-size:17px; }
+    .section-heading span { color:#637087; font-size:12px; }
+    .sport-group { display:grid; gap:8px; }
+    .sport-heading { display:flex; align-items:baseline; gap:9px; margin:10px 2px 0; color:#26334b; }
+    .sport-heading h2 { margin:0; font-size:18px; }
+    .sport-heading span { color:#637087; font-size:12px; }
     .competition-group { display:grid; gap:8px; }
     .competition-heading { display:flex; align-items:baseline; gap:9px; margin:10px 2px 0; color:#26334b; }
     .competition-heading h2 { margin:0; font-size:17px; }
     .competition-heading span { color:#637087; font-size:12px; }
     .card { background:white; border:1px solid #dfe4ec; border-left:5px solid #9ba7ba; border-radius:12px; padding:16px; }
+    .compact-card { padding:10px 12px; border-left-width:3px; }
+    .compact-card .event-line { gap:8px; }
+    .compact-card h2 { font-size:16px; margin:0; }
+    .compact-card .official-time { margin:0; padding:4px 7px; font-size:13px; }
+    .compact-card .broadcasts { margin:5px 0 0; }
+    .compact-card .broadcast { padding:4px 7px; }
+    .platform { font-weight:700; }
     .card[data-verdict="ok"] { border-left-color:#1d9b5f; }
     .card[data-verdict="doubt"] { border-left-color:#d69a00; }
     .card[data-verdict^="wrong_"],.card[data-verdict="off_topic"],.card[data-verdict="duplicate"] { border-left-color:#cf4b4b; }
@@ -105,20 +118,19 @@ export function validationHtml(): string {
       <div class="primary-row">
         <div class="filter-row view-row" id="view-filters" hidden>
           <span class="filter-label">Vue</span>
-          <button class="view-filter active" data-view="events">À la une</button>
-          <button class="view-filter" data-view="programmes">Tous les programmes TV</button>
+          <button class="view-filter active" data-view="events">À voir</button>
+          <button class="view-filter" data-view="programmes">Agenda TV</button>
         </div>
         <div class="filter-row date-row" id="date-filters">
           <span class="filter-label">Date</span>
           <span id="date-buttons"><button class="date-filter active">Chargement…</button></span>
         </div>
-        <button class="button refresh-button" id="refresh" type="button">↻ Actualiser</button>
       </div>
       <details class="advanced-filters">
         <summary>Filtres supplémentaires et validation</summary>
         <div class="filter-row">
           <span class="filter-label">Programme</span>
-          <button class="category-filter active" data-category="live">● Direct + à confirmer</button>
+          <button class="category-filter active" data-category="live">● Direct</button>
           <button class="category-filter" data-category="delayed">Différé</button>
           <button class="category-filter" data-category="editorial">Émission</button>
           <button class="category-filter" data-category="all">Tous</button>
@@ -204,24 +216,23 @@ export function validationHtml(): string {
 
     async function load() { await loadDate(); }
 
-    async function refreshReports() {
-      const button=document.getElementById('refresh');
-      if (button) { button.disabled=true; button.textContent='Actualisation…'; }
-      setSaving();
-      try {
-        const selectedDate=state?.report?.date||'';
-        const response=await fetch('/api/refresh',{method:'POST'});
-        if (!response.ok) throw new Error('Impossible d’actualiser les données.');
-        await loadDate(selectedDate);
-      } finally {
-        if (button) { button.disabled=false; button.textContent='↻ Actualiser'; }
-      }
+    async function checkForUpdatedReport() {
+      if (!state || document.activeElement?.matches('textarea')) return;
+      const response = await fetch('/api/report?date='+encodeURIComponent(state.report.date));
+      if (!response.ok) return;
+      const next = await response.json();
+      if (next.report.generatedAt === state.report.generatedAt) return;
+      state = next;
+      document.getElementById('missing-event').value = state.validation.missingEventNote || '';
+      renderDateFilters();
+      renderSportFilters();
+      render();
     }
 
     function renderDateFilters() {
       const dates = state.availableDates || [state.report.date];
       const selected = state.report.date;
-      const labels = ['Aujourd’hui','Demain','Après-demain'];
+      const labels = ['Aujourd’hui','Demain'];
       const buttons = dates.map((date,index) => '<button class="date-filter '+(date===selected?'active':'')+'" data-date="'+escapeHtml(date)+'">'+(labels[index]||escapeHtml(date))+' <small>'+escapeHtml(formatShortDate(date))+'</small></button>');
       document.getElementById('date-buttons').innerHTML = buttons.join('');
     }
@@ -241,7 +252,7 @@ export function validationHtml(): string {
       const filtered = eventFirst ? matching.filter(item => { const v=validationFor(item.id).verdict; return activeValidation==='all'||activeValidation===v||(activeValidation==='issues'&&issue(v)); }) : matching;
       const visible = eventFirst ? filtered : diversifiedSelection(filtered,report.limit);
       const summary=eventFirst
-        ? [['Compétitions',new Set(matching.map(item=>item.competition||'Autre')).size],['Événements',matching.length],['Catalogue',report.catalogueEventCount??matching.length],['Diffusion trouvée',matching.filter(item=>item.broadcasts.length).length],['Sans diffusion',matching.filter(item=>!item.broadcasts.length).length],['À valider',stats.pending],['Validés OK',stats.ok],['Doutes / erreurs',stats.issues]]
+        ? [['Compétitions',new Set(matching.map(item=>item.competition||'Autre')).size],['Événements',matching.length],['Catalogue',report.catalogueEventCount??matching.length],['Chaîne ou plateforme',matching.filter(item=>item.broadcasts.length).length],['Sans diffuseur',matching.filter(item=>!item.broadcasts.length).length],['À valider',stats.pending],['Validés OK',stats.ok],['Doutes / erreurs',stats.issues]]
         : [['Programmes regroupés',matching.length],['Affichés',visible.length]];
       document.getElementById('summary').innerHTML = summary.map(([label,value]) => '<div class="metric"><strong>'+value+'</strong><span>'+label+'</span></div>').join('');
       const sourceErrors=eventFirst?(report.eventSourceErrors||[]):[];
@@ -250,11 +261,11 @@ export function validationHtml(): string {
       sourceWarning.textContent=sourceErrors.length?'Source incomplète · '+sourceErrors.join(' · '):'';
       const hidden=filtered.length-visible.length;
       document.getElementById('result-note').textContent = eventFirst
-        ? (activeCategory==='live' ? 'Direct et à confirmer sont regroupés. Les événements sans diffusion XMLTV restent visibles et sont signalés en jaune.' : visible.length+' événement'+(visible.length>1?'s':'')+' officiel'+(visible.length>1?'s':'')+' dans le catalogue filtré.')
+        ? (activeCategory==='live' ? 'Les événements officiels avec une chaîne ou une plateforme identifiée sont mis en avant. Les autres restent visibles dans l’agenda.' : visible.length+' événement'+(visible.length>1?'s':'')+' officiel'+(visible.length>1?'s':'')+' dans le catalogue filtré.')
         : hidden>0 ? visible.length+' événements principaux affichés sur '+filtered.length+' · maximum 2 par compétition pour diversifier la sélection.' : '';
       renderCoverage();
       document.getElementById('cards').innerHTML = visible.length
-        ? (eventFirst ? renderEventGroups(visible,report) : visible.map(item=>cardHtml(item,report)).join(''))
+        ? (eventFirst ? renderEventSelection(visible,report) : visible.map(item=>cardHtml(item,report)).join(''))
         : '<div class="empty">Aucun événement dans ce filtre.</div>';
       const selectedSports = [...activeSports].sort().map(encodeURIComponent).join('%2C');
       const query = '?category='+encodeURIComponent(activeCategory)+'&period='+encodeURIComponent(activePeriod)+(selectedSports?'&sports='+selectedSports:'');
@@ -276,13 +287,16 @@ export function validationHtml(): string {
         [coverage.observedPriorityChannelCount,'prioritaires alimentées'],
         [coverage.missingPriorityChannelCount,'prioritaires absentes'],
         [coverage.emptyPriorityChannelCount,'prioritaires vides'],
+        [coverage.rightsOnlyEventCount||0,'événements couverts par droits'],
         [coverage.matchedEventCount+'/'+coverage.expectedEventCount,'événements rattachés']
       ];
       document.getElementById('coverage-metrics').innerHTML=metrics.map(([value,label])=>'<span class="coverage-metric"><strong>'+escapeHtml(value)+'</strong>'+escapeHtml(label)+'</span>').join('');
       const statusLabel={present:'Programmes trouvés',present_empty:'Chaîne présente · aucun programme',missing:'Chaîne absente du flux'};
       document.getElementById('coverage-table-wrap').innerHTML='<table class="coverage-table"><thead><tr><th>Chaîne</th><th>Statut</th><th>Programmes</th><th>Sport</th><th>Nom observé</th></tr></thead><tbody>'+coverage.channels.map(channel=>'<tr><td>'+escapeHtml(channel.label)+'</td><td><span class="coverage-status" data-status="'+escapeHtml(channel.status)+'">'+escapeHtml(statusLabel[channel.status])+'</span></td><td>'+channel.programmeCount+'</td><td>'+channel.sportProgrammeCount+'</td><td class="coverage-muted">'+escapeHtml(channel.observedChannelNames.join(', ')||'—')+'</td></tr>').join('')+'</tbody></table>';
       const unmatched=coverage.events.filter(event=>event.status==='unmatched');
-      document.getElementById('coverage-events-summary').textContent=unmatched.length+' événement'+(unmatched.length>1?'s':'')+' de référence sans diffusion XMLTV';
+      const rightsOnly=coverage.events.filter(event=>event.status==='rights_only');
+      const noEpg=unmatched.length+rightsOnly.length;
+      document.getElementById('coverage-events-summary').textContent=noEpg+' événement'+(noEpg>1?'s':'')+' sans EPG'+(rightsOnly.length?' · '+rightsOnly.length+' couvert'+(rightsOnly.length>1?'s':'')+' par les droits':'')+(unmatched.length?' · '+unmatched.length+' sans diffuseur':'');
       document.getElementById('coverage-events-list').innerHTML=unmatched.length?'<ul>'+unmatched.slice(0,20).map(event=>'<li data-status="unmatched"><strong>'+escapeHtml(event.importance)+' · '+escapeHtml(event.title)+'</strong> <span class="coverage-muted">('+escapeHtml(event.competition)+' · '+escapeHtml(formatCoverageTime(event.startAtUtc))+')</span></li>').join('')+'</ul>':'<p class="coverage-muted">Tous les événements de référence ont au moins une diffusion rattachée.</p>';
     }
 
@@ -352,42 +366,57 @@ export function validationHtml(): string {
       return selected;
     }
 
+    function renderEventSelection(items,report) {
+      const ranked=items.filter(item=>item.broadcasts.length>0).sort((left,right)=>right.score-left.score||firstItemStart(left).localeCompare(firstItemStart(right)));
+      const highlights=ranked.slice(0,3);
+      const highlightIds=new Set(highlights.map(item=>item.id));
+      const highlightHtml=highlights.length?'<section class="highlights"><div class="section-heading"><h2>À ne pas manquer</h2><span>'+highlights.length+' sélection'+(highlights.length>1?'s':'')+'</span></div>'+highlights.map(item=>cardHtml(item,report,true,true)).join('')+'</section>':'';
+      const rest=items.filter(item=>!highlightIds.has(item.id));
+      return highlightHtml+renderEventGroups(rest,report);
+    }
+
     function renderEventGroups(items,report) {
-      const groups=new Map();
+      const sports=new Map();
       for (const item of items) {
-        const key=(item.competition||'Compétition non précisée').trim();
-        if (!groups.has(key)) groups.set(key,[]);
-        groups.get(key).push(item);
+        const sportKey=item.sport||'autre';
+        const competition=(item.competition||'Compétition non précisée').trim();
+        if (!sports.has(sportKey)) sports.set(sportKey,new Map());
+        const competitions=sports.get(sportKey);
+        if (!competitions.has(competition)) competitions.set(competition,[]);
+        competitions.get(competition).push(item);
       }
-      return [...groups.entries()].sort((left,right)=>{
-        const leftScore=Math.max(...left[1].map(item=>item.score));
-        const rightScore=Math.max(...right[1].map(item=>item.score));
-        return rightScore-leftScore||left[0].localeCompare(right[0],'fr');
-      }).map(([competition,group])=>{
-        const sport=group[0]?.sport ? sportLabel(group[0].sport)+' - ' : '';
-        return '<section class="competition-group"><div class="competition-heading"><h2>'+escapeHtml(sport+competition)+'</h2><span>'+group.length+' événement'+(group.length>1?'s':'')+'</span></div>'+group.map(item=>cardHtml(item,report)).join('')+'</section>';
+      return [...sports.entries()].sort((left,right)=>Math.max(...[...left[1].values()].flat().map(item=>item.score))-Math.max(...[...right[1].values()].flat().map(item=>item.score))||sportLabel(left[0]).localeCompare(sportLabel(right[0]),'fr')).map(([sport,competitions])=>{
+        const total=[...competitions.values()].flat().length;
+        const competitionHtml=[...competitions.entries()].sort((left,right)=>Math.max(...left[1].map(item=>item.score))-Math.max(...right[1].map(item=>item.score))||left[0].localeCompare(right[0],'fr')).map(([competition,group])=>'<section class="competition-group"><div class="competition-heading"><h2>'+escapeHtml(competition)+'</h2><span>'+group.length+' match'+(group.length>1?'s':'')+'</span></div>'+group.sort((left,right)=>firstItemStart(left).localeCompare(firstItemStart(right))||right.score-left.score).map(item=>cardHtml(item,report,true)).join('')+'</section>').join('');
+        return '<section class="sport-group"><div class="sport-heading"><h2>'+escapeHtml(sportLabel(sport))+'</h2><span>'+total+' événement'+(total>1?'s':'')+'</span></div>'+competitionHtml+'</section>';
       }).join('');
     }
 
-    function cardHtml(item,report) {
+    function firstItemStart(item) {
+      return item.eventStartAtUtc||item.broadcasts[0]?.startAtUtc||'';
+    }
+
+    function cardHtml(item,report,compact=false,highlight=false) {
       const validation = validationFor(item.id);
       const eventFirst=report.viewMode==='event-first';
-      const liveLabels={confirmed:'Direct confirmé',probable:'Direct probable',unknown:'Statut à confirmer',delayed:'Différé détecté'};
+      const liveLabels={confirmed:'Direct',probable:'Direct',unknown:'Diffusion à identifier',delayed:'Replay'};
       const visibleStatuses=[...new Set(item.broadcasts.map(b=>b.liveStatus))];
       const category=eventFirst?'Événement sportif':item.contentCategory==='Emission'?'Emission':visibleStatuses.some(status=>status==='confirmed'||status==='probable')?'Sport Live':visibleStatuses.length&&visibleStatuses.every(status=>status==='delayed')?'Sport différé':'À confirmer';
       const statusBadge=visibleStatuses.length>1?'Statuts mixtes':liveLabels[visibleStatuses[0]];
-      const badges = [item.sport,item.competition,item.participants,eventFirst&&item.eventImportance?'Priorité '+item.eventImportance:'',category,statusBadge,item.titleQuality==='unclear'?'Intitulé peu précis':''].filter(Boolean);
+      const rights = item.broadcasts.filter(b=>b.provenance==='rights');
+      const badges = [item.sport,item.competition,item.participants,eventFirst&&item.eventImportance?'Priorité '+item.eventImportance:'',category,statusBadge,rights.length?'Droits officiels':'',item.titleQuality==='unclear'?'Intitulé peu précis':''].filter(Boolean);
       const buttons = verdicts.map(([value,label]) => '<button data-action="verdict" data-id="'+item.id+'" data-value="'+value+'" class="'+(validation.verdict===value?'selected':'')+'">'+label+'</button>').join('');
       const official=eventFirst?'<span class="official-time"><strong>'+escapeHtml(item.eventTimeLabel)+'</strong></span>':'';
-      const broadcasts=item.broadcasts.length?'<div class="broadcasts">'+item.broadcasts.map(b=>'<span class="broadcast" data-tone="'+broadcastTone(b)+'" data-live="'+escapeHtml(b.liveStatus)+'" data-aligned="'+(b.liveStatus==='confirmed'||(b.liveStatus==='probable'&&b.broadcastAlignedToEvent)?'true':'false')+'"><strong>'+escapeHtml(b.timeRangeLabel||b.timeLabel)+'</strong> · '+escapeHtml(b.channel)+'</span>').join('')+'</div>':'<div class="unmatched">Diffusion française non retrouvée dans XMLTV pour le moment.</div>';
+      const displayTitle=highlight&&eventFirst?sportLabel(item.sport)+' · '+item.competition+' — '+item.title:item.title;
+      const broadcasts=item.broadcasts.length?'<div class="broadcasts">'+item.broadcasts.map(b=>'<span class="broadcast" data-tone="'+broadcastTone(b)+'" data-live="'+escapeHtml(b.liveStatus)+'" data-aligned="'+(b.liveStatus==='confirmed'||(b.liveStatus==='probable'&&b.broadcastAlignedToEvent)?'true':'false')+'"><strong>'+escapeHtml(b.timeRangeLabel||b.timeLabel)+'</strong> · '+(b.platform?'<span class="platform">'+escapeHtml(b.platform)+'</span>':escapeHtml(b.channel))+'</span>').join('')+'</div>':'<div class="unmatched">Diffuseur non identifié</div>';
       const details = '<details class="secondary-details"><summary>'+(eventFirst?'Détails et validation ponctuelle':'Détails du programme')+'</summary>'+
         '<div class="badges">'+badges.map(value=>'<span class="badge">'+escapeHtml(value)+'</span>').join('')+'</div>'+
         (item.description?'<p class="description">'+escapeHtml(item.description)+'</p>':'')+
         '<p><strong>Pourquoi ?</strong> Score '+item.score+' · '+escapeHtml(item.selectionReasons.join(' · '))+'</p>'+
         (eventFirst?'<div class="validation"><div class="verdicts">'+buttons+'</div><textarea data-action="note" data-id="'+item.id+'" placeholder="Commentaire facultatif">'+escapeHtml(validation.note)+'</textarea></div>':'')+
         '</details>';
-      return '<article class="card" data-verdict="'+validation.verdict+'">'+
-        '<div class="card-head"><div class="card-main"><div class="event-line">'+official+'<h2>'+escapeHtml(item.title)+'</h2></div>'+
+      return '<article class="card '+(compact?'compact-card':'')+'" data-verdict="'+validation.verdict+'">'+
+        '<div class="card-head"><div class="card-main"><div class="event-line">'+official+'<h2>'+escapeHtml(displayTitle)+'</h2></div>'+
         broadcasts+
         details+'</div></div></article>';
     }
@@ -409,8 +438,6 @@ export function validationHtml(): string {
     }
 
     document.addEventListener('click', event => {
-      const refresh = event.target.closest('#refresh');
-      if (refresh) { refreshReports().catch(showError); return; }
       const date = event.target.closest('.date-filter');
       if (date && date.dataset.date) { loadDate(date.dataset.date).catch(showError); return; }
       const view = event.target.closest('.view-filter');
@@ -447,7 +474,9 @@ export function validationHtml(): string {
     function setSaving(){document.getElementById('save-state').textContent='Sauvegarde…';}
     function setSaved(){document.getElementById('save-state').textContent=state.validation.updatedAt?'Sauvegardé automatiquement':'Prêt à valider';}
     function showError(error){document.getElementById('save-state').textContent='Erreur de sauvegarde';console.error(error);}
-    load().catch(error => { showError(error); document.getElementById('cards').innerHTML='<div class="empty">'+escapeHtml(error.message)+'</div>'; });
+    load().then(() => {
+      setInterval(() => { void checkForUpdatedReport(); }, 300_000);
+    }).catch(error => { showError(error); document.getElementById('cards').innerHTML='<div class="empty">'+escapeHtml(error.message)+'</div>'; });
   </script>
 </body>
 </html>`;

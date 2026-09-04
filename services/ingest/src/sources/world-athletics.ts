@@ -42,7 +42,10 @@ export function parseWorldAthleticsEvents(payload: unknown, date: string): Sport
       stage: stringValue(entry.disciplines) || "Athlétisme",
       participants: [],
       startAtUtc,
-      ...(endDate && endDate !== startDate ? { endAtUtc: dateTimeOrNoon(endDate, date) } : {}),
+      // A calendar-only date means "the meeting happens that day", not 14:00.
+      // Keep a concrete instant for sorting/matching but don't expose it as an
+      // official schedule slot (timeConfidence remains estimated).
+      ...(endDate && endDate !== startDate && startDate.includes("T") && endDate.includes("T") ? { endAtUtc: dateTimeOrNoon(endDate, date) } : {}),
       timeConfidence: startDate.includes("T") ? "confirmed" as const : "estimated" as const,
       status: "scheduled",
       importance: priority.importance,
@@ -50,8 +53,22 @@ export function parseWorldAthleticsEvents(payload: unknown, date: string): Sport
       priorityReasons: priority.reasons
     } satisfies SportEvent;
   });
-  return [...new Map(events.map((event) => [event.id, event])).values()]
+  const uniqueEvents = new Map<string, SportEvent>();
+  for (const event of events) {
+    const identity = calendarIdentity(event);
+    // Preserve the first source id so prior validation notes remain attached.
+    if (!uniqueEvents.has(identity)) uniqueEvents.set(identity, event);
+  }
+  return [...uniqueEvents.values()]
     .sort((left, right) => right.priorityScore - left.priorityScore || left.startAtUtc.localeCompare(right.startAtUtc));
+}
+
+function calendarIdentity(event: SportEvent): string {
+  return `${normalize(event.title)}:${event.startAtUtc.slice(0, 10)}:${event.endAtUtc?.slice(0, 10) ?? ""}`;
+}
+
+function normalize(value: string): string {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/gu, "").toLocaleLowerCase("fr-FR").replace(/[^a-z0-9]+/gu, " ").trim();
 }
 
 function extractNextData(payload: unknown): unknown {

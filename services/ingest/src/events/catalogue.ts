@@ -100,6 +100,7 @@ export async function loadEventCatalogue(date: string, options: EventCatalogueOp
   const sourceErrors = [
     ...(footballResult.status === "rejected" ? [`API-Football : ${errorMessage(footballResult.reason)}`] : []),
     ...(volleyballResult.status === "rejected" ? [`API-Volleyball : ${errorMessage(volleyballResult.reason)}`] : []),
+    ...(!tennisEnabled ? ["API-Tennis : non configurée (événements Tennis indisponibles)."] : []),
     ...(tennisResult.status === "rejected" ? [`API-Tennis : ${errorMessage(tennisResult.reason)}`] : []),
     ...(golfResult.status === "rejected" ? [`ESPN Golf : ${errorMessage(golfResult.reason)}`] : []),
     ...(athleticsResult.status === "rejected" ? [`World Athletics : ${errorMessage(athleticsResult.reason)}`] : []),

@@ -59,10 +59,11 @@ manuelle `isSport` reste vide jusqu'à ta validation.
 ## Sélection produit « aujourd’hui / ce soir »
 
 Le rapport couvre désormais toute la journée jusqu'à 00 h 30, regroupe les
-diffusions similaires et classe les principaux événements. Depuis POC-2,
-l'interface démarre sur `Direct + à confirmer` en soirée : les informations
-incomplètes restent visibles sans être séparées du direct. Le filtre soirée
-utilise la plage début-fin : un événement déjà
+diffusions similaires et classe les principaux événements. Depuis POC-4,
+l'interface démarre sur la vue événementielle `À voir`, avec le filtre `Direct`
+en soirée : les événements disposant d'une chaîne ou d'une plateforme sont
+mis en avant, tandis que les événements sans diffuseur restent visibles dans
+l'agenda. Le filtre soirée utilise la plage début-fin : un événement déjà
 commencé mais encore en cours à 20 h est conservé.
 
 Les chaînes obsolètes ou génériques identifiées sont mises en quarantaine et
@@ -103,14 +104,21 @@ rediffusion ultérieure sont écartés des diffusions directes retenues.
 La verticale Football est maintenant testée avec la clé API-Football réelle.
 Sur le `2026-08-24`, le catalogue retourne 5 matchs suivis : 1 Premier League,
 2 de La Liga et 2 de Serie A. XMLTVFr rattache les 2 diffusions de Fulham /
-Chelsea ; les 4 autres événements restent visibles et signalés comme sans
-diffusion. La vue principale les regroupe par compétition afin de contrôler la
-complétude sans multiplier les modes de validation.
+Chelsea ; les autres événements restent visibles et signalés comme sans
+diffusion EPG. Les droits officiels configurés pour le POC ajoutent DAZN et
+Disney+ pour LaLiga, et DAZN pour la Serie A, lorsque l'EPG ne fournit pas de
+chaîne linéaire. La vue principale les regroupe par sport puis compétition afin
+de contrôler la complétude sans multiplier les modes de validation.
 
-Le site POC4 prépare également trois dates au démarrage — aujourd'hui, demain
-et après-demain — avec un fichier de validation JSON distinct par date. La
+Le site POC4 prépare également deux dates au démarrage — aujourd'hui et demain
+— avec un fichier de validation JSON distinct par date. La
 procédure de déploiement sur un PC Windows du réseau domestique est décrite
 dans [`WINDOWS-LAN.md`](./WINDOWS-LAN.md).
+
+Depuis POC-4.3B, le serveur réimporte XMLTV et reconstruit les catalogues toutes
+les six heures par défaut. La fréquence est configurable et les étapes
+téléchargement, analyse, import et reconstruction sont écrites dans les logs ;
+aucune actualisation lourde n'est déclenchée depuis le navigateur.
 
 Sur le programme du `2026-08-17`, la première sélection POC-1 faisait notamment
 ressortir :

@@ -4,6 +4,8 @@ param(
   [switch]$AllowFirewall,
   [switch]$RefreshEvents,
   [switch]$FetchEpg,
+  [ValidateRange(0, 168)]
+  [int]$RefreshHours = 6,
   [ValidateSet("xmltvfr", "xmltvfree")]
   [string]$Source = "xmltvfr",
   [string]$Date = "",
@@ -67,12 +69,12 @@ try {
 
   $sqlitePath = Join-Path $ingestRoot "data\sporttoday.sqlite"
   if ($FetchEpg -or -not (Test-Path $sqlitePath)) {
-    Write-Host "Base SQLite absente ou actualisation demandée : récupération XMLTVFr..."
-    & npm.cmd run xmltv:fetch -- --source=xmltvfr
-    if ($LASTEXITCODE -ne 0) { throw "La récupération XMLTVFr a échoué." }
+    Write-Host "Base SQLite absente ou actualisation demandée : récupération $Source..."
+    & npm.cmd run xmltv:fetch -- --source=$Source
+    if ($LASTEXITCODE -ne 0) { throw "La récupération $Source a échoué." }
   }
 
-  $arguments = @("dist/cli.js", "poc4:web", "--source=$Source", "--limit=10", "--port=$Port", "--host=0.0.0.0")
+  $arguments = @("dist/cli.js", "poc4:web", "--source=$Source", "--limit=10", "--port=$Port", "--host=0.0.0.0", "--refresh-hours=$RefreshHours")
   if ($Date) { $arguments += "--date=$Date" }
   if ($RefreshEvents) { $arguments += "--refresh-events" }
 

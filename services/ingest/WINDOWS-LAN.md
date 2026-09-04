@@ -1,6 +1,6 @@
 # Utiliser SportToday depuis un téléphone sur le Wi-Fi local
 
-Le script prévu pour un PC Windows est [`scripts/run-poc4-windows.ps1`](../../scripts/run-poc4-windows.ps1). Il installe les dépendances, récupère automatiquement XMLTVFr au premier lancement si la base SQLite n'existe pas, compile le site, prépare les trois dates (aujourd'hui, demain et après-demain) et écoute sur le réseau local. XMLTVFr est utilisé par défaut ; XMLTVFREE peut être demandé avec `-Source xmltvfree` pour un test séparé.
+Le script prévu pour un PC Windows est [`scripts/run-poc4-windows.ps1`](../../scripts/run-poc4-windows.ps1). Il installe les dépendances, récupère automatiquement la source sélectionnée au premier lancement si la base SQLite n'existe pas, compile le site, prépare aujourd'hui et demain et écoute sur le réseau local. XMLTVFr est utilisé par défaut ; XMLTVFREE peut être demandé avec `-Source xmltvfree` pour un test séparé. Une actualisation planifiée toutes les six heures est active par défaut.
 
 ## Installation initiale
 
@@ -43,9 +43,18 @@ Pour actualiser XMLTV à chaque relance, ajouter `-FetchEpg` :
 .\scripts\run-poc4-windows.ps1 -FetchEpg -AllowFirewall
 ```
 
+Pour changer la fréquence de l'actualisation automatique (par exemple toutes les
+quatre heures) :
+
+```powershell
+.\scripts\run-poc4-windows.ps1 -RefreshHours 4 -AllowFirewall
+```
+
+Utiliser `-RefreshHours 0` pour la désactiver.
+
 ## Utilisation depuis le téléphone
 
-Le script affiche une adresse du type `http://192.168.1.25:4173`. Connecter le téléphone au même Wi-Fi, ouvrir cette adresse dans son navigateur, puis choisir la date souhaitée dans le bouton **Aujourd'hui / Demain / Après-demain**.
+Le script affiche une adresse du type `http://192.168.1.25:4173`. Connecter le téléphone au même Wi-Fi, ouvrir cette adresse dans son navigateur, puis choisir la date souhaitée dans le bouton **Aujourd'hui / Demain**.
 
 Les validations et commentaires sont enregistrés séparément par date dans `services\ingest\reports\`. Pour arrêter le site, revenir à la fenêtre PowerShell et faire `Ctrl+C`.
 

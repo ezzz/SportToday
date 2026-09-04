@@ -65,7 +65,44 @@ test("rattache la prise d'antenne XMLTV à l'événement officiel", () => {
   assert.equal(item?.eventTimeLabel, "21:00");
   assert.equal(item?.broadcasts.length, 1);
   assert.equal(item?.broadcasts[0]?.liveStatus, "probable");
+  assert.equal(item?.broadcasts[0]?.broadcastAlignedToEvent, true);
   assert.equal(item?.broadcastMatchConfidence, "high");
+});
+
+test("ne classe pas un direct comme replay à cause d'un contexte historique", () => {
+  const event = parseApiFootballEvents({ errors: [], response: [
+    fixture(104, 39, "Premier League", "Regular Season", "Ipswich", "Liverpool")
+  ] })[0]!;
+  const programme = dayProgramme("Ipswich / Liverpool", "2026-08-23T18:55:00.000Z", "2026-08-23T21:00:00.000Z", "Canal+ Foot", ["football"]);
+  programme.description = "Les deux équipes se retrouvent après leur saison dernière.";
+
+  const report = buildPoc4EventReport([event], dayReport("2026-08-23", [programme]));
+
+  assert.equal(report.items[0]?.broadcasts[0]?.liveStatus, "probable");
+});
+
+test("rattache un programme de football générique seulement quand le créneau ne contient qu'un match", () => {
+  const event = parseApiFootballEvents({ errors: [], response: [
+    fixture(105, 78, "Bundesliga", "Regular Season", "Stuttgart", "Koln")
+  ] })[0]!;
+  const programme = dayProgramme("Football : Bundesliga", "2026-08-23T18:50:00.000Z", "2026-08-23T21:00:00.000Z", "beIN SPORTS MAX 9", ["football"]);
+
+  const report = buildPoc4EventReport([event], dayReport("2026-08-23", [programme]));
+
+  assert.equal(report.items[0]?.broadcasts[0]?.channel, "beIN SPORTS MAX 9");
+  assert.equal(report.items[0]?.broadcastMatchConfidence, "medium");
+});
+
+test("ajoute une plateforme de droits quand l'EPG linéaire est absent", () => {
+  const event = parseApiFootballEvents({ errors: [], response: [
+    fixture(103, 140, "La Liga", "Regular Season", "Barcelona", "Rayo Vallecano")
+  ] })[0]!;
+  const report = buildPoc4EventReport([event], dayReport("2026-08-23", []));
+  const item = report.items[0];
+
+  assert.deepEqual(item?.broadcasts.map((broadcast) => broadcast.platform), ["DAZN", "Disney+"]);
+  assert.deepEqual(item?.broadcasts.map((broadcast) => broadcast.provenance), ["rights", "rights"]);
+  assert.deepEqual(item?.broadcasts.map((broadcast) => broadcast.liveStatus), ["confirmed", "confirmed"]);
 });
 
 test("écarte l'avant-course terminé au départ et un magazine sur un autre Grand Prix", () => {
@@ -103,6 +140,13 @@ test("parse les références Volleyball, Tennis, Golf et Diamond League", () => 
   assert.equal(golf[0]?.sport, "golf");
   assert.equal(athletics[0]?.competition, "Diamond League");
   assert.equal(athletics[0]?.timeConfidence, "estimated");
+});
+
+test("déduplique un meeting World Athletics présent plusieurs fois dans le calendrier", () => {
+  const athletics = parseWorldAthleticsEvents('<script id="__NEXT_DATA__">{"events":[{"id":"first","name":"Diamond League Brussels","startDate":"2026-08-26","endDate":"2026-08-27","disciplines":"Track and Field"},{"id":"second","name":"Diamond League Brussels","startDate":"2026-08-26","endDate":"2026-08-27","disciplines":"Track and Field"}]}</script>', "2026-08-26");
+  assert.equal(athletics.length, 1);
+  assert.equal(athletics[0]?.sourceEventId, "first");
+  assert.equal(athletics[0]?.endAtUtc, undefined);
 });
 
 test("agrège les sources événementielles disponibles dans le catalogue", async () => {

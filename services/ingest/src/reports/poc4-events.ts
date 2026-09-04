@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import type { SportEvent } from "../events/model.js";
+import { rightsForEvent, type EventRightsProvider } from "../events/rights.js";
 import { autoAnnotate, type LiveStatus } from "./auto-annotation.js";
 import type { DayProgramme, DayReport } from "./day-filter.js";
 import { isQuarantinedProgramme, type TonightBroadcast, type TonightItem, type TonightReport } from "./tonight.js";
@@ -17,7 +18,7 @@ export function buildPoc4EventReport(
   const programmes = [...report.programmes, ...(followingReport?.programmes ?? [])]
     .filter((programme) => !isQuarantinedProgramme(programme));
   const items = events
-    .map((event) => eventItem(event, programmes, report.timeZone))
+    .map((event) => eventItem(event, events, programmes, report.timeZone))
     .sort((left, right) => right.score - left.score
       || (left.eventStartAtUtc ?? "").localeCompare(right.eventStartAtUtc ?? "")
       || left.title.localeCompare(right.title, "fr"));
@@ -60,17 +61,20 @@ export async function writePoc4EventReport(reportsRoot: string, report: TonightR
   return filePath;
 }
 
-function eventItem(event: SportEvent, programmes: readonly DayProgramme[], timeZone: string): TonightItem {
+function eventItem(event: SportEvent, events: readonly SportEvent[], programmes: readonly DayProgramme[], timeZone: string): TonightItem {
   const matches = programmes
-    .map((programme) => matchProgramme(event, programme, timeZone))
+    .map((programme) => matchProgramme(event, events, programme, timeZone))
     .filter((value): value is ProgrammeMatch => value !== null)
     .sort((left, right) => right.score - left.score || left.broadcast.startAtUtc.localeCompare(right.broadcast.startAtUtc));
   const strongMatches = matches.filter((match) => match.confidence === "high");
   const retained = strongMatches.length > 0 ? strongMatches : matches.filter((match) => match.confidence === "medium");
-  const broadcasts = uniqueBroadcasts(retained.map((match) => match.broadcast));
+  const xmltvBroadcasts = uniqueBroadcasts(retained.map((match) => match.broadcast));
+  const broadcasts = mergeRightsBroadcasts(xmltvBroadcasts, event, timeZone);
   const matchConfidence = strongMatches.length > 0 ? "high" : retained.length > 0 ? "medium" : "none";
   const eventEndAtUtc = event.endAtUtc ?? inferredEnd(event);
-  const eventTimeLabel = event.endAtUtc
+  const eventTimeLabel = event.timeConfidence === "estimated"
+    ? "Horaire à confirmer"
+    : event.endAtUtc
     ? formatTimeRange(event.startAtUtc, event.endAtUtc, timeZone)
     : formatTime(event.startAtUtc, timeZone);
   const liveStatus = aggregateLiveStatus(broadcasts);
@@ -91,7 +95,13 @@ function eventItem(event: SportEvent, programmes: readonly DayProgramme[], timeZ
     selectionReasons: [...new Set([
       ...event.priorityReasons,
       ...matchReasons,
-      broadcasts.length ? `${broadcasts.length} diffusion${broadcasts.length > 1 ? "s" : ""} XMLTV rattachée${broadcasts.length > 1 ? "s" : ""}` : "aucune diffusion XMLTV retrouvée"
+      ...(xmltvBroadcasts.length
+        ? [`${xmltvBroadcasts.length} diffusion${xmltvBroadcasts.length > 1 ? "s" : ""} XMLTV rattachée${xmltvBroadcasts.length > 1 ? "s" : ""}`]
+        : []),
+      ...(broadcasts.filter((broadcast) => broadcast.provenance === "rights").length
+        ? [`${broadcasts.filter((broadcast) => broadcast.provenance === "rights").length} plateforme${broadcasts.filter((broadcast) => broadcast.provenance === "rights").length > 1 ? "s" : ""} couverte${broadcasts.filter((broadcast) => broadcast.provenance === "rights").length > 1 ? "s" : ""} par les droits officiels`]
+        : []),
+      ...(!broadcasts.length ? ["aucune diffusion ou plateforme identifiée"] : [])
     ])],
     broadcasts,
     eventStartAtUtc: event.startAtUtc,
@@ -114,7 +124,7 @@ interface ProgrammeMatch {
   broadcast: TonightBroadcast;
 }
 
-function matchProgramme(event: SportEvent, programme: DayProgramme, timeZone: string): ProgrammeMatch | null {
+function matchProgramme(event: SportEvent, events: readonly SportEvent[], programme: DayProgramme, timeZone: string): ProgrammeMatch | null {
   const sport = programme.sportSignals;
   if (!eventSportMatchesProgramme(event.sport, sport)) return null;
   const text = `${programme.title} ${programme.subTitle ?? ""} ${programme.description ?? ""}`;
@@ -127,9 +137,18 @@ function matchProgramme(event: SportEvent, programme: DayProgramme, timeZone: st
   const reasons: string[] = [];
   if (["football", "volleyball", "tennis"].includes(event.sport)) {
     const participantMatches = event.participants.filter((participant) => entityMatches(participant, text)).length;
-    if (event.participants.length >= 2 && participantMatches < 2) return null;
-    score += event.participants.length >= 2 ? 80 : 45;
-    reasons.push(event.sport === "tennis" ? "joueurs reconnus dans le programme" : "participants reconnus dans le programme");
+    const genericCompetitionMatch = event.sport === "football"
+      && participantMatches === 0
+      && programmeMatchesCompetition(programme, event.competition)
+      && isOnlyCompetitionEventInProgrammeWindow(event, events, programme);
+    if (event.participants.length >= 2 && participantMatches < 2 && !genericCompetitionMatch) return null;
+    if (genericCompetitionMatch) {
+      score += 55;
+      reasons.push("programme générique rattaché : seul match de la compétition sur ce créneau");
+    } else {
+      score += event.participants.length >= 2 ? 80 : 45;
+      reasons.push(event.sport === "tennis" ? "joueurs reconnus dans le programme" : "participants reconnus dans le programme");
+    }
   } else if (["golf", "athletics"].includes(event.sport)) {
     const competitionMatch = meaningfulTokens(event.competition).some((token) => meaningfulTokens(text).includes(token));
     if (!competitionMatch && Math.abs(startDelta) > (event.sport === "athletics" ? 720 : 240)) return null;
@@ -176,7 +195,7 @@ function toEventBroadcast(programme: DayProgramme, event: SportEvent, timeZone: 
   const eventDeltaMinutes = minutesBetween(programme.startAt, event.startAtUtc);
   let liveStatus: LiveStatus = "unknown";
   let liveEvidence = "horaire insuffisant pour conclure";
-  if (programme.isPreviouslyShown || delayedText || annotation.liveStatus === "delayed") {
+  if (programme.isPreviouslyShown || delayedText) {
     liveStatus = "delayed";
     liveEvidence = programme.isPreviouslyShown ? "rediffusion déclarée par XMLTV" : "indice textuel de rediffusion";
   } else if (directText || annotation.liveStatus === "confirmed") {
@@ -185,6 +204,9 @@ function toEventBroadcast(programme: DayProgramme, event: SportEvent, timeZone: 
   } else if (overlaps) {
     liveStatus = "probable";
     liveEvidence = "créneau TV couvrant l'heure officielle de l'événement";
+  } else if (annotation.liveStatus === "delayed") {
+    liveStatus = "delayed";
+    liveEvidence = "indice textuel de rediffusion";
   }
   return {
     sourceId: programme.sourceId,
@@ -200,7 +222,55 @@ function toEventBroadcast(programme: DayProgramme, event: SportEvent, timeZone: 
     isPreviouslyShown: programme.isPreviouslyShown,
     liveStatus,
     liveEvidence,
-    broadcastAlignedToEvent: eventDeltaMinutes >= -15 && eventDeltaMinutes <= 15
+    provenance: "xmltv",
+    // An avant-match is as useful as a programme starting exactly at kick-off:
+    // the relevant condition for the green state is that the TV slot covers it.
+    broadcastAlignedToEvent: overlaps
+  };
+}
+
+function programmeMatchesCompetition(programme: DayProgramme, competition: string): boolean {
+  const programmeTokens = new Set(meaningfulTokens(`${programme.title} ${programme.subTitle ?? ""} ${programme.description ?? ""}`));
+  const competitionTokens = meaningfulTokens(competition);
+  return competitionTokens.length > 0 && competitionTokens.some((token) => programmeTokens.has(token));
+}
+
+function isOnlyCompetitionEventInProgrammeWindow(event: SportEvent, events: readonly SportEvent[], programme: DayProgramme): boolean {
+  const programmeStart = Date.parse(programme.startAt);
+  const programmeStop = Date.parse(programme.stopAt ?? programme.startAt);
+  return events.filter((candidate) => candidate.sport === event.sport
+    && normalize(candidate.competition) === normalize(event.competition)
+    && Date.parse(candidate.startAtUtc) >= programmeStart - 30 * 60_000
+    && Date.parse(candidate.startAtUtc) <= programmeStop + 30 * 60_000).length === 1;
+}
+
+function mergeRightsBroadcasts(xmltvBroadcasts: readonly TonightBroadcast[], event: SportEvent, timeZone: string): TonightBroadcast[] {
+  const rights = rightsForEvent(event);
+  const rightsBroadcasts = rights
+    .filter((provider) => !xmltvBroadcasts.some((broadcast) => normalize(broadcast.channel).includes(normalize(provider.name))))
+    .map((provider) => toRightsBroadcast(event, provider, timeZone));
+  return uniqueBroadcasts([...xmltvBroadcasts, ...rightsBroadcasts]);
+}
+
+function toRightsBroadcast(event: SportEvent, provider: EventRightsProvider, timeZone: string): TonightBroadcast {
+  const timeLabel = formatTime(event.startAtUtc, timeZone);
+  return {
+    sourceId: `rights:${event.id}:${normalize(provider.name)}`,
+    channel: "",
+    channelSourceId: `platform:${normalize(provider.name)}`,
+    platform: provider.name,
+    startAtUtc: event.startAtUtc,
+    stopAtUtc: "",
+    startAtLocal: timeLabel,
+    timeLabel,
+    endTimeLabel: "",
+    timeRangeLabel: timeLabel,
+    subTitle: "",
+    isPreviouslyShown: false,
+    liveStatus: "confirmed",
+    liveEvidence: `${provider.evidence} · ${provider.sourceUrl}`,
+    provenance: "rights",
+    broadcastAlignedToEvent: true
   };
 }
 

@@ -24,6 +24,8 @@ export interface ValidationServerOptions {
   host?: string;
   port?: number;
   refreshReports?: () => Promise<Record<string, { report: TonightReport; programmeReport?: TonightReport; coverageReport?: CoverageReport }>>;
+  refreshIntervalMs?: number;
+  log?: (message: string) => void;
 }
 
 export async function startValidationServer(options: ValidationServerOptions): Promise<{ url: string; validationFile: string }> {
@@ -36,7 +38,7 @@ export async function startValidationServer(options: ValidationServerOptions): P
       ...(options.coverageReport ? { coverageReport: options.coverageReport } : {})
     }
   };
-  const defaultDate = options.report.date;
+  let defaultDate = options.report.date;
   const validations = new Map<string, ValidationFile>();
   const filePaths = new Map<string, string>();
   for (const bundle of Object.values(reportsByDate)) {
@@ -47,6 +49,43 @@ export async function startValidationServer(options: ValidationServerOptions): P
     filePaths.set(bundle.report.date, filePath);
   }
   let writeQueue = Promise.resolve();
+
+  const applyRefreshedReports = async (refreshed: Record<string, { report: TonightReport; programmeReport?: TonightReport; coverageReport?: CoverageReport }>): Promise<void> => {
+    for (const date of Object.keys(reportsByDate)) {
+      if (!(date in refreshed)) delete reportsByDate[date];
+    }
+    for (const [date, bundle] of Object.entries(refreshed)) {
+      reportsByDate[date] = bundle;
+      const filePath = validationPath(options.reportsRoot, bundle.report);
+      const loaded = await loadValidation(filePath, bundle.report);
+      await saveValidation(filePath, loaded);
+      validations.set(date, loaded);
+      filePaths.set(date, filePath);
+    }
+    defaultDate = Object.keys(reportsByDate).sort()[0] ?? defaultDate;
+  };
+
+  let refreshInFlight: Promise<void> | undefined;
+  const refreshInBackground = (reason: string): Promise<void> => {
+    if (!options.refreshReports) return Promise.resolve();
+    if (refreshInFlight) {
+      options.log?.(`[refresh] ignoré (${reason}) : une actualisation est déjà en cours.`);
+      return refreshInFlight;
+    }
+    const startedAt = Date.now();
+    options.log?.(`[refresh] démarrage (${reason})`);
+    refreshInFlight = (async () => {
+      try {
+        await applyRefreshedReports(await options.refreshReports!());
+        options.log?.(`[refresh] terminé en ${Math.round((Date.now() - startedAt) / 1000)} s`);
+      } catch (error) {
+        options.log?.(`[refresh] échec : ${error instanceof Error ? error.message : String(error)}`);
+      } finally {
+        refreshInFlight = undefined;
+      }
+    })();
+    return refreshInFlight;
+  };
 
   const bundleForDate = (date: string | null | undefined): { report: TonightReport; programmeReport?: TonightReport; coverageReport?: CoverageReport } => {
     const bundle = reportsByDate[date ?? ""] ?? reportsByDate[defaultDate];
@@ -83,19 +122,6 @@ export async function startValidationServer(options: ValidationServerOptions): P
           validationFile: filePaths.get(selectedDate),
           availableDates: Object.keys(reportsByDate).sort()
         });
-      }
-      if (request.method === "POST" && url.pathname === "/api/refresh") {
-        if (!options.refreshReports) return sendJson(response, { refreshed: false, availableDates: Object.keys(reportsByDate).sort() });
-        const refreshed = await options.refreshReports();
-        for (const [date, bundle] of Object.entries(refreshed)) {
-          reportsByDate[date] = bundle;
-          const filePath = validationPath(options.reportsRoot, bundle.report);
-          const loaded = await loadValidation(filePath, bundle.report);
-          await saveValidation(filePath, loaded);
-          validations.set(date, loaded);
-          filePaths.set(date, filePath);
-        }
-        return sendJson(response, { refreshed: true, availableDates: Object.keys(reportsByDate).sort() });
       }
       if (request.method === "POST" && url.pathname === "/api/validation") {
         const body = await readJson(request);
@@ -143,7 +169,17 @@ export async function startValidationServer(options: ValidationServerOptions): P
       resolve();
     });
   });
+  if (options.refreshReports && (options.refreshIntervalMs ?? 0) > 0) {
+    const intervalMs = options.refreshIntervalMs!;
+    setInterval(() => { void refreshInBackground("planifié"); }, intervalMs).unref();
+    options.log?.(`[refresh] planifié toutes les ${formatRefreshInterval(intervalMs)}.`);
+  }
   return { url: `http://${host === "0.0.0.0" ? "127.0.0.1" : host}:${port}`, validationFile: filePaths.get(defaultDate)! };
+}
+
+function formatRefreshInterval(intervalMs: number): string {
+  const hours = intervalMs / 3_600_000;
+  return Number.isInteger(hours) ? `${hours} h` : `${Math.round(intervalMs / 60_000)} min`;
 }
 
 function exportReport(report: TonightReport, url: URL): TonightReport {

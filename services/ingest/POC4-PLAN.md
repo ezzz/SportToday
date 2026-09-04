@@ -83,9 +83,9 @@ SportEvent
 - source et niveau de confiance
 - broadcasts[]
   - broadcastStart / broadcastEnd
-  - chaîne / plateforme
+  - chaîne ou plateforme
   - direct, différé ou à confirmer
-  - preuve et confiance
+  - provenance (EPG XMLTV ou règle de droits), preuve et confiance
 ```
 
 `eventStart` et `broadcastStart` doivent rester deux champs différents. Une
@@ -123,26 +123,30 @@ production.
    événements.
 5. Rechercher les créneaux XMLTV proches de chaque événement.
 6. Regrouper les chaînes et rediffusions dans la fiche événement.
-7. Afficher la vue principale « À la une ».
-8. Conserver la vue XMLTV « Tous les programmes » comme vue secondaire et
+7. Afficher la vue principale « À voir ».
+8. Conserver la vue XMLTV « Agenda TV » comme vue secondaire et
    outil de contrôle d'exhaustivité.
 
-En mode web, trois dates consécutives sont préparées au lancement. Le bouton
+En mode web, aujourd'hui et demain sont préparés au lancement. Le bouton
 de date recharge le rapport et son fichier de validation sans mélanger les
 annotations entre journées.
 
-Dans « À la une », les événements sont regroupés par compétition et les
-compétitions sont triées par la priorité du meilleur événement du groupe. Le
-filtre `Direct + à confirmer` regroupe les événements sportifs et conserve les
-événements du catalogue sans diffusion XMLTV, signalés en jaune. Le filtre
-`Différé` reste séparé pour ne pas mettre les rediffusions en avant.
+Dans « À voir », les trois événements les mieux classés avec une chaîne ou une
+plateforme identifiée sont présentés dans « À ne pas manquer ». Le reste est
+regroupé par sport puis compétition, avec les matchs affichés sur des lignes
+compactes. Les plateformes issues d'une règle de droits sont affichées à côté
+de l'heure officielle, même lorsqu'aucun canal linéaire XMLTV n'existe.
+Le filtre `Direct` regroupe les événements sportifs et conserve les événements
+du catalogue sans diffuseur identifié dans l'agenda. Le filtre `Différé` reste
+séparé pour ne pas les mettre en avant.
 
 Chaque ligne événementielle affiche l'heure officielle et l'intitulé sur la
 même ligne. Les tags et la validation ponctuelle sont repliés. Une diffusion
 est colorée en vert lorsqu'elle est déclarée directe, ou lorsqu'elle est
 `Direct probable` et que son début est aligné à quinze minutes près sur
-l'horaire officiel. La barre supérieure conserve uniquement Vue, Date et
-`Actualiser`; les autres critères sont regroupés dans un panneau repliable.
+l'horaire officiel. La barre supérieure conserve uniquement Vue et Date ; les
+autres critères sont regroupés dans un panneau repliable. Le serveur actualise
+XMLTV et les catalogues en tâche planifiée, sans nécessiter une action utilisateur.
 Les métriques et le contrôle d'exhaustivité sont placés sous les résultats.
 
 ## Critères de validation
@@ -197,6 +201,12 @@ Le rapport `poc4-coverage-<source>-<date>.json` contient :
 La page web affiche ces indicateurs dans le panneau d'exhaustivité placé sous
 les résultats. La watchlist est un outil de diagnostic et n'encode pas les
 droits de diffusion d'une compétition.
+
+Les droits validés pour le POC sont gérés séparément dans
+`src/events/rights.ts`. Pour la saison 2026/2027, LaLiga est couverte par DAZN
+et Disney+, et la Serie A par DAZN. Ces règles sont datées et leurs URLs de
+preuve sont conservées dans les rapports et la justification de l'événement ; elles ne remplacent
+pas un futur catalogue de droits administrable.
 
 Commande dédiée :
 

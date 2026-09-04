@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node --test dist/xmltv/parser.test.js dist/events/poc4.test.js dist/reports/poc3-sportsdb.test.js dist/reports/tonight.test.js dist/reports/coverage.test.js dist/validation/export.test.js dist/validation/filters.test.js dist/validation/store.test.js dist/validation/ui.test.js",
+    "test": "npm run build && node --test dist/xmltv/parser.test.js dist/events/poc4.test.js dist/events/rights.test.js dist/reports/poc3-sportsdb.test.js dist/reports/tonight.test.js dist/reports/coverage.test.js dist/sources/data-source.test.js dist/validation/export.test.js dist/validation/filters.test.js dist/validation/store.test.js dist/validation/ui.test.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "xmltv:fetch": "tsx src/cli.ts fetch",
     "xmltv:report": "tsx src/cli.ts report",

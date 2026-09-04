@@ -10,13 +10,17 @@ export abstract class HttpDataSource implements DataSource {
 
   protected abstract readonly url: string;
 
+  /** XMLTV files are larger than the event APIs, but an infinite wait would freeze a refresh forever. */
+  protected readonly timeoutMs = 45_000;
+
   async fetch(): Promise<RawSnapshot> {
     if (!this.url) {
       throw new Error(`${this.id}: no URL configured`);
     }
 
     const response = await fetch(this.url, {
-      headers: { "user-agent": "SportToday-data-poc/0.1" }
+      headers: { "user-agent": "SportToday-data-poc/0.1" },
+      signal: AbortSignal.timeout(this.timeoutMs)
     });
 
     if (!response.ok) {

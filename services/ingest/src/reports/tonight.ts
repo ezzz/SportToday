@@ -24,6 +24,8 @@ export interface TonightBroadcast {
   isPreviouslyShown: boolean;
   liveStatus: LiveStatus;
   liveEvidence: string;
+  platform?: string;
+  provenance?: "xmltv" | "rights";
   broadcastAlignedToEvent?: boolean;
 }
 
@@ -339,7 +341,8 @@ function toBroadcast(
           ? "indices compatibles avec un direct"
           : liveStatus === "delayed"
             ? "indices textuels de rediffusion"
-            : "aucune preuve suffisante"
+            : "aucune preuve suffisante",
+    provenance: "xmltv"
   };
 }
 

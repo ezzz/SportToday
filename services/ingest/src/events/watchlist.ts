@@ -19,6 +19,7 @@ export const footballWatchlist: readonly FootballCompetitionRule[] = [
   { id: 3, name: "UEFA Europa League", baseScore: 90, importance: "A" },
   { id: 848, name: "UEFA Conference League", baseScore: 84, importance: "B" },
   { id: 61, name: "Ligue 1", baseScore: 84, importance: "A" },
+  { id: 62, name: "Ligue 2", baseScore: 68, importance: "B" },
   { id: 66, name: "Coupe de France", baseScore: 86, importance: "A" },
   { id: 39, name: "Premier League", baseScore: 78, importance: "B" },
   { id: 140, name: "La Liga", baseScore: 73, importance: "B" },
