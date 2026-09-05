@@ -55,6 +55,9 @@ export function validationHtml(): string {
     .compact-card .broadcasts { margin:0 0 0 auto; }
     .compact-card .broadcast { padding:4px 7px; }
     .platform { font-weight:700; }
+    .favorite { padding:4px 7px; font-size:13px; }
+    .favorite[aria-pressed="true"] { background:#fff3cf; color:#765500; }
+    .period-context { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin:0 0 12px; color:#50627e; font-size:13px; }
     .card[data-verdict="ok"] { border-left-color:#1d9b5f; }
     .card[data-verdict="doubt"] { border-left-color:#d69a00; }
     .card[data-verdict^="wrong_"],.card[data-verdict="off_topic"],.card[data-verdict="duplicate"] { border-left-color:#cf4b4b; }
@@ -145,6 +148,11 @@ export function validationHtml(): string {
           <span id="date-buttons"><button class="date-filter active">Chargement…</button></span>
         </div>
       </div>
+      <div class="filter-row">
+        <span class="filter-label">Période</span>
+        <button class="period-filter active" data-period="evening">Soirée · dès 20 h</button>
+        <button class="period-filter" data-period="day">Journée complète</button>
+      </div>
       <details class="advanced-filters">
         <summary>Filtres supplémentaires et validation</summary>
         <div class="filter-row">
@@ -153,11 +161,6 @@ export function validationHtml(): string {
           <button class="category-filter" data-category="delayed">Différé</button>
           <button class="category-filter" data-category="editorial">Émission</button>
           <button class="category-filter" data-category="all">Tous</button>
-        </div>
-        <div class="filter-row">
-          <span class="filter-label">Période</span>
-          <button class="period-filter active" data-period="evening">Soirée · en cours dès 20 h</button>
-          <button class="period-filter" data-period="day">Aujourd’hui · journée complète</button>
         </div>
         <div class="filter-row" id="sport-filters">
           <span class="filter-label">Sport</span>
@@ -178,6 +181,7 @@ export function validationHtml(): string {
         </div>
       </details>
     </section>
+    <div class="period-context"><span id="period-context"></span><button class="period-filter" id="show-day" data-period="day">Voir toute la journée</button></div>
     <section class="cards" id="cards"><div class="empty">Chargement…</div></section>
     <section class="missing">
       <label for="missing-event">Un événement majeur manque-t-il à cette sélection ?</label>
@@ -219,6 +223,22 @@ export function validationHtml(): string {
     let activeSports = new Set();
     let noteTimer = null;
     let missingTimer = null;
+    let favorites = new Set();
+    try {
+      const saved = JSON.parse(localStorage.getItem('sporttoday-favorites') || '[]');
+      if (Array.isArray(saved)) favorites = new Set(saved.filter(value=>typeof value==='string'));
+    } catch {}
+    const collapsedSports = new Set();
+
+    function favoriteKey(kind,item,value) { return kind+':'+item.sport+':'+value; }
+    function favoriteButton(kind,item,value) {
+      const key=favoriteKey(kind,item,value), selected=favorites.has(key);
+      return '<button class="favorite" data-favorite="'+escapeHtml(key)+'" aria-pressed="'+selected+'" title="Suivre '+escapeHtml(value)+'">'+(selected?'★':'☆')+' '+escapeHtml(value)+'</button>';
+    }
+    function isFavorite(item) {
+      return favorites.has(favoriteKey('competition',item,item.competition))
+        || (item.participants||'').split(' | ').filter(Boolean).some(team=>favorites.has(favoriteKey('team',item,team)));
+    }
 
     const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
     const validationFor = id => state.validation.items[id] || { verdict:'pending', note:'' };
@@ -274,6 +294,9 @@ export function validationHtml(): string {
       const stats = matching.reduce((acc,item) => { const v=validationFor(item.id).verdict; acc[v==='pending'?'pending':v==='ok'?'ok':'issues']++; return acc; }, {pending:0,ok:0,issues:0});
       const filtered = eventFirst ? matching.filter(item => { const v=validationFor(item.id).verdict; return activeValidation==='all'||activeValidation===v||(activeValidation==='issues'&&issue(v)); }) : matching;
       const visible = eventFirst ? filtered : diversifiedSelection(filtered,report.limit);
+      const dayCount=report.items.filter(item=>eventFirst?matchesEventCategory(item):true).filter(matchesSport).length;
+      document.getElementById('period-context').textContent=(activePeriod==='day'?'Journée complète':'Soirée · événements en cours ou à venir dès 20 h')+' · '+matching.length+' événements dans la période'+(activePeriod==='evening'?' / '+dayCount+' sur la journée':'');
+      document.getElementById('show-day').hidden=activePeriod==='day';
       const summary=eventFirst
         ? [['Compétitions',new Set(matching.map(item=>item.competition||'Autre')).size],['Événements',matching.length],['Catalogue',report.catalogueEventCount??matching.length],['Chaîne ou plateforme',matching.filter(item=>item.broadcasts.length).length],['Sans diffuseur',matching.filter(item=>!item.broadcasts.length).length],['À valider',stats.pending],['Validés OK',stats.ok],['Doutes / erreurs',stats.issues]]
         : [['Programmes regroupés',matching.length],['Affichés',visible.length]];
@@ -401,12 +424,10 @@ export function validationHtml(): string {
     }
 
     function renderEventSelection(items,report) {
-      const ranked=items.filter(item=>item.broadcasts.length>0).sort((left,right)=>right.score-left.score||firstItemStart(left).localeCompare(firstItemStart(right)));
+      const ranked=items.filter(item=>isFavorite(item)||item.broadcasts.some(b=>b.liveStatus==='confirmed'||b.liveStatus==='probable')).sort((left,right)=>Number(isFavorite(right))-Number(isFavorite(left))||right.score-left.score||firstItemStart(left).localeCompare(firstItemStart(right)));
       const highlights=ranked.slice(0,3);
-      const highlightIds=new Set(highlights.map(item=>item.id));
       const highlightHtml=highlights.length?'<section class="highlights"><div class="section-heading"><h2>À ne pas manquer</h2><span>'+highlights.length+' sélection'+(highlights.length>1?'s':'')+'</span></div>'+highlights.map(item=>cardHtml(item,report,true,true)).join('')+'</section>':'';
-      const rest=items.filter(item=>!highlightIds.has(item.id));
-      return highlightHtml+renderEventGroups(rest,report);
+      return highlightHtml+'<div class="section-heading"><h2>Agenda complet</h2><span>Compétitions suivies · période sélectionnée</span></div>'+renderEventGroups(items,report);
     }
 
     function renderEventGroups(items,report) {
@@ -422,7 +443,7 @@ export function validationHtml(): string {
       return [...sports.entries()].sort((left,right)=>Math.max(...[...left[1].values()].flat().map(item=>item.score))-Math.max(...[...right[1].values()].flat().map(item=>item.score))||sportLabel(left[0]).localeCompare(sportLabel(right[0]),'fr')).map(([sport,competitions])=>{
         const total=[...competitions.values()].flat().length;
         const competitionHtml=[...competitions.entries()].sort((left,right)=>Math.max(...left[1].map(item=>item.score))-Math.max(...right[1].map(item=>item.score))||left[0].localeCompare(right[0],'fr')).map(([competition,group])=>'<section class="competition-group"><div class="competition-heading"><h2>'+escapeHtml(competition)+'</h2><span>'+group.length+' match'+(group.length>1?'s':'')+'</span></div>'+group.sort((left,right)=>firstItemStart(left).localeCompare(firstItemStart(right))||right.score-left.score).map(item=>cardHtml(item,report,true)).join('')+'</section>').join('');
-        return '<details class="sport-group" open><summary class="sport-heading"><h2>'+escapeHtml(sportLabel(sport))+'</h2><span>'+total+' événement'+(total>1?'s':'')+'</span></summary>'+competitionHtml+'</details>';
+        return '<details class="sport-group" data-sport-group="'+escapeHtml(sport)+'" '+(collapsedSports.has(sport)?'':'open')+'><summary class="sport-heading"><h2>'+escapeHtml(sportLabel(sport))+'</h2><span>'+total+' événement'+(total>1?'s':'')+'</span></summary>'+competitionHtml+'</details>';
       }).join('');
     }
 
@@ -444,7 +465,9 @@ export function validationHtml(): string {
       const displayTitle=highlight&&eventFirst?sportLabel(item.sport)+' · '+item.competition+' — '+item.title:item.title;
       const broadcasts=item.broadcasts.length?'<div class="broadcasts">'+item.broadcasts.map(b=>'<span class="broadcast" data-tone="'+broadcastTone(b)+'" data-live="'+escapeHtml(b.liveStatus)+'" data-aligned="'+(b.liveStatus==='confirmed'||(b.liveStatus==='probable'&&b.broadcastAlignedToEvent)?'true':'false')+'"><strong>'+escapeHtml(b.timeRangeLabel||b.timeLabel)+'</strong> · '+(b.platform?'<span class="platform">'+escapeHtml(b.platform)+'</span>':escapeHtml(b.channel))+'</span>').join('')+'</div>':'<div class="unmatched">Diffuseur non identifié</div>';
       const detailsLabel=eventFirst?'Détails et validation ponctuelle':'Détails du programme';
+      const favoriteControls=eventFirst?'<div class="badges">'+favoriteButton('competition',item,item.competition)+(item.participants||'').split(' | ').filter(Boolean).map(team=>favoriteButton('team',item,team)).join('')+'</div><p>Favoris enregistrés sur cet appareil · prioritaires dans « À ne pas manquer ».</p>':'';
       const details = '<details class="secondary-details"><summary aria-label="'+escapeHtml(detailsLabel)+'" title="'+escapeHtml(detailsLabel)+'"></summary>'+
+        favoriteControls+
         '<div class="badges">'+badges.map(value=>'<span class="badge">'+escapeHtml(value)+'</span>').join('')+'</div>'+
         (item.description?'<p class="description">'+escapeHtml(item.description)+'</p>':'')+
         '<p><strong>Pourquoi ?</strong> Score '+item.score+' · '+escapeHtml(item.selectionReasons.join(' · '))+'</p>'+
@@ -472,7 +495,21 @@ export function validationHtml(): string {
       if (rerender) render();
     }
 
+    document.addEventListener('toggle', event => {
+      const group=event.target;
+      if (!group.matches?.('.sport-group') || !group.isConnected) return;
+      if(group.open) collapsedSports.delete(group.dataset.sportGroup);
+      else collapsedSports.add(group.dataset.sportGroup);
+    }, true);
+
     document.addEventListener('click', event => {
+      const favorite=event.target.closest('[data-favorite]');
+      if(favorite) {
+        const key=favorite.dataset.favorite;
+        if(favorites.has(key)) favorites.delete(key); else favorites.add(key);
+        try { localStorage.setItem('sporttoday-favorites',JSON.stringify([...favorites])); } catch { showError(new Error('Impossible de mémoriser les favoris sur cet appareil.')); }
+        render(); return;
+      }
       const date = event.target.closest('.date-filter');
       if (date && date.dataset.date) { loadDate(date.dataset.date).catch(showError); return; }
       const view = event.target.closest('.view-filter');

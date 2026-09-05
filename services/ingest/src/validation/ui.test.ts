@@ -18,7 +18,7 @@ test("sauvegarde un commentaire sans reconstruire la carte et perdre le focus", 
   assert.match(html, /Diffuseur non identifié/u);
   assert.match(html, /function renderEventGroups\(items,report\)/u);
   assert.match(html, /function renderEventSelection\(items,report\)/u);
-  assert.match(html, /details class="sport-group" open/u);
+  assert.match(html, /details class="sport-group" data-sport-group=/u);
   assert.match(html, /summary class="sport-heading"/u);
   assert.match(html, /class="summary-footer" id="summary"/u);
   assert.match(html, /details class="exhaustivity-details"/u);

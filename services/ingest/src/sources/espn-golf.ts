@@ -12,14 +12,18 @@ export class EspnGolfSource {
 
   async scoreboardForDate(date: string): Promise<unknown> {
     if (!config.espnGolf.enabled) return { events: [] };
-    const events = await Promise.all(["pga", "lpga"].map(async (tour) => {
+    const tours = ["pga", "lpga"];
+    const results = await Promise.allSettled(tours.map(async (tour) => {
       const endpoint = new URL(`${config.espnGolf.baseUrl}/${tour}/scoreboard`);
       endpoint.searchParams.set("dates", date.replace(/-/gu, ""));
       const response = await fetch(endpoint, { headers: { "user-agent": "SportToday-data-poc/0.1" }, signal: AbortSignal.timeout(15_000) });
       if (!response.ok) throw new Error(`espn-golf (${tour}): HTTP ${response.status} ${response.statusText}`);
       return response.json() as Promise<unknown>;
     }));
-    return { tours: events };
+    const warnings = results.flatMap((result, index) => result.status === "rejected"
+      ? [`ESPN Golf (${tours[index]}) : ${String(result.reason)}`] : []);
+    if (results.every(result => result.status === "rejected")) throw new Error(warnings.join(" · "));
+    return { tours: results.flatMap(result => result.status === "fulfilled" ? [result.value] : []), warnings };
   }
 }
 

@@ -98,6 +98,7 @@ export async function loadEventCatalogue(date: string, options: EventCatalogueOp
   const athleticsEvents = athleticsResult.status === "fulfilled" ? parseWorldAthleticsEvents(athleticsResult.value.payload, date) : [];
   const f1Events = f1Result.status === "fulfilled" ? parseJolpicaEvents(f1Result.value.payload, date) : [];
   const sourceErrors = [
+    ...(golfResult.status === "fulfilled" ? payloadWarnings(golfResult.value.payload) : []),
     ...(footballResult.status === "rejected" ? [`API-Football : ${errorMessage(footballResult.reason)}`] : []),
     ...(volleyballResult.status === "rejected" ? [`API-Volleyball : ${errorMessage(volleyballResult.reason)}`] : []),
     ...(!tennisEnabled ? ["API-Tennis : non configurée (événements Tennis indisponibles)."] : []),
@@ -128,6 +129,11 @@ export async function loadEventCatalogue(date: string, options: EventCatalogueOp
     ],
     sourceErrors
   };
+}
+
+function payloadWarnings(payload: unknown): string[] {
+  if (!payload || typeof payload !== "object" || !("warnings" in payload)) return [];
+  return Array.isArray(payload.warnings) ? payload.warnings.filter((value): value is string => typeof value === "string") : [];
 }
 
 async function loadOrFetch(filePath: string, refresh: boolean, fetchPayload: () => Promise<unknown>): Promise<CachedPayload> {

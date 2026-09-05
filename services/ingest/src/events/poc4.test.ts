@@ -105,6 +105,34 @@ test("ajoute une plateforme de droits quand l'EPG linéaire est absent", () => {
   assert.deepEqual(item?.broadcasts.map((broadcast) => broadcast.liveStatus), ["confirmed", "confirmed"]);
 });
 
+test("un créneau générique ne fuit pas vers les autres horaires ou championnats", () => {
+  const events = parseApiFootballEvents({ response: [
+    fixture(201, 78, "Bundesliga", "", "Schalke", "Bayern"),
+    fixture(202, 78, "Bundesliga", "", "Dortmund", "Hoffenheim"),
+    fixture(203, 62, "Ligue 2", "", "Metz", "Rodez")
+  ] });
+  events.find(event=>event.sourceEventId==="202")!.startAtUtc="2026-08-23T13:30:00.000Z";
+  const programme=dayProgramme("Football : Bundesliga","2026-08-23T19:00:00.000Z","2026-08-23T21:00:00.000Z","beIN SPORTS 2",["football"]);
+  const otherLeague=dayProgramme("Football : Ligue 1","2026-08-23T19:00:00.000Z","2026-08-23T21:00:00.000Z","Ligue 1+",["football"]);
+  const report=buildPoc4EventReport(events,dayReport("2026-08-23",[programme,otherLeague]));
+  assert.equal(report.items.find(item=>item.id==="api-football:201")?.broadcasts.length,1);
+  assert.equal(report.items.find(item=>item.id==="api-football:202")?.broadcasts.length,0);
+  assert.equal(report.items.find(item=>item.id==="api-football:203")?.broadcasts.length,0);
+  events.find(event=>event.sourceEventId==="202")!.startAtUtc="2026-08-23T19:00:00.000Z";
+  assert.ok(buildPoc4EventReport(events,dayReport("2026-08-23",[programme])).items.every(item=>item.broadcasts.length===0));
+});
+
+test("le programme générique du volley féminin reste distinct du masculin", () => {
+  const event=parseApiVolleyballEvents({response:[{
+    id:9,date:"2026-08-23T19:00:00Z",country:{name:"Europe"},
+    league:{name:"European Championships Women"},teams:{home:{name:"Poland W"},away:{name:"Italy W"}},status:{short:"NS"}
+  }]})[0]!;
+  const programme=dayProgramme("Volley-ball : Championnat d'Europe féminin","2026-08-23T19:00:00.000Z","2026-08-23T21:00:00.000Z","L’Équipe",["volley"]);
+  assert.equal(buildPoc4EventReport([event],dayReport("2026-08-23",[programme])).items[0]?.broadcasts.length,1);
+  programme.title="Volley-ball : Championnat d'Europe masculin";
+  assert.equal(buildPoc4EventReport([event],dayReport("2026-08-23",[programme])).items[0]?.broadcasts.length,0);
+});
+
 test("écarte l'avant-course terminé au départ et un magazine sur un autre Grand Prix", () => {
   const event = parseJolpicaEvents({ MRData: { RaceTable: { Races: [{
     season: "2026", round: "12", raceName: "Dutch Grand Prix", date: "2026-08-23", time: "13:00:00Z",

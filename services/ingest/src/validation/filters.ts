@@ -30,7 +30,7 @@ export function filteredReport(
       .filter((item) => matchesCategory(item, category))
       .filter((item) => matchesPeriod(item, report, period))
       .filter((item) => matchesSports(item, sports));
-    const items = diversifiedSelection(matching, Math.max(1, report.limit));
+    const items = matching;
     return { ...report, selectedCount: items.length, items };
   }
   const matching = report.items

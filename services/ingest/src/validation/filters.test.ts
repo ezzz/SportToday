@@ -67,6 +67,16 @@ test("conserve un événement POC4 sans diffusion dans la vue live", () => {
   assert.deepEqual(filteredReport(report, "uncertain", "evening").items.map(({ id }) => id), ["official-event"]);
 });
 
+test("exporte tous les événements du catalogue même au-delà des plafonds de sélection", () => {
+  const items=Array.from({length:15},(_,index)=>({
+    ...item(String(index),"Sport Live","2026-08-17T19:00:00.000Z","probable"),
+    eventSource:"api-football" as const, competition:"Ligue 2",
+    eventStartAtUtc:"2026-08-17T19:00:00.000Z"
+  }));
+  const report={...fixtureReport(items),viewMode:"event-first" as const,limit:3};
+  assert.equal(filteredReport(report,"live","day").items.length,15);
+});
+
 function item(
   id: string,
   contentCategory: TonightItem["contentCategory"],

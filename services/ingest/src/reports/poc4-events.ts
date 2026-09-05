@@ -137,8 +137,11 @@ function matchProgramme(event: SportEvent, events: readonly SportEvent[], progra
   const reasons: string[] = [];
   if (["football", "volleyball", "tennis"].includes(event.sport)) {
     const participantMatches = event.participants.filter((participant) => entityMatches(participant, text)).length;
-    const genericCompetitionMatch = event.sport === "football"
-      && participantMatches === 0
+    const genericCompetitionMatch = ["football", "volleyball"].includes(event.sport)
+      && participantMatches < 2
+      && !programme.isPreviouslyShown
+      && programmeOverlaps(programme, event.startAtUtc, 30)
+      && Math.abs(startDelta) <= 60
       && programmeMatchesCompetition(programme, event.competition)
       && isOnlyCompetitionEventInProgrammeWindow(event, events, programme);
     if (event.participants.length >= 2 && participantMatches < 2 && !genericCompetitionMatch) return null;
@@ -191,8 +194,7 @@ function toEventBroadcast(programme: DayProgramme, event: SportEvent, timeZone: 
   const endTimeLabel = programme.stopAt ? formatter.format(new Date(programme.stopAt)) : "";
   const directText = /\b(?:en direct|direct|live)\b/iu.test(`${programme.title} ${programme.subTitle ?? ""} ${programme.description ?? ""}`);
   const delayedText = /\b(?:rediffusion|replay|différé|déjà diffusé)\b/iu.test(`${programme.title} ${programme.subTitle ?? ""} ${programme.description ?? ""}`);
-  const overlaps = programmeOverlaps(programme, event.startAtUtc, 30);
-  const eventDeltaMinutes = minutesBetween(programme.startAt, event.startAtUtc);
+  const overlaps = event.timeConfidence === "confirmed" && programmeOverlaps(programme, event.startAtUtc, 30);
   let liveStatus: LiveStatus = "unknown";
   let liveEvidence = "horaire insuffisant pour conclure";
   if (programme.isPreviouslyShown || delayedText) {
@@ -207,6 +209,10 @@ function toEventBroadcast(programme: DayProgramme, event: SportEvent, timeZone: 
   } else if (annotation.liveStatus === "delayed") {
     liveStatus = "delayed";
     liveEvidence = "indice textuel de rediffusion";
+  } else if (event.timeConfidence === "confirmed" && ["football", "volleyball"].includes(event.sport)
+    && Date.parse(programme.startAt) >= Date.parse(event.endAtUtc ?? inferredEnd(event))) {
+    liveStatus = "delayed";
+    liveEvidence = "diffusion après la fin estimée de la rencontre";
   }
   return {
     sourceId: programme.sourceId,
@@ -230,18 +236,22 @@ function toEventBroadcast(programme: DayProgramme, event: SportEvent, timeZone: 
 }
 
 function programmeMatchesCompetition(programme: DayProgramme, competition: string): boolean {
-  const programmeTokens = new Set(meaningfulTokens(`${programme.title} ${programme.subTitle ?? ""} ${programme.description ?? ""}`));
-  const competitionTokens = meaningfulTokens(competition);
-  return competitionTokens.length > 0 && competitionTokens.some((token) => programmeTokens.has(token));
+  // Only an actual generic competition label qualifies, never a description
+  // mentioning another fixture or the shared word "Ligue".
+  const title = normalize(programme.title).replace(/^football /u, "");
+  const league = normalize(competition);
+  if (league === "european championships women") return title === "volley ball championnat d europe feminin";
+  return title === league || title === league + " bkt";
 }
 
 function isOnlyCompetitionEventInProgrammeWindow(event: SportEvent, events: readonly SportEvent[], programme: DayProgramme): boolean {
   const programmeStart = Date.parse(programme.startAt);
   const programmeStop = Date.parse(programme.stopAt ?? programme.startAt);
-  return events.filter((candidate) => candidate.sport === event.sport
+  const candidates = events.filter((candidate) => candidate.sport === event.sport
     && normalize(candidate.competition) === normalize(event.competition)
     && Date.parse(candidate.startAtUtc) >= programmeStart - 30 * 60_000
-    && Date.parse(candidate.startAtUtc) <= programmeStop + 30 * 60_000).length === 1;
+    && Date.parse(candidate.startAtUtc) <= programmeStop + 30 * 60_000);
+  return candidates.length === 1 && candidates[0]?.id === event.id;
 }
 
 function mergeRightsBroadcasts(xmltvBroadcasts: readonly TonightBroadcast[], event: SportEvent, timeZone: string): TonightBroadcast[] {
