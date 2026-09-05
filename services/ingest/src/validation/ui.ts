@@ -13,7 +13,7 @@ export function validationHtml(): string {
     header h1 { margin:0 0 6px; font-size:24px; }
     header p { margin:0; color:#cbd3e1; }
     main { max-width:1180px; margin:0 auto; padding:20px; }
-    .toolbar,.summary,.missing { background:white; border:1px solid #dfe4ec; border-radius:12px; padding:14px; margin-bottom:16px; }
+    .toolbar,.missing { background:white; border:1px solid #dfe4ec; border-radius:12px; padding:14px; margin-bottom:16px; }
     .view-row { padding-top:0; }
     .filter-row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding:7px 0; }
     .filter-row + .filter-row { border-top:1px solid #edf0f4; }
@@ -30,22 +30,23 @@ export function validationHtml(): string {
     button:hover,.button:hover { border-color:#50627e; }
     button.active { background:#172033; color:white; border-color:#172033; }
     .save-state { color:#637087; font-size:13px; }
-    .summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; }
-    .metric strong { display:block; font-size:22px; }
-    .metric span { color:#637087; font-size:13px; }
+    .summary-footer { color:#637087; font-size:12px; line-height:1.4; margin:0; padding:2px 4px; text-align:right; }
     .cards { display:grid; gap:14px; }
     .highlights { display:grid; gap:8px; margin-bottom:8px; }
     .section-heading { display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin:4px 2px; color:#26334b; }
     .section-heading h2 { margin:0; font-size:17px; }
     .section-heading span { color:#637087; font-size:12px; }
-    .sport-group { display:grid; gap:8px; }
-    .sport-heading { display:flex; align-items:baseline; gap:9px; margin:10px 2px 0; color:#26334b; }
+    .sport-group { display:grid; gap:8px; background:#f9fbfd; border:1px solid #dfe4ec; border-radius:12px; padding:0 10px 8px; }
+    .sport-heading { display:flex; align-items:baseline; gap:9px; margin:0 -10px; padding:10px 12px; color:#26334b; background:#eef2f7; border-left:4px solid #50627e; border-radius:11px 11px 0 0; cursor:pointer; list-style:none; }
+    .sport-heading::-webkit-details-marker { display:none; }
+    .sport-heading::before { content:'▾'; color:#50627e; font-size:16px; line-height:1; }
+    .sport-group:not([open]) .sport-heading::before { content:'▸'; }
     .sport-heading h2 { margin:0; font-size:18px; }
-    .sport-heading span { color:#637087; font-size:12px; }
+    .sport-heading span { margin-left:auto; color:#50627e; font-size:12px; font-weight:700; }
     .competition-group { display:grid; gap:8px; }
-    .competition-heading { display:flex; align-items:baseline; gap:9px; margin:10px 2px 0; color:#26334b; }
-    .competition-heading h2 { margin:0; font-size:17px; }
-    .competition-heading span { color:#637087; font-size:12px; }
+    .competition-heading { display:flex; align-items:baseline; gap:9px; margin:4px 0 0 20px; padding:4px 8px; color:#50627e; border-left:3px solid #b9c4d4; border-bottom:1px solid #e5e9ef; }
+    .competition-heading h2 { margin:0; font-size:15px; }
+    .competition-heading span { margin-left:auto; color:#7b8799; font-size:12px; }
     .card { background:white; border:1px solid #dfe4ec; border-left:5px solid #9ba7ba; border-radius:12px; padding:16px; }
     .compact-card { padding:10px 12px; border-left-width:3px; }
     .compact-card .event-line { gap:8px; }
@@ -86,8 +87,10 @@ export function validationHtml(): string {
     .source-warning { background:#fff3cf; color:#765500; border:1px solid #ead48b; border-radius:9px; padding:10px 12px; margin:0 0 14px; }
     .empty { text-align:center; color:#637087; padding:36px; }
     .bottom-panels { display:grid; gap:10px; margin-top:16px; }
-    .bottom-panels .summary { margin:0; }
-    .exhaustivity-panel { background:white; border:1px solid #dfe4ec; border-radius:12px; padding:14px; }
+    .exhaustivity-panel { background:white; border:1px solid #dfe4ec; border-radius:12px; padding:0; }
+    .exhaustivity-details > summary { cursor:pointer; padding:12px 14px; color:#50627e; font-size:13px; font-weight:700; list-style-position:inside; }
+    .exhaustivity-details[open] > summary { border-bottom:1px solid #edf0f4; }
+    .exhaustivity-content { padding:0 14px 14px; }
     .exhaustivity-panel h2 { font-size:16px; margin:0 0 8px; }
     .bottom-panels .source-warning,.bottom-panels .result-note { margin:0; }
     .coverage-panel { margin-top:12px; border-top:1px solid #edf0f4; padding-top:12px; }
@@ -181,21 +184,25 @@ export function validationHtml(): string {
       <textarea id="missing-event" placeholder="Facultatif — indique ici un événement important absent"></textarea>
     </section>
     <section class="bottom-panels">
-      <section class="summary" id="summary"></section>
       <section class="exhaustivity-panel">
-        <h2>Exhaustivité et qualité des sources</h2>
-        <p class="source-warning" id="source-warning" hidden></p>
-        <p class="result-note" id="result-note"></p>
-        <section class="coverage-panel" id="coverage-panel" hidden>
-          <h2>Couverture EPG des chaînes prioritaires</h2>
-          <div class="coverage-metrics" id="coverage-metrics"></div>
-          <div id="coverage-table-wrap"></div>
-          <details class="coverage-events">
-            <summary id="coverage-events-summary">Événements de référence non rattachés</summary>
-            <div id="coverage-events-list"></div>
-          </details>
-        </section>
+        <details class="exhaustivity-details">
+          <summary>Exhaustivité et qualité des sources</summary>
+          <div class="exhaustivity-content">
+            <p class="source-warning" id="source-warning" hidden></p>
+            <p class="result-note" id="result-note"></p>
+            <section class="coverage-panel" id="coverage-panel" hidden>
+              <h2>Couverture EPG des chaînes prioritaires</h2>
+              <div class="coverage-metrics" id="coverage-metrics"></div>
+              <div id="coverage-table-wrap"></div>
+              <details class="coverage-events">
+                <summary id="coverage-events-summary">Événements de référence non rattachés</summary>
+                <div id="coverage-events-list"></div>
+              </details>
+            </section>
+          </div>
+        </details>
       </section>
+      <p class="summary-footer" id="summary"></p>
     </section>
   </main>
   <script>
@@ -270,7 +277,18 @@ export function validationHtml(): string {
       const summary=eventFirst
         ? [['Compétitions',new Set(matching.map(item=>item.competition||'Autre')).size],['Événements',matching.length],['Catalogue',report.catalogueEventCount??matching.length],['Chaîne ou plateforme',matching.filter(item=>item.broadcasts.length).length],['Sans diffuseur',matching.filter(item=>!item.broadcasts.length).length],['À valider',stats.pending],['Validés OK',stats.ok],['Doutes / erreurs',stats.issues]]
         : [['Programmes regroupés',matching.length],['Affichés',visible.length]];
-      document.getElementById('summary').innerHTML = summary.map(([label,value]) => '<div class="metric"><strong>'+value+'</strong><span>'+label+'</span></div>').join('');
+      const summaryText=eventFirst
+        ? [
+            summary[0][1]+' compétitions',
+            summary[1][1]+' événements',
+            summary[3][1]+' avec chaîne ou plateforme',
+            summary[4][1]+' sans diffuseur',
+            summary[5][1]+' à valider',
+            summary[6][1]+' validés',
+            summary[7][1]+' doutes / erreurs'
+          ].join(' · ')
+        : summary.map(([label,value]) => value+' '+label.toLocaleLowerCase('fr-FR')).join(' · ');
+      document.getElementById('summary').textContent = summaryText;
       const sourceErrors=eventFirst?(report.eventSourceErrors||[]):[];
       const sourceWarning=document.getElementById('source-warning');
       sourceWarning.hidden=sourceErrors.length===0;
@@ -404,7 +422,7 @@ export function validationHtml(): string {
       return [...sports.entries()].sort((left,right)=>Math.max(...[...left[1].values()].flat().map(item=>item.score))-Math.max(...[...right[1].values()].flat().map(item=>item.score))||sportLabel(left[0]).localeCompare(sportLabel(right[0]),'fr')).map(([sport,competitions])=>{
         const total=[...competitions.values()].flat().length;
         const competitionHtml=[...competitions.entries()].sort((left,right)=>Math.max(...left[1].map(item=>item.score))-Math.max(...right[1].map(item=>item.score))||left[0].localeCompare(right[0],'fr')).map(([competition,group])=>'<section class="competition-group"><div class="competition-heading"><h2>'+escapeHtml(competition)+'</h2><span>'+group.length+' match'+(group.length>1?'s':'')+'</span></div>'+group.sort((left,right)=>firstItemStart(left).localeCompare(firstItemStart(right))||right.score-left.score).map(item=>cardHtml(item,report,true)).join('')+'</section>').join('');
-        return '<section class="sport-group"><div class="sport-heading"><h2>'+escapeHtml(sportLabel(sport))+'</h2><span>'+total+' événement'+(total>1?'s':'')+'</span></div>'+competitionHtml+'</section>';
+        return '<details class="sport-group" open><summary class="sport-heading"><h2>'+escapeHtml(sportLabel(sport))+'</h2><span>'+total+' événement'+(total>1?'s':'')+'</span></summary>'+competitionHtml+'</details>';
       }).join('');
     }
 
