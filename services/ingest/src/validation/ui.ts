@@ -51,7 +51,7 @@ export function validationHtml(): string {
     .compact-card .event-line { gap:8px; }
     .compact-card h2 { font-size:16px; margin:0; }
     .compact-card .official-time { margin:0; padding:4px 7px; font-size:13px; }
-    .compact-card .broadcasts { margin:5px 0 0; }
+    .compact-card .broadcasts { margin:0 0 0 auto; }
     .compact-card .broadcast { padding:4px 7px; }
     .platform { font-weight:700; }
     .card[data-verdict="ok"] { border-left-color:#1d9b5f; }
@@ -59,10 +59,11 @@ export function validationHtml(): string {
     .card[data-verdict^="wrong_"],.card[data-verdict="off_topic"],.card[data-verdict="duplicate"] { border-left-color:#cf4b4b; }
     .card-head { display:flex; gap:14px; align-items:flex-start; }
     .card-main { flex:1; min-width:0; }
-    .event-line { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
-    .event-line h2 { margin:0; }
+    .event-line { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .event-line h2 { margin:0; flex:1 1 260px; min-width:0; }
     h2 { margin:0 0 7px; font-size:19px; }
     .badges,.broadcasts { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
+    .event-line > .broadcasts { flex:0 1 52%; justify-content:flex-end; margin:0 0 0 auto; min-width:220px; }
     .badge { background:#eef1f6; border-radius:999px; padding:4px 8px; font-size:12px; }
     .broadcast { border-radius:7px; padding:6px 9px; font-size:13px; border:1px solid transparent; }
     .broadcast[data-tone="green"] { background:#dff5e7; color:#176540; border-color:#b7e4c5; }
@@ -106,9 +107,24 @@ export function validationHtml(): string {
     .coverage-events li { margin:4px 0; }
     .coverage-events li[data-status="unmatched"] { color:#9a3030; }
     .coverage-muted { color:#637087; }
-    .secondary-details { margin-top:9px; }
-    .secondary-details > summary { cursor:pointer; }
-    @media (max-width:700px) { .card-head { display:block; } .filter-label { width:100%; } .toolbar-actions .spacer { display:none; width:100%; } }
+    .secondary-details { margin:0 0 0 auto; flex:0 0 auto; }
+    .secondary-details > summary { cursor:pointer; width:24px; min-height:24px; padding:3px 0; text-align:right; list-style:none; color:#50627e; }
+    .secondary-details > summary::-webkit-details-marker { display:none; }
+    .secondary-details > summary::before { content:'▸'; display:inline-block; font-size:18px; line-height:18px; }
+    .secondary-details[open] > summary::before { content:'▾'; }
+    .secondary-details[open] { flex-basis:100%; }
+    .secondary-details[open] > summary { margin-left:auto; }
+    .secondary-details .badges { margin-top:8px; }
+    @media (max-width:700px) {
+      .card-head { display:block; }
+      .event-line { align-items:flex-start; }
+      .event-line h2 { flex-basis:calc(100% - 38px); }
+      .event-line > .broadcasts { flex-basis:100%; min-width:0; justify-content:flex-start; margin:0; }
+      .secondary-details { margin-left:auto; }
+      .secondary-details[open] { flex-basis:100%; }
+      .filter-label { width:100%; }
+      .toolbar-actions .spacer { display:none; width:100%; }
+    }
   </style>
 </head>
 <body>
@@ -409,16 +425,17 @@ export function validationHtml(): string {
       const official=eventFirst?'<span class="official-time"><strong>'+escapeHtml(item.eventTimeLabel)+'</strong></span>':'';
       const displayTitle=highlight&&eventFirst?sportLabel(item.sport)+' · '+item.competition+' — '+item.title:item.title;
       const broadcasts=item.broadcasts.length?'<div class="broadcasts">'+item.broadcasts.map(b=>'<span class="broadcast" data-tone="'+broadcastTone(b)+'" data-live="'+escapeHtml(b.liveStatus)+'" data-aligned="'+(b.liveStatus==='confirmed'||(b.liveStatus==='probable'&&b.broadcastAlignedToEvent)?'true':'false')+'"><strong>'+escapeHtml(b.timeRangeLabel||b.timeLabel)+'</strong> · '+(b.platform?'<span class="platform">'+escapeHtml(b.platform)+'</span>':escapeHtml(b.channel))+'</span>').join('')+'</div>':'<div class="unmatched">Diffuseur non identifié</div>';
-      const details = '<details class="secondary-details"><summary>'+(eventFirst?'Détails et validation ponctuelle':'Détails du programme')+'</summary>'+
+      const detailsLabel=eventFirst?'Détails et validation ponctuelle':'Détails du programme';
+      const details = '<details class="secondary-details"><summary aria-label="'+escapeHtml(detailsLabel)+'" title="'+escapeHtml(detailsLabel)+'"></summary>'+
         '<div class="badges">'+badges.map(value=>'<span class="badge">'+escapeHtml(value)+'</span>').join('')+'</div>'+
         (item.description?'<p class="description">'+escapeHtml(item.description)+'</p>':'')+
         '<p><strong>Pourquoi ?</strong> Score '+item.score+' · '+escapeHtml(item.selectionReasons.join(' · '))+'</p>'+
         (eventFirst?'<div class="validation"><div class="verdicts">'+buttons+'</div><textarea data-action="note" data-id="'+item.id+'" placeholder="Commentaire facultatif">'+escapeHtml(validation.note)+'</textarea></div>':'')+
         '</details>';
       return '<article class="card '+(compact?'compact-card':'')+'" data-verdict="'+validation.verdict+'">'+
-        '<div class="card-head"><div class="card-main"><div class="event-line">'+official+'<h2>'+escapeHtml(displayTitle)+'</h2></div>'+
+        '<div class="card-head"><div class="card-main"><div class="event-line">'+official+'<h2>'+escapeHtml(displayTitle)+'</h2>'+
         broadcasts+
-        details+'</div></div></article>';
+        details+'</div></div></div></article>';
     }
 
     function broadcastTone(broadcast) {
