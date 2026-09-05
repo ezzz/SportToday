@@ -160,6 +160,12 @@ le désactiver avec `--refresh-hours=0`. Les réponses brutes restent archivées
 sous `data/raw/` et les validations déjà effectuées sont conservées quand les
 identifiants d'événements restent stables.
 
+Sur Windows, [`scripts/watch-poc4-windows.ps1`](../../scripts/watch-poc4-windows.ps1)
+peut surveiller la branche POC toutes les quinze minutes. Lorsqu'un nouveau
+commit est publié, le script fait un `git pull --ff-only` puis relance le site.
+Voir [`WINDOWS-LAN.md`](WINDOWS-LAN.md) pour l'installation et la configuration
+optionnelle dans le Planificateur de tâches.
+
 Chaque événement se valide en un clic avec `OK`, `Doute` ou une raison
 d'erreur. Les commentaires sont facultatifs. La sauvegarde est automatique
 dans :

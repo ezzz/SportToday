@@ -52,6 +52,40 @@ quatre heures) :
 
 Utiliser `-RefreshHours 0` pour la désactiver.
 
+## Mise à jour automatique du dépôt
+
+Le script [`scripts/watch-poc4-windows.ps1`](../../scripts/watch-poc4-windows.ps1)
+vérifie la branche POC toutes les quinze minutes. Lorsqu'un nouveau commit est
+détecté, il arrête le site, fait un `git pull --ff-only`, puis le relance. Il
+relance également le site si le processus s'arrête inopinément. Les sorties du
+serveur sont conservées dans `services\ingest\data\watch-poc4-server.log`.
+
+Depuis la racine du dépôt, après avoir arrêté une instance éventuelle du script
+de lancement (`Ctrl+C`) :
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\scripts\watch-poc4-windows.ps1 -Install -AllowFirewall
+```
+
+La fenêtre PowerShell du watcher doit rester ouverte. `Ctrl+C` arrête à la fois
+la surveillance et le serveur. L'intervalle peut être modifié, par exemple :
+
+```powershell
+.\scripts\watch-poc4-windows.ps1 -IntervalMinutes 15 -RefreshHours 6
+```
+
+Le watcher utilise `poc/data-sources` par défaut. Pour le démarrer
+automatiquement à l'ouverture de session Windows, créer une tâche dans le
+Planificateur de tâches avec l'action suivante (adapter le chemin du dépôt) :
+
+```text
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "C:\Users\Bruno\SportToday\scripts\watch-poc4-windows.ps1" -AllowFirewall
+```
+
+La tâche doit être configurée avec `C:\Users\Bruno\SportToday` comme
+répertoire de démarrage et avec un compte utilisateur ayant accès au dépôt.
+
 ## Utilisation depuis le téléphone
 
 Le script affiche une adresse du type `http://192.168.1.25:4173`. Connecter le téléphone au même Wi-Fi, ouvrir cette adresse dans son navigateur, puis choisir la date souhaitée dans le bouton **Aujourd'hui / Demain**.
