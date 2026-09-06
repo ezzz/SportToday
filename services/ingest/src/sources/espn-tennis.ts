@@ -1,5 +1,6 @@
 import { config } from "../config.js";
 import type { SportEvent, SportEventScheduleEntry } from "../events/model.js";
+import { tennisRoundInfo } from "../events/tennis-round.js";
 import { tennisPriority } from "../events/watchlist.js";
 
 /** Optional, non-contractual ESPN scoreboard used for the Tennis POC. */
@@ -59,11 +60,14 @@ export function parseEspnTennisEvents(payload: unknown, date: string, timeZone =
           const startAtUtc = isoDate(competition?.date) || isoDate(competition?.startDate);
           const players = competitors(competition);
           if (!id || !startAtUtc || !sameLocalDate(startAtUtc, date, tournamentTimeZone) || competition?.timeValid === false || players.length !== 2) continue;
+          const round = stringValue(objectValue(competition?.round)?.displayName);
+          const roundInfo = tennisRoundInfo(round, tournament);
           group.entries.push({
             id,
             startAtUtc,
             participants: players,
-            round: stringValue(objectValue(competition?.round)?.displayName),
+            round,
+            ...(roundInfo ? { roundLabel: roundInfo.label, roundRank: roundInfo.rank } : {}),
             status: stringValue(objectValue(objectValue(competition?.status)?.type)?.state) || "scheduled"
           });
         }

@@ -209,9 +209,13 @@ test("regroupe les matchs ESPN Tennis en une ligne ATP et une ligne WTA", () => 
   assert.deepEqual(report.items.map((item) => item.eventTimeLabel).sort(), ["17:40", "20:10"]);
   assert.ok(report.items.every((item) => item.broadcasts[0]?.channel === "Eurosport 1"));
   assert.deepEqual(report.items.find((item) => item.title === "WTA Femmes")?.eventSchedule?.[0]?.participants, ["Taylor Townsend", "Aryna Sabalenka"]);
+  assert.equal(report.items.find((item) => item.title === "WTA Femmes")?.eventRoundLabel, "1/8e de finale");
+  assert.equal(report.items.find((item) => item.title === "WTA Femmes")?.eventRoundRank, 4);
   const atpSchedule = report.items.find((item) => item.title === "ATP Hommes")?.eventSchedule ?? [];
   assert.deepEqual(atpSchedule.map((entry) => entry.id), ["m1", "m-next-day-france"]);
   assert.equal(atpSchedule[1]?.startAtUtc, "2026-09-07T01:00:00.000Z");
+  assert.equal(atpSchedule[1]?.roundLabel, "3e tour");
+  assert.equal(atpSchedule[1]?.roundRank, 3);
 });
 
 test("déduplique un meeting World Athletics présent plusieurs fois dans le calendrier", () => {
@@ -263,7 +267,7 @@ function espnTennisFixture() {
         competitors: [{ athlete: { displayName: "Carlos Alcaraz" } }, { athlete: { displayName: "Tommy Paul" } }]
       }, {
         id: "m-next-day-france", date: "2026-09-07T01:00:00Z", timeValid: true,
-        status: { type: { state: "pre" } }, round: { displayName: "Round 4" },
+        status: { type: { state: "pre" } }, round: { displayName: "Round 3" },
         competitors: [{ athlete: { displayName: "Late One" } }, { athlete: { displayName: "Late Two" } }]
       }] },
       { grouping: { slug: "womens-singles" }, competitions: [{

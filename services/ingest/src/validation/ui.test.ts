@@ -31,6 +31,8 @@ test("sauvegarde un commentaire sans reconstruire la carte et perdre le focus", 
   assert.match(html, /event-schedule/u);
   assert.match(html, /map\(abbreviateFirstName\)/u);
   assert.match(html, /function abbreviateFirstName\(value\)/u);
+  assert.match(html, /eventRoundLabel/u);
+  assert.match(html, /entry\.roundLabel/u);
   assert.match(html, /split\(\/\\s\+\/\)/u);
   assert.doesNotMatch(html, /split\(\/s\+\/\)/u);
   assert.match(html, /dayOffset===0\?time:'J'/u);

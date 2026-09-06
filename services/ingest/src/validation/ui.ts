@@ -464,11 +464,13 @@ export function validationHtml(): string {
       const badges = [item.sport,item.competition,item.participants,eventFirst&&item.eventImportance?'Priorité '+item.eventImportance:'',category,statusBadge,rights.length?'Droits officiels':'',item.titleQuality==='unclear'?'Intitulé peu précis':''].filter(Boolean);
       const buttons = verdicts.map(([value,label]) => '<button data-action="verdict" data-id="'+item.id+'" data-value="'+value+'" class="'+(validation.verdict===value?'selected':'')+'">'+label+'</button>').join('');
       const official=eventFirst?'<span class="official-time"><strong>'+escapeHtml(item.eventTimeLabel)+'</strong></span>':'';
-      const displayTitle=highlight&&eventFirst?sportLabel(item.sport)+' · '+item.competition+' — '+item.title:item.title;
+      const tennisRound=eventFirst&&item.sport==='tennis'&&item.eventRoundLabel?' - '+item.eventRoundLabel:'';
+      const titleWithRound=item.title+tennisRound;
+      const displayTitle=highlight&&eventFirst?sportLabel(item.sport)+' · '+item.competition+' — '+titleWithRound:titleWithRound;
       const channelGroups=new Map();
       for(const b of item.broadcasts){const name=b.platform||b.channel;if(!channelGroups.has(name))channelGroups.set(name,[]);channelGroups.get(name).push(b)}
       const broadcasts=channelGroups.size?'<div class="broadcasts">'+[...channelGroups.entries()].sort((a,b)=>a[0].localeCompare(b[0],'fr',{numeric:true})).map(([name,values])=>'<span class="broadcast" data-tone="'+channelTone(values)+'">'+escapeHtml(name)+'</span>').join('')+'</div>':'<div class="unmatched">Diffuseur non identifié</div>';
-      const schedule=item.eventSchedule?.length?'<div class="event-schedule">'+item.eventSchedule.map(entry=>'<span><strong>'+escapeHtml(formatEventTime(entry.startAtUtc))+'</strong> '+escapeHtml((entry.participants||[]).map(abbreviateFirstName).join(' / '))+'</span>').join(' · ')+'</div>':'';
+      const schedule=item.eventSchedule?.length?'<div class="event-schedule">'+item.eventSchedule.map(entry=>'<span><strong>'+escapeHtml(formatEventTime(entry.startAtUtc))+'</strong> '+escapeHtml((entry.participants||[]).map(abbreviateFirstName).join(' / '))+(entry.roundLabel&&typeof item.eventRoundRank==='number'&&typeof entry.roundRank==='number'&&entry.roundRank<item.eventRoundRank?' ('+escapeHtml(entry.roundLabel)+')':'')+'</span>').join(' · ')+'</div>':'';
       const broadcastDetails=item.broadcasts.length?'<div class="detail-broadcasts"><strong>Créneaux TV :</strong> '+item.broadcasts.map(b=>'<span>'+escapeHtml(b.timeRangeLabel||b.timeLabel)+' · '+escapeHtml(b.platform||b.channel)+'</span>').join(' · ')+'</div>':'';
       const detailsLabel=eventFirst?'Détails et validation ponctuelle':'Détails du programme';
       const favoriteControls=eventFirst?'<div class="badges">'+favoriteButton('competition',item,item.competition)+(item.participants||'').split(' | ').filter(Boolean).map(team=>favoriteButton('team',item,team)).join('')+'</div><p>Favoris enregistrés sur cet appareil · prioritaires dans « À ne pas manquer ».</p>':'';

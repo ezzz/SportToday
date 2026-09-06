@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import type { SportEvent } from "../events/model.js";
+import { tennisRoundInfo } from "../events/tennis-round.js";
 import { tennisPriority } from "../events/watchlist.js";
 import { rightsForEvent, type EventRightsProvider } from "../events/rights.js";
 import { autoAnnotate, type LiveStatus } from "./auto-annotation.js";
@@ -96,6 +97,14 @@ function eventItem(event: SportEvent, events: readonly SportEvent[], programmes:
     : formatTime(event.startAtUtc, timeZone);
   const liveStatus = aggregateLiveStatus(broadcasts);
   const matchReasons = retained.flatMap((match) => match.reasons);
+  const tennisRounds = event.sport === "tennis"
+    ? (event.schedule ?? [])
+      .map((entry) => ({ label: entry.roundLabel, rank: entry.roundRank }))
+      .filter((value): value is { label: string; rank: number } => Boolean(value.label) && typeof value.rank === "number")
+    : [];
+  const mostAdvancedTennisRound = tennisRounds.length
+    ? tennisRounds.reduce((best, value) => value.rank > best.rank ? value : best)
+    : event.sport === "tennis" ? tennisRoundInfo(event.stage, event.competition) : undefined;
   return {
     id: event.id,
     title: event.title,
@@ -128,6 +137,7 @@ function eventItem(event: SportEvent, events: readonly SportEvent[], programmes:
     eventSourceId: event.sourceEventId,
     eventStatus: event.status,
     eventStage: event.stage,
+    ...(mostAdvancedTennisRound ? { eventRoundLabel: mostAdvancedTennisRound.label, eventRoundRank: mostAdvancedTennisRound.rank } : {}),
     eventImportance: event.importance,
     eventTimeConfidence: event.timeConfidence,
     broadcastMatchConfidence: matchConfidence,

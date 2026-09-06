@@ -10,6 +10,8 @@ export interface SportEventScheduleEntry {
   startAtUtc: string;
   participants: string[];
   round: string;
+  roundLabel?: string;
+  roundRank?: number;
   status: string;
 }
 

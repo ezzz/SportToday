@@ -52,6 +52,8 @@ export interface TonightItem {
   eventSourceId?: string;
   eventStatus?: string;
   eventStage?: string;
+  eventRoundLabel?: string;
+  eventRoundRank?: number;
   eventImportance?: "A" | "B" | "C";
   eventTimeConfidence?: "confirmed" | "estimated";
   broadcastMatchConfidence?: "high" | "medium" | "none";
