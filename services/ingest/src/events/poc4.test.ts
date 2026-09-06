@@ -11,6 +11,7 @@ import { parseApiFootballEvents } from "../sources/api-football.js";
 import { parseApiTennisEvents } from "../sources/api-tennis.js";
 import { parseApiVolleyballEvents } from "../sources/api-volleyball.js";
 import { parseEspnGolfEvents } from "../sources/espn-golf.js";
+import { parseEspnTennisEvents } from "../sources/espn-tennis.js";
 import { parseJolpicaEvents } from "../sources/jolpica-f1.js";
 import { parseWorldAthleticsEvents } from "../sources/world-athletics.js";
 
@@ -170,6 +171,49 @@ test("parse les références Volleyball, Tennis, Golf et Diamond League", () => 
   assert.equal(athletics[0]?.timeConfidence, "estimated");
 });
 
+test("construit la vue Tennis par tournoi depuis les créneaux XMLTV sans API payante", () => {
+  const live = dayProgramme("Tennis : US Open", "2026-08-23T18:00:00.000Z", "2026-08-23T21:00:00.000Z", "Eurosport 1", ["tennis"]);
+  live.subTitle = "US Open. Demi-finale messieurs.";
+  live.description = "En direct de New York.";
+  const replay = dayProgramme("Tennis : US Open", "2026-08-23T21:30:00.000Z", "2026-08-23T23:00:00.000Z", "Eurosport 2", ["tennis"]);
+  replay.subTitle = "US Open. Demi-finale dames.";
+  replay.isPreviouslyShown = true;
+  const tableTennis = dayProgramme("Tennis de table : WTT Champions", "2026-08-23T17:00:00.000Z", "2026-08-23T18:00:00.000Z", "L'Équipe", ["tennis"]);
+  const documentary = dayProgramme("The Iconic", "2026-08-23T16:00:00.000Z", "2026-08-23T16:30:00.000Z", "TRACE Sport Stars", ["tennis"]);
+  documentary.categories = ["Culture Infos"];
+  documentary.description = "Retour sur une finale historique à Wimbledon.";
+  const monterrey = dayProgramme("Tennis : Tournoi WTA de Monterrey", "2026-08-23T15:00:00.000Z", "2026-08-23T16:30:00.000Z", "beIN SPORTS 3", ["tennis"]);
+  monterrey.description = "Une finale disputée quelques jours avant l'US Open.";
+
+  const report = buildPoc4EventReport([], dayReport("2026-08-23", [live, replay, tableTennis, documentary, monterrey]));
+  const item = report.items.find((candidate) => candidate.competition === "US Open");
+
+  assert.equal(report.catalogueEventCount, 2);
+  assert.ok(report.items.some((candidate) => candidate.competition === "Open de Monterrey"));
+  assert.equal(item?.competition, "US Open");
+  assert.equal(item?.eventSource, "xmltvfr");
+  assert.equal(item?.eventTimeLabel, "Créneaux TV");
+  assert.deepEqual(item?.broadcasts.map((broadcast) => [broadcast.channel, broadcast.liveStatus]), [
+    ["Eurosport 1", "confirmed"],
+    ["Eurosport 2", "delayed"]
+  ]);
+  assert.match(item?.description ?? "", /Demi-finale messieurs/u);
+});
+
+test("regroupe les matchs ESPN Tennis en une ligne ATP et une ligne WTA", () => {
+  const tennisEvents = parseEspnTennisEvents(espnTennisFixture(), "2026-09-06", "Europe/Paris");
+  const programme = dayProgramme("Tennis : US Open", "2026-09-06T15:00:00.000Z", "2026-09-06T22:30:00.000Z", "Eurosport 1", ["tennis"]);
+  const report = buildPoc4EventReport(tennisEvents, dayReport("2026-09-06", [programme]));
+
+  assert.deepEqual(report.items.map((item) => item.title).sort(), ["ATP Hommes", "WTA Femmes"]);
+  assert.deepEqual(report.items.map((item) => item.eventTimeLabel).sort(), ["17:40", "20:10"]);
+  assert.ok(report.items.every((item) => item.broadcasts[0]?.channel === "Eurosport 1"));
+  assert.deepEqual(report.items.find((item) => item.title === "WTA Femmes")?.eventSchedule?.[0]?.participants, ["Taylor Townsend", "Aryna Sabalenka"]);
+  const atpSchedule = report.items.find((item) => item.title === "ATP Hommes")?.eventSchedule ?? [];
+  assert.deepEqual(atpSchedule.map((entry) => entry.id), ["m1", "m-next-day-france"]);
+  assert.equal(atpSchedule[1]?.startAtUtc, "2026-09-07T01:00:00.000Z");
+});
+
 test("déduplique un meeting World Athletics présent plusieurs fois dans le calendrier", () => {
   const athletics = parseWorldAthleticsEvents('<script id="__NEXT_DATA__">{"events":[{"id":"first","name":"Diamond League Brussels","startDate":"2026-08-26","endDate":"2026-08-27","disciplines":"Track and Field"},{"id":"second","name":"Diamond League Brussels","startDate":"2026-08-26","endDate":"2026-08-27","disciplines":"Track and Field"}]}</script>', "2026-08-26");
   assert.equal(athletics.length, 1);
@@ -185,13 +229,13 @@ test("agrège les sources événementielles disponibles dans le catalogue", asyn
       timeZone: "Europe/Paris",
       apiFootball: { fixturesForDate: async () => ({ errors: [], response: [fixture(10, 2, "UEFA Champions League", "Semi-finals", "Paris Saint Germain", "Real Madrid")] }) },
       apiVolleyball: { gamesForDate: async () => ({ response: [{ id: 11, date: "2026-08-26T18:00:00Z", country: { name: "France" }, league: { name: "Ligue A" }, teams: { home: { name: "Tours" }, away: { name: "Montpellier" } }, status: { short: "NS" } }] }) },
-      apiTennis: { fixturesForDate: async () => ({ success: 1, result: [{ event_key: "12", event_date: "2026-08-26", event_time: "20:00", event_first_player: "A", event_second_player: "B", tournament_name: "US Open" }] }) },
+      espnTennis: { scoreboardsForDate: async () => ({ tours: [] }) },
       espnGolf: { scoreboardForDate: async () => ({ tours: [{ events: [{ id: "13", name: "The Open", date: "2026-08-26T10:00:00Z" }] }] }) },
       worldAthletics: { calendarForDate: async () => '<script id="__NEXT_DATA__">{"events":[{"id":"14","name":"Diamond League","startDate":"2026-08-26","disciplines":"Track and Field"}]}</script>' },
       jolpicaF1: { scheduleForSeason: async () => ({ MRData: { RaceTable: { Races: [] } } }) }
     });
-    assert.equal(catalogue.events.length, 5);
-    assert.deepEqual(catalogue.eventCounts, { football: 1, volleyball: 1, tennis: 1, golf: 1, athletics: 1 });
+    assert.equal(catalogue.events.length, 4);
+    assert.deepEqual(catalogue.eventCounts, { football: 1, volleyball: 1, golf: 1, athletics: 1 });
     assert.equal(catalogue.sourceErrors.length, 0);
   } finally {
     await rm(dataRoot, { recursive: true, force: true });
@@ -204,6 +248,31 @@ function fixture(id: number, leagueId: number, leagueName: string, round: string
     league: { id: leagueId, name: leagueName, country: "World", round },
     teams: { home: { name: home }, away: { name: away } }
   };
+}
+
+function espnTennisFixture() {
+  return { tours: [{ tour: "atp", payload: { events: [{
+    id: "189-2026", name: "US Open", calendar: { timeZone: "America/New_York" }, groupings: [
+      { grouping: { slug: "mens-singles" }, competitions: [{
+        id: "m-previous-day", date: "2026-09-06T02:00:00Z", timeValid: true,
+        status: { type: { state: "pre" } }, round: { displayName: "Round 4" },
+        competitors: [{ athlete: { displayName: "Previous One" } }, { athlete: { displayName: "Previous Two" } }]
+      }, {
+        id: "m1", date: "2026-09-06T18:10:00Z", timeValid: true,
+        status: { type: { state: "pre" } }, round: { displayName: "Round 4" },
+        competitors: [{ athlete: { displayName: "Carlos Alcaraz" } }, { athlete: { displayName: "Tommy Paul" } }]
+      }, {
+        id: "m-next-day-france", date: "2026-09-07T01:00:00Z", timeValid: true,
+        status: { type: { state: "pre" } }, round: { displayName: "Round 4" },
+        competitors: [{ athlete: { displayName: "Late One" } }, { athlete: { displayName: "Late Two" } }]
+      }] },
+      { grouping: { slug: "womens-singles" }, competitions: [{
+        id: "w1", date: "2026-09-06T15:40:00Z", timeValid: true,
+        status: { type: { state: "pre" } }, round: { displayName: "Round 4" },
+        competitors: [{ athlete: { displayName: "Taylor Townsend" } }, { athlete: { displayName: "Aryna Sabalenka" } }]
+      }] }
+    ]
+  }] } }] };
 }
 
 function dayProgramme(title: string, startAt: string, stopAt: string, channelName: string, sportSignals: string[]): DayProgramme {

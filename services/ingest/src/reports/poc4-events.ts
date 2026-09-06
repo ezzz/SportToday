@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import type { SportEvent } from "../events/model.js";
+import { tennisPriority } from "../events/watchlist.js";
 import { rightsForEvent, type EventRightsProvider } from "../events/rights.js";
 import { autoAnnotate, type LiveStatus } from "./auto-annotation.js";
 import type { DayProgramme, DayReport } from "./day-filter.js";
@@ -17,8 +18,17 @@ export function buildPoc4EventReport(
 ): TonightReport {
   const programmes = [...report.programmes, ...(followingReport?.programmes ?? [])]
     .filter((programme) => !isQuarantinedProgramme(programme));
-  const items = events
-    .map((event) => eventItem(event, events, programmes, report.timeZone))
+  const tennisProgrammes = report.programmes.filter((programme) => !isQuarantinedProgramme(programme));
+  const tennisFallbacks = tennisTournamentEvents(tennisProgrammes, report);
+  const espnTennisEvents = events.filter((event) => event.source === "espn-tennis")
+    .filter((event) => tennisFallbacks.some((fallback) => normalize(fallback.competition) === normalize(event.competition)));
+  const referenceEvents = [
+    ...events.filter((event) => event.sport !== "tennis"),
+    ...espnTennisEvents,
+    ...(espnTennisEvents.length ? [] : tennisFallbacks)
+  ];
+  const items = referenceEvents
+    .map((event) => eventItem(event, referenceEvents, programmes, report.timeZone))
     .sort((left, right) => right.score - left.score
       || (left.eventStartAtUtc ?? "").localeCompare(right.eventStartAtUtc ?? "")
       || left.title.localeCompare(right.title, "fr"));
@@ -37,17 +47,17 @@ export function buildPoc4EventReport(
     eveningStartUtc: eveningStart.toISOString(),
     windowEndUtc: windowEnd.toISOString(),
     programmeCount: programmes.length,
-    candidateCount: events.length,
+    candidateCount: referenceEvents.length,
     quarantinedProgrammeCount: [...report.programmes, ...(followingReport?.programmes ?? [])].filter(isQuarantinedProgramme).length,
     selectedCount: items.length,
     limit,
     items,
-    catalogueEventCount: events.length,
+    catalogueEventCount: referenceEvents.length,
     matchedEventCount,
     unmatchedEventCount: items.length - matchedEventCount,
-    footballEventCount: events.filter((event) => event.sport === "football").length,
-    f1EventCount: events.filter((event) => event.sport === "f1").length,
-    eventCounts: events.reduce<Record<string, number>>((counts, event) => {
+    footballEventCount: referenceEvents.filter((event) => event.sport === "football").length,
+    f1EventCount: referenceEvents.filter((event) => event.sport === "f1").length,
+    eventCounts: referenceEvents.reduce<Record<string, number>>((counts, event) => {
       counts[event.sport] = (counts[event.sport] ?? 0) + 1;
       return counts;
     }, {})
@@ -68,11 +78,18 @@ function eventItem(event: SportEvent, events: readonly SportEvent[], programmes:
     .sort((left, right) => right.score - left.score || left.broadcast.startAtUtc.localeCompare(right.broadcast.startAtUtc));
   const strongMatches = matches.filter((match) => match.confidence === "high");
   const retained = strongMatches.length > 0 ? strongMatches : matches.filter((match) => match.confidence === "medium");
-  const xmltvBroadcasts = uniqueBroadcasts(retained.map((match) => match.broadcast));
+  const rawXmltvBroadcasts = uniqueBroadcasts(retained.map((match) => match.broadcast));
+  const xmltvBroadcasts = event.sport === "tennis" && isTennisSummaryEvent(event)
+    ? compactTennisBroadcasts(rawXmltvBroadcasts, timeZone)
+    : rawXmltvBroadcasts;
   const broadcasts = mergeRightsBroadcasts(xmltvBroadcasts, event, timeZone);
   const matchConfidence = strongMatches.length > 0 ? "high" : retained.length > 0 ? "medium" : "none";
   const eventEndAtUtc = event.endAtUtc ?? inferredEnd(event);
-  const eventTimeLabel = event.timeConfidence === "estimated"
+  const eventTimeLabel = event.source === "espn-tennis"
+    ? formatTime(primaryTennisStart(event, timeZone), timeZone)
+    : event.sport === "tennis" && isXmltvEvent(event)
+    ? "Créneaux TV"
+    : event.timeConfidence === "estimated"
     ? "Horaire à confirmer"
     : event.endAtUtc
     ? formatTimeRange(event.startAtUtc, event.endAtUtc, timeZone)
@@ -113,7 +130,8 @@ function eventItem(event: SportEvent, events: readonly SportEvent[], programmes:
     eventStage: event.stage,
     eventImportance: event.importance,
     eventTimeConfidence: event.timeConfidence,
-    broadcastMatchConfidence: matchConfidence
+    broadcastMatchConfidence: matchConfidence,
+    ...(event.schedule ? { eventSchedule: event.schedule } : {})
   };
 }
 
@@ -135,6 +153,28 @@ function matchProgramme(event: SportEvent, events: readonly SportEvent[], progra
   const eventStart = Date.parse(event.startAtUtc);
   let score = 0;
   const reasons: string[] = [];
+  if (event.sport === "tennis" && isXmltvEvent(event)) {
+    if (tennisTournamentName(programme) !== event.competition) return null;
+    if (formatDate(programme.startAt, timeZone) !== event.sourceEventId.slice(0, 10)) return null;
+    const programmeStart = Date.parse(programme.startAt);
+    if (programmeStart < Date.parse(event.startAtUtc) || programmeStart > Date.parse(event.endAtUtc ?? event.startAtUtc)) return null;
+    return {
+      score: 95,
+      confidence: "high",
+      reasons: ["créneau regroupé sous le tournoi identifié par XMLTV"],
+      broadcast: toEventBroadcast(programme, event, timeZone)
+    };
+  }
+  if (event.source === "espn-tennis") {
+    if (tennisTournamentName(programme) !== event.competition) return null;
+    if (formatDate(programme.startAt, timeZone) !== event.sourceEventId.slice(-10)) return null;
+    return {
+      score: 95,
+      confidence: "high",
+      reasons: ["tableau ESPN rattaché au tournoi diffusé dans XMLTV"],
+      broadcast: toEventBroadcast(programme, event, timeZone)
+    };
+  }
   if (["football", "volleyball", "tennis"].includes(event.sport)) {
     const participantMatches = event.participants.filter((participant) => entityMatches(participant, text)).length;
     const genericCompetitionMatch = ["football", "volleyball"].includes(event.sport)
@@ -187,6 +227,149 @@ function matchProgramme(event: SportEvent, events: readonly SportEvent[], progra
   return confidence ? { score, confidence, reasons, broadcast: toEventBroadcast(programme, event, timeZone) } : null;
 }
 
+/**
+ * Builds one useful tennis entry per televised tournament. Match-level data is
+ * deliberately optional: XMLTV is enough to expose the tournament, channels
+ * and broadcast windows without depending on a paid fixtures API.
+ */
+export function tennisTournamentEvents(programmes: readonly DayProgramme[], report: Pick<DayReport, "date" | "source">): SportEvent[] {
+  const groups = new Map<string, { name: string; programmes: DayProgramme[] }>();
+  for (const programme of programmes) {
+    const name = tennisTournamentName(programme);
+    if (!name) continue;
+    const key = normalize(name);
+    const group = groups.get(key) ?? { name, programmes: [] };
+    group.programmes.push(programme);
+    groups.set(key, group);
+  }
+
+  return [...groups.entries()].map(([key, group]) => {
+    const ordered = [...group.programmes].sort((left, right) => left.startAt.localeCompare(right.startAt));
+    const startAtUtc = ordered[0]!.startAt;
+    const endAtUtc = ordered.reduce((latest, programme) => {
+      const stop = programme.stopAt ?? programme.startAt;
+      return stop > latest ? stop : latest;
+    }, ordered[0]!.stopAt ?? startAtUtc);
+    const stages = [...new Set(ordered.map((programme) => tennisProgrammeDetail(programme, group.name)).filter(Boolean))].slice(0, 5);
+    const priority = tennisPriority(group.name);
+    return {
+      id: `${report.source}:tennis-tournament:${report.date}:${key.replace(/\s+/gu, "-")}`,
+      source: report.source,
+      sourceEventId: `${report.date}:${key}`,
+      sport: "tennis",
+      title: group.name,
+      competition: group.name,
+      stage: stages.length ? stages.join(" · ") : "Programme TV du jour",
+      participants: [],
+      startAtUtc,
+      endAtUtc,
+      timeConfidence: "estimated",
+      status: "scheduled-from-tv",
+      importance: priority.importance,
+      priorityScore: priority.score,
+      priorityReasons: [...priority.reasons, "tournoi diffusé identifié dans le programme TV"]
+    } satisfies SportEvent;
+  });
+}
+
+function tennisTournamentName(programme: DayProgramme): string | null {
+  if (!programme.sportSignals.includes("tennis")) return null;
+  const title = normalize(programme.title);
+  const hasSportCategory = programme.categories.some((category) => /^sport(?:s|if)?$/u.test(normalize(category)));
+  if (!/^tennis\b/u.test(title) && !hasSportCategory) return null;
+  const text = `${programme.title} ${programme.subTitle ?? ""} ${programme.description ?? ""}`;
+  const normalized = normalize(text);
+  if (/tennis de table|\bwtt\b|mr bean|tennis club|meilleurs moments|best of|documentaire/u.test(normalized)) return null;
+  const prefixed = programme.title.match(/^tennis\s*[:\-]\s*(.+)$/iu)?.[1]?.trim();
+  if (prefixed && !/^(?:tennis|atp world tour|wta world tour)$/iu.test(prefixed)) {
+    return canonicalTennisTournament(prefixed)
+      ?? prefixed.replace(/^tournoi\s+(?:atp|wta)\s+(?:de |du |des )?/iu, "").trim();
+  }
+  return canonicalTennisTournament(`${programme.title} ${programme.subTitle ?? ""}`);
+}
+
+function canonicalTennisTournament(value: string): string | null {
+  const normalized = normalize(value);
+  const known: Array<[RegExp, string]> = [
+    [/\bus open\b/u, "US Open"],
+    [/\bwimbledon\b/u, "Wimbledon"],
+    [/roland garros|french open/u, "Roland-Garros"],
+    [/open d australie|australian open/u, "Open d'Australie"],
+    [/cincinnati/u, "Cincinnati Open"],
+    [/indian wells/u, "Indian Wells"],
+    [/monte carlo/u, "Monte-Carlo Masters"],
+    [/open (?:du |de )?canada|canadian open/u, "Open du Canada"],
+    [/guadalajara/u, "Open de Guadalajara"],
+    [/monterrey/u, "Open de Monterrey"],
+    [/madrid/u, "Open de Madrid"],
+    [/shanghai/u, "Masters de Shanghai"],
+    [/billie jean king/u, "Billie Jean King Cup"],
+    [/coupe davis|davis cup/u, "Coupe Davis"]
+  ];
+  const recognised = known.find(([pattern]) => pattern.test(normalized));
+  return recognised?.[1] ?? null;
+}
+
+function tennisProgrammeDetail(programme: DayProgramme, tournament: string): string {
+  const value = (programme.subTitle ?? "").replace(/^tennis$/iu, "").trim();
+  if (!value || normalize(value) === normalize(programme.title)) return "";
+  const separated = value.match(/^([^|.]+)[|.]\s*(.+)$/u);
+  const detail = separated && normalize(separated[1] ?? "") === normalize(tournament) ? separated[2] ?? value : value;
+  return detail.replace(/\.+$/u, "");
+}
+
+function isXmltvEvent(event: SportEvent): boolean {
+  return event.source === "xmltvfr" || event.source === "xmltvfree";
+}
+
+function isTennisSummaryEvent(event: SportEvent): boolean {
+  return isXmltvEvent(event) || event.source === "espn-tennis";
+}
+
+function primaryTennisStart(event: SportEvent, timeZone: string): string {
+  const daytime = event.schedule?.find((entry) => {
+    const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", hourCycle: "h23" }).format(new Date(entry.startAtUtc)));
+    return hour >= 8;
+  });
+  return daytime?.startAtUtc ?? event.schedule?.[0]?.startAtUtc ?? event.startAtUtc;
+}
+
+function compactTennisBroadcasts(values: readonly TonightBroadcast[], timeZone: string): TonightBroadcast[] {
+  const formatter = new Intl.DateTimeFormat("fr-FR", { timeZone, hour: "2-digit", minute: "2-digit" });
+  const grouped = new Map<string, TonightBroadcast[]>();
+  for (const value of values) {
+    const family = /^eurosport 360(?: \d+)?$/u.test(normalize(value.channel)) ? "Eurosport 360" : value.channel;
+    const key = `${normalize(family)}:${value.liveStatus}`;
+    const group = grouped.get(key) ?? [];
+    group.push({
+      ...value,
+      channel: family,
+      ...(family === "Eurosport 360" ? { channelSourceId: "family:eurosport-360" } : {})
+    });
+    grouped.set(key, group);
+  }
+  const compacted: TonightBroadcast[] = [];
+  for (const group of grouped.values()) {
+    const ordered = group.sort((left, right) => left.startAtUtc.localeCompare(right.startAtUtc));
+    for (const broadcast of ordered) {
+      const previous = compacted.at(-1);
+      const previousStop = Date.parse(previous?.stopAtUtc || previous?.startAtUtc || "");
+      const currentStart = Date.parse(broadcast.startAtUtc);
+      if (previous && previous.channel === broadcast.channel && previous.liveStatus === broadcast.liveStatus
+        && currentStart <= previousStop + 15 * 60_000) {
+        const stopAtUtc = broadcast.stopAtUtc > previous.stopAtUtc ? broadcast.stopAtUtc : previous.stopAtUtc;
+        const endTimeLabel = stopAtUtc ? formatter.format(new Date(stopAtUtc)) : previous.endTimeLabel;
+        previous.stopAtUtc = stopAtUtc;
+        previous.endTimeLabel = endTimeLabel;
+        previous.timeRangeLabel = endTimeLabel ? `${previous.timeLabel}–${endTimeLabel}` : previous.timeLabel;
+      } else {
+        compacted.push({ ...broadcast });
+      }
+    }
+  }
+  return compacted.sort((left, right) => left.startAtUtc.localeCompare(right.startAtUtc) || left.channel.localeCompare(right.channel, "fr"));
+}
+
 function toEventBroadcast(programme: DayProgramme, event: SportEvent, timeZone: string): TonightBroadcast {
   const annotation = autoAnnotate(programme);
   const formatter = new Intl.DateTimeFormat("fr-FR", { timeZone, hour: "2-digit", minute: "2-digit" });
@@ -194,7 +377,9 @@ function toEventBroadcast(programme: DayProgramme, event: SportEvent, timeZone: 
   const endTimeLabel = programme.stopAt ? formatter.format(new Date(programme.stopAt)) : "";
   const directText = /\b(?:en direct|direct|live)\b/iu.test(`${programme.title} ${programme.subTitle ?? ""} ${programme.description ?? ""}`);
   const delayedText = /\b(?:rediffusion|replay|différé|déjà diffusé)\b/iu.test(`${programme.title} ${programme.subTitle ?? ""} ${programme.description ?? ""}`);
-  const overlaps = event.timeConfidence === "confirmed" && programmeOverlaps(programme, event.startAtUtc, 30);
+  const overlaps = event.timeConfidence === "confirmed" && (event.schedule?.length
+    ? event.schedule.some((entry) => programmeOverlaps(programme, entry.startAtUtc, 30))
+    : programmeOverlaps(programme, event.startAtUtc, 30));
   let liveStatus: LiveStatus = "unknown";
   let liveEvidence = "horaire insuffisant pour conclure";
   if (programme.isPreviouslyShown || delayedText) {
@@ -366,6 +551,12 @@ function formatTimeRange(startAt: string, endAt: string, timeZone: string): stri
 
 function formatTime(value: string, timeZone: string): string {
   return new Intl.DateTimeFormat("fr-FR", { timeZone, hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+}
+
+function formatDate(value: string, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date(value));
+  const part = (type: Intl.DateTimeFormatPartTypes): string => parts.find((candidate) => candidate.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
 }
 
 function uniqueBroadcasts(values: readonly TonightBroadcast[]): TonightBroadcast[] {

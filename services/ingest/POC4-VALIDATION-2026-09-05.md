@@ -16,7 +16,7 @@
 - Pologne / Italie féminin : L’Équipe, 18h, direct probable ; correspondance explicite du championnat féminin.
 - Metz / Rodez : suppression des chaînes incorrectes de soirée ; diffuseur encore non identifié.
 - Leverkusen / Union Berlin : suppression du programme de 18h30 attribué à tort.
-- Tennis : clé API-Tennis toujours nécessaire ; aucun événement inventé pour combler cette absence.
+- Tennis : aucune clé payante requise ; XMLTV sélectionne les tournois diffusés et ESPN fournit une synthèse ATP Hommes et une WTA Femmes avec tous les matchs/horaires en sous-titre.
 
 Ces associations restent des déductions XMLTV, pas une confirmation externe de diffusion.
 

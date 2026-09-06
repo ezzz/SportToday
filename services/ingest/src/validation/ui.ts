@@ -65,6 +65,7 @@ export function validationHtml(): string {
     .card-main { flex:1; min-width:0; }
     .event-line { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
     .event-line h2 { margin:0; flex:1 1 260px; min-width:0; }
+    .event-schedule { margin:5px 32px 0 0; color:#718096; font-size:11px; line-height:1.45; }
     h2 { margin:0 0 7px; font-size:19px; }
     .badges,.broadcasts { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
     .event-line > .broadcasts { flex:0 1 52%; justify-content:flex-end; margin:0 0 0 auto; min-width:220px; }
@@ -77,6 +78,7 @@ export function validationHtml(): string {
     .unmatched { background:#fff3cf; color:#765500; border-radius:8px; padding:8px 10px; margin:8px 0; font-size:13px; }
     .source-note { color:#637087; font-size:12px; margin-left:5px; }
     .description { color:#4f5c70; margin:10px 0; line-height:1.45; }
+    .detail-broadcasts { display:flex; flex-wrap:wrap; gap:6px; margin:10px 0; }
     details { color:#637087; font-size:13px; }
     .validation { border-top:1px solid #e8ebf0; margin-top:13px; padding-top:13px; }
     .verdicts { display:flex; flex-wrap:wrap; gap:7px; }
@@ -442,7 +444,7 @@ export function validationHtml(): string {
       }
       return [...sports.entries()].sort((left,right)=>Math.max(...[...left[1].values()].flat().map(item=>item.score))-Math.max(...[...right[1].values()].flat().map(item=>item.score))||sportLabel(left[0]).localeCompare(sportLabel(right[0]),'fr')).map(([sport,competitions])=>{
         const total=[...competitions.values()].flat().length;
-        const competitionHtml=[...competitions.entries()].sort((left,right)=>Math.max(...left[1].map(item=>item.score))-Math.max(...right[1].map(item=>item.score))||left[0].localeCompare(right[0],'fr')).map(([competition,group])=>'<section class="competition-group"><div class="competition-heading"><h2>'+escapeHtml(competition)+'</h2><span>'+group.length+' match'+(group.length>1?'s':'')+'</span></div>'+group.sort((left,right)=>firstItemStart(left).localeCompare(firstItemStart(right))||right.score-left.score).map(item=>cardHtml(item,report,true)).join('')+'</section>').join('');
+        const competitionHtml=[...competitions.entries()].sort((left,right)=>Math.max(...left[1].map(item=>item.score))-Math.max(...right[1].map(item=>item.score))||left[0].localeCompare(right[0],'fr')).map(([competition,group])=>'<section class="competition-group"><div class="competition-heading"><h2>'+escapeHtml(competition)+'</h2><span>'+group.length+' événement'+(group.length>1?'s':'')+'</span></div>'+group.sort((left,right)=>firstItemStart(left).localeCompare(firstItemStart(right))||right.score-left.score).map(item=>cardHtml(item,report,true)).join('')+'</section>').join('');
         return '<details class="sport-group" data-sport-group="'+escapeHtml(sport)+'" '+(collapsedSports.has(sport)?'':'open')+'><summary class="sport-heading"><h2>'+escapeHtml(sportLabel(sport))+'</h2><span>'+total+' événement'+(total>1?'s':'')+'</span></summary>'+competitionHtml+'</details>';
       }).join('');
     }
@@ -463,20 +465,47 @@ export function validationHtml(): string {
       const buttons = verdicts.map(([value,label]) => '<button data-action="verdict" data-id="'+item.id+'" data-value="'+value+'" class="'+(validation.verdict===value?'selected':'')+'">'+label+'</button>').join('');
       const official=eventFirst?'<span class="official-time"><strong>'+escapeHtml(item.eventTimeLabel)+'</strong></span>':'';
       const displayTitle=highlight&&eventFirst?sportLabel(item.sport)+' · '+item.competition+' — '+item.title:item.title;
-      const broadcasts=item.broadcasts.length?'<div class="broadcasts">'+item.broadcasts.map(b=>'<span class="broadcast" data-tone="'+broadcastTone(b)+'" data-live="'+escapeHtml(b.liveStatus)+'" data-aligned="'+(b.liveStatus==='confirmed'||(b.liveStatus==='probable'&&b.broadcastAlignedToEvent)?'true':'false')+'"><strong>'+escapeHtml(b.timeRangeLabel||b.timeLabel)+'</strong> · '+(b.platform?'<span class="platform">'+escapeHtml(b.platform)+'</span>':escapeHtml(b.channel))+'</span>').join('')+'</div>':'<div class="unmatched">Diffuseur non identifié</div>';
+      const channelGroups=new Map();
+      for(const b of item.broadcasts){const name=b.platform||b.channel;if(!channelGroups.has(name))channelGroups.set(name,[]);channelGroups.get(name).push(b)}
+      const broadcasts=channelGroups.size?'<div class="broadcasts">'+[...channelGroups.entries()].sort((a,b)=>a[0].localeCompare(b[0],'fr',{numeric:true})).map(([name,values])=>'<span class="broadcast" data-tone="'+channelTone(values)+'">'+escapeHtml(name)+'</span>').join('')+'</div>':'<div class="unmatched">Diffuseur non identifié</div>';
+      const schedule=item.eventSchedule?.length?'<div class="event-schedule">'+item.eventSchedule.map(entry=>'<span><strong>'+escapeHtml(formatEventTime(entry.startAtUtc))+'</strong> '+escapeHtml((entry.participants||[]).map(abbreviateFirstName).join(' / '))+'</span>').join(' · ')+'</div>':'';
+      const broadcastDetails=item.broadcasts.length?'<div class="detail-broadcasts"><strong>Créneaux TV :</strong> '+item.broadcasts.map(b=>'<span>'+escapeHtml(b.timeRangeLabel||b.timeLabel)+' · '+escapeHtml(b.platform||b.channel)+'</span>').join(' · ')+'</div>':'';
       const detailsLabel=eventFirst?'Détails et validation ponctuelle':'Détails du programme';
       const favoriteControls=eventFirst?'<div class="badges">'+favoriteButton('competition',item,item.competition)+(item.participants||'').split(' | ').filter(Boolean).map(team=>favoriteButton('team',item,team)).join('')+'</div><p>Favoris enregistrés sur cet appareil · prioritaires dans « À ne pas manquer ».</p>':'';
       const details = '<details class="secondary-details"><summary aria-label="'+escapeHtml(detailsLabel)+'" title="'+escapeHtml(detailsLabel)+'"></summary>'+
         favoriteControls+
         '<div class="badges">'+badges.map(value=>'<span class="badge">'+escapeHtml(value)+'</span>').join('')+'</div>'+
         (item.description?'<p class="description">'+escapeHtml(item.description)+'</p>':'')+
+        broadcastDetails+
         '<p><strong>Pourquoi ?</strong> Score '+item.score+' · '+escapeHtml(item.selectionReasons.join(' · '))+'</p>'+
         (eventFirst?'<div class="validation"><div class="verdicts">'+buttons+'</div><textarea data-action="note" data-id="'+item.id+'" placeholder="Commentaire facultatif">'+escapeHtml(validation.note)+'</textarea></div>':'')+
         '</details>';
       return '<article class="card '+(compact?'compact-card':'')+'" data-verdict="'+validation.verdict+'">'+
         '<div class="card-head"><div class="card-main"><div class="event-line">'+official+'<h2>'+escapeHtml(displayTitle)+'</h2>'+
         broadcasts+
-        details+'</div></div></div></article>';
+        details+'</div>'+schedule+'</div></div></article>';
+    }
+
+    function formatEventTime(value) {
+      const instant=new Date(value);
+      const time=new Intl.DateTimeFormat('fr-FR',{timeZone:state.report.timeZone,hour:'2-digit',minute:'2-digit'}).format(instant).replace(':','h');
+      const localDate=new Intl.DateTimeFormat('en-CA',{timeZone:state.report.timeZone,year:'numeric',month:'2-digit',day:'2-digit'}).format(instant);
+      const dayOffset=Math.round((Date.parse(localDate+'T00:00:00Z')-Date.parse(state.report.date+'T00:00:00Z'))/86400000);
+      return dayOffset===0?time:'J'+(dayOffset>0?'+':'')+dayOffset+' · '+time;
+    }
+
+    function abbreviateFirstName(value) {
+      const parts=String(value||'').trim().split(/\\s+/).filter(Boolean);
+      if(parts.length<2)return parts[0]||'';
+      const first=parts.shift();
+      const initials=first.split('-').filter(Boolean).map(part=>part.slice(0,1).toLocaleUpperCase('fr-FR')+'.').join('-');
+      return initials+' '+parts.join(' ');
+    }
+
+    function channelTone(values) {
+      if(values.some(b=>b.liveStatus==='confirmed'||(b.liveStatus==='probable'&&b.broadcastAlignedToEvent)))return 'green';
+      if(values.every(b=>b.liveStatus==='delayed'))return 'red';
+      return 'yellow';
     }
 
     function broadcastTone(broadcast) {

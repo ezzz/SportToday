@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { autoAnnotate, type Confidence, type ContentCategory, type LiveStatus, type TriState } from "./auto-annotation.js";
 import type { DayProgramme, DayReport } from "./day-filter.js";
+import type { SportEventScheduleEntry } from "../events/model.js";
 
 const DAY_START_HOUR = 0;
 const EVENING_START_HOUR = 20;
@@ -47,13 +48,14 @@ export interface TonightItem {
   eventStartAtUtc?: string;
   eventEndAtUtc?: string;
   eventTimeLabel?: string;
-  eventSource?: "api-football" | "jolpica-f1" | "api-volleyball" | "api-tennis" | "espn-golf" | "world-athletics";
+  eventSource?: "api-football" | "jolpica-f1" | "api-volleyball" | "api-tennis" | "espn-tennis" | "espn-golf" | "world-athletics" | "xmltvfr" | "xmltvfree";
   eventSourceId?: string;
   eventStatus?: string;
   eventStage?: string;
   eventImportance?: "A" | "B" | "C";
   eventTimeConfidence?: "confirmed" | "estimated";
   broadcastMatchConfidence?: "high" | "medium" | "none";
+  eventSchedule?: SportEventScheduleEntry[];
 }
 
 export interface TonightReport {

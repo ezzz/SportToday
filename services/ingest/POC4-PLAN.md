@@ -101,14 +101,15 @@ source EPG principale :
 |---|---|---|
 | Football | [API-Football](https://api-sports.io/sports/football) ou [football-data.org](https://www.football-data.org/pricing) | calendrier, équipes, compétition |
 | Volleyball | [API-Volleyball](https://api-sports.io/sports/volleyball) | matchs, compétitions et horaires |
-| Tennis | [API-Tennis](https://api-tennis.com/documentation) | tournois, matchs à venir, horaires évolutifs |
+| Tennis | XMLTVFr/XMLTVFree + scoreboard public ESPN ATP/WTA | tournoi diffusé et chaînes ; une synthèse ATP et une WTA avec matchs/horaires |
 | F1 | [Jolpica F1](https://github.com/jolpica/jolpica-f1) | calendrier et sessions |
 | Golf | ESPN scoreboard public (adaptateur POC) | tournoi et journée ; à remplacer par une API sous licence si nécessaire |
 | Athlétisme | [World Athletics Diamond League](https://worldathletics.org/competitions/diamond-league/calendar-results) | calendrier des étapes ; horaires journaliers parfois estimés |
 
-TheSportsDB reste une piste multifournisseur. Son offre gratuite est trop
-limitée pour découvrir exhaustivement une journée ; son offre Premium ne sera
-testée que si les sources spécialisées ne donnent pas un résultat suffisant.
+TheSportsDB reste une piste d'enrichissement multifournisseur, jamais une source
+de complétude Tennis. Son offre gratuite est trop limitée pour découvrir
+exhaustivement une journée. Une API Tennis payante ne sera réévaluée que si
+l'usage montre que le détail des joueurs apporte une valeur suffisante.
 
 Jolpica est retenu uniquement pour le POC non commercial. Ses conditions
 actuelles imposent de contacter le fournisseur avant tout usage commercial en
@@ -179,8 +180,11 @@ représente le cas d'un calendrier structuré.
 
 Ajouter les matchs et sessions, horaires estimés, fenêtres de diffusion et
 regroupement par tournoi/étape. API-Volleyball est activée avec la clé
-API-Sports existante. API-Tennis nécessite une clé distincte. Les connecteurs
-Golf et Diamond League sont explicitement des solutions de POC et devront être
+API-Sports existante. Le Tennis est limité aux tournois présents dans XMLTV puis
+enrichi par ESPN, sans dépendance à une API payante. Deux lignes au maximum sont
+affichées par tournoi (ATP Hommes et WTA Femmes), avec tous les horaires en
+sous-titre fin. Les connecteurs Tennis, Golf et Diamond League sont
+explicitement des solutions de POC et devront être
 requalifiés avant une utilisation durable.
 
 ### POC-4.3A — audit de couverture EPG
@@ -216,8 +220,9 @@ npm run poc4:coverage -- --source=xmltvfr --date=YYYY-MM-DD --refresh-events
 
 ### POC-4.3B — décision fournisseurs
 
-Comparer couverture, fraîcheur, qualité des horaires et coût. Décider si
-TheSportsDB Premium est nécessaire ou si les sources spécialisées suffisent.
+Comparer couverture, fraîcheur, qualité des horaires et coût. Conserver
+TheSportsDB comme enrichissement facultatif si sa couverture apporte une valeur
+mesurable, sans en faire une dépendance de la vue Tennis.
 
 ## Hors périmètre
 

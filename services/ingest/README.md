@@ -74,7 +74,8 @@ compile et lance le serveur sur le réseau privé.
 POC-4.1 récupère d'abord les événements de référence puis rattache les créneaux
 XMLTVFr à leur horaire officiel lorsque cela est possible. Football vient
 d'API-Football et la F1 de Jolpica. Le même catalogue accepte désormais
-Volleyball via API-Sports, Tennis via API-Tennis (clé distincte), Golf via le
+Volleyball via API-Sports, Tennis via les créneaux XMLTV enrichis par le
+scoreboard public ESPN, Golf via le
 scoreboard public ESPN et la Diamond League via la page calendrier World
 Athletics.
 
@@ -83,22 +84,24 @@ La clé API-Football doit rester uniquement dans `.env` :
 ```dotenv
 API_FOOTBALL_KEY=...
 API_VOLLEYBALL_KEY=...
-API_TENNIS_KEY=...
+ESPN_TENNIS_ENABLED=true
 ESPN_GOLF_ENABLED=true
 WORLD_ATHLETICS_URL=https://worldathletics.org/competitions/diamond-league/calendar-results
 ```
 
 API-Volleyball réutilise par défaut `API_FOOTBALL_KEY` et reste limité aux
 compétitions suivies (Champions League, Nations League, EuroVolley, Ligue A,
-etc.). API-Tennis est une source séparée et reste inactive tant que
-`API_TENNIS_KEY` n'est pas renseignée. Le connecteur Golf ESPN et le calendrier
-World Athletics sont des ajouts de POC : ils peuvent être désactivés ou
+etc.). Le Tennis ne nécessite plus de clé payante : XMLTV détermine les tournois
+réellement diffusés en France et ESPN fournit deux synthèses par tournoi, ATP
+Hommes et WTA Femmes, avec les matchs et horaires détaillés. Les connecteurs
+Tennis/Golf ESPN et le calendrier World Athletics sont des ajouts de POC : ils
+peuvent être désactivés ou
 remplacés si leurs conditions d'utilisation ou leur stabilité ne conviennent
 pas. Les horaires Diamond League issus d'un calendrier journalier sans heure
 sont marqués « estimés ».
 
 Les réponses sont mises en cache sous `data/raw/<source-evenement>` (par
-exemple `api-football`, `api-volleyball`, `api-tennis`, `espn-golf`,
+exemple `api-football`, `api-volleyball`, `espn-tennis`, `espn-golf`,
 `world-athletics` et `jolpica-f1`). Utiliser `--refresh-events` uniquement pour
 forcer une nouvelle requête :
 
@@ -268,6 +271,7 @@ src/
 │   ├── api-football.ts
 │   ├── api-volleyball.ts
 │   ├── api-tennis.ts
+│   ├── espn-tennis.ts
 │   ├── espn-golf.ts
 │   ├── world-athletics.ts
 │   └── jolpica-f1.ts

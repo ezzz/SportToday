@@ -35,6 +35,10 @@ export const config = {
     baseUrl: process.env.ESPN_BASE_URL ?? "https://site.api.espn.com/apis/site/v2/sports/golf",
     enabled: process.env.ESPN_GOLF_ENABLED !== "false"
   },
+  espnTennis: {
+    baseUrl: process.env.ESPN_TENNIS_BASE_URL ?? "https://site.api.espn.com/apis/site/v2/sports/tennis",
+    enabled: process.env.ESPN_TENNIS_ENABLED !== "false"
+  },
   worldAthletics: {
     baseUrl: process.env.WORLD_ATHLETICS_URL ?? "https://worldathletics.org/competitions/diamond-league/calendar-results"
   },

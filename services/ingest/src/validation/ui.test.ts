@@ -26,7 +26,14 @@ test("sauvegarde un commentaire sans reconstruire la carte et perdre le focus", 
   assert.match(html, /\.event-line > \.broadcasts/u);
   assert.match(html, /\.secondary-details > summary::before/u);
   assert.match(html, /const detailsLabel=eventFirst/u);
-  assert.match(html, /data-aligned=/u);
+  assert.match(html, /function channelTone\(values\)/u);
+  assert.match(html, /Créneaux TV :/u);
+  assert.match(html, /event-schedule/u);
+  assert.match(html, /map\(abbreviateFirstName\)/u);
+  assert.match(html, /function abbreviateFirstName\(value\)/u);
+  assert.match(html, /split\(\/\\s\+\/\)/u);
+  assert.doesNotMatch(html, /split\(\/s\+\/\)/u);
+  assert.match(html, /dayOffset===0\?time:'J'/u);
   assert.match(html, /Détails et validation ponctuelle/u);
   assert.doesNotMatch(html, /id="refresh"/u);
   assert.match(html, /Filtres supplémentaires et validation/u);

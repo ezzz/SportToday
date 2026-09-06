@@ -99,7 +99,9 @@ export function buildCoverageReport(
     .map((rule) => channelCoverage(rule, sourceChannelNames, programmes))
     .sort((left, right) => right.priority - left.priority || left.label.localeCompare(right.label, "fr"));
   const reportItems = new Map(eventReport.items.map((item) => [item.id, item]));
-  const eventCoverage = events.map((event): CoverageEvent => {
+  const eventCoverage = events
+    .filter((event) => event.source !== "espn-tennis" || reportItems.has(event.id))
+    .map((event): CoverageEvent => {
     const item = reportItems.get(event.id);
     const broadcasts = item?.broadcasts ?? [];
     const epgBroadcasts = broadcasts.filter((broadcast) => broadcast.provenance !== "rights");
@@ -122,7 +124,7 @@ export function buildCoverageReport(
       channels: unique(epgBroadcasts.map((broadcast) => broadcast.channel)),
       reason: status === "matched" ? "matched" : status === "rights_only" ? "rights_only" : "no_epg_match"
     };
-  }).sort((left, right) => statusOrder(left.status) - statusOrder(right.status)
+    }).sort((left, right) => statusOrder(left.status) - statusOrder(right.status)
     || importanceOrder(left.importance) - importanceOrder(right.importance)
     || left.startAtUtc.localeCompare(right.startAtUtc));
   const matchedEventCount = eventCoverage.filter((event) => event.status === "matched").length;
