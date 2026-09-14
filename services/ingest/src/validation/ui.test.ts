@@ -49,13 +49,13 @@ test("sauvegarde un commentaire sans reconstruire la carte et perdre le focus", 
   assert.match(html, /300_000/u);
   assert.match(html, /Mes sports et mes bouquets/u);
   assert.match(html, /sporttoday-preferences-v2/u);
-  assert.match(html, /version:2, excludedSports:\[\], packages:\[\]/u);
+  assert.match(html, /version:2, excludedSports:\[\], excludedCompetitions:\[\], packages:\[\]/u);
   assert.doesNotMatch(html, /keepUnmatched/u);
   assert.match(html, /data-preference-mode="preferences">Ma sélection/u);
   assert.match(html, /data-preference-mode="all">Tout voir/u);
   assert.match(html, /function allPreferenceOptions\(\)/u);
   assert.match(html, /function canonicalSport\(value\)/u);
-  assert.match(html, /À regarder maintenant/u);
+  assert.match(html, /À ne pas manquer/u);
   assert.match(html, /for\(const sport of preferences\.excludedSports\) sports\.add\(sport\)/u);
   assert.match(html, /function matchesChannelPreference\(broadcast\)/u);
   assert.match(html, /function filterPreferredBroadcasts\(item\)/u);
@@ -70,4 +70,12 @@ test("sauvegarde un commentaire sans reconstruire la carte et perdre le focus", 
   assert.match(html, /function broadcastTrustLabel\(values\)/u);
   assert.match(html, /Sélection générée à/u);
   assert.match(html, /hoursUntilStart/u);
+  assert.match(html, /class="card .*finished/u);
+  assert.match(html, /À venir jusqu’à dimanche/u);
+  assert.match(html, /function renderWeekPreview\(report,eventFirst\)/u);
+  assert.match(html, /data-rating-key/u);
+  assert.match(html, /data-hide-competition/u);
+  assert.match(html, /id="debug-note"/u);
+  assert.match(html, /\/api\/debug-note/u);
+  assert.match(html, /\/feedback\.json/u);
 });

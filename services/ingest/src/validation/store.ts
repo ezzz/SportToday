@@ -24,11 +24,12 @@ export interface ItemValidation {
 }
 
 export interface ValidationFile {
-  version: 1;
+  version: 2;
   source: TonightReport["source"];
   date: string;
   updatedAt: string;
   missingEventNote: string;
+  debugNote: string;
   items: Record<string, ItemValidation>;
 }
 
@@ -57,11 +58,12 @@ export async function loadValidation(filePath: string, report: TonightReport): P
       }
     }
     return {
-      version: 1,
+      version: 2,
       source: report.source,
       date: report.date,
       updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : "",
       missingEventNote: typeof parsed.missingEventNote === "string" ? parsed.missingEventNote : "",
+      debugNote: typeof parsed.debugNote === "string" ? parsed.debugNote : "",
       items
     };
   } catch (error) {
@@ -101,17 +103,22 @@ export function updateMissingEventNote(validation: ValidationFile, note: string)
   return { ...validation, missingEventNote: note.trim(), updatedAt: new Date().toISOString() };
 }
 
+export function updateDebugNote(validation: ValidationFile, note: string): ValidationFile {
+  return { ...validation, debugNote: note.trim(), updatedAt: new Date().toISOString() };
+}
+
 export function isValidationVerdict(value: unknown): value is ValidationVerdict {
   return typeof value === "string" && validationVerdicts.includes(value as ValidationVerdict);
 }
 
 function emptyValidation(report: TonightReport): ValidationFile {
   return {
-    version: 1,
+    version: 2,
     source: report.source,
     date: report.date,
     updatedAt: "",
     missingEventNote: "",
+    debugNote: "",
     items: {}
   };
 }

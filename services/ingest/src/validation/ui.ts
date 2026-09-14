@@ -77,6 +77,9 @@ export function validationHtml(): string {
     .card[data-verdict="ok"] { border-left-color:#1d9b5f; }
     .card[data-verdict="doubt"] { border-left-color:#d69a00; }
     .card[data-verdict^="wrong_"],.card[data-verdict="off_topic"],.card[data-verdict="duplicate"] { border-left-color:#cf4b4b; }
+    .card.finished { opacity:.62; background:#f0f2f5; border-color:#c7ced8; }
+    .card.finished .official-time { background:#e0e4e9; color:#596273; }
+    .finished-label { color:#687386; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; }
     .card-head { display:flex; gap:14px; align-items:flex-start; }
     .card-main { flex:1; min-width:0; }
     .event-line { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
@@ -140,6 +143,20 @@ export function validationHtml(): string {
     .secondary-details[open] { flex-basis:100%; }
     .secondary-details[open] > summary { margin-left:auto; }
     .secondary-details .badges { margin-top:8px; }
+    .rating-controls { display:flex; align-items:center; flex-wrap:wrap; gap:8px 14px; margin:8px 0; }
+    .rating-controls label { display:flex; align-items:center; gap:6px; font-weight:700; }
+    .rating-controls select { border:1px solid #cbd3df; border-radius:7px; background:white; padding:5px 7px; font:inherit; }
+    .danger-link { color:#9a3030; padding:5px 8px; font-size:12px; }
+    .week-preview { margin-top:18px; display:grid; gap:7px; }
+    .week-preview[hidden] { display:none; }
+    .week-preview-list { display:grid; gap:6px; }
+    .week-preview-item { display:grid; grid-template-columns:minmax(125px,auto) minmax(0,1fr) auto; align-items:center; gap:10px; background:white; border:1px solid #dfe4ec; border-radius:9px; padding:9px 11px; font-size:13px; }
+    .week-preview-when { color:#50627e; font-weight:800; white-space:nowrap; }
+    .week-preview-title { min-width:0; }
+    .week-preview-channels { color:#50627e; font-size:12px; text-align:right; }
+    .debug-feedback { border-top:1px solid #edf0f4; margin-top:14px; padding-top:12px; }
+    .debug-feedback label { display:block; font-weight:700; }
+    .debug-feedback .button { display:inline-block; margin-top:7px; }
     @media (max-width:700px) {
       .card-head { display:block; }
       .event-line { align-items:flex-start; }
@@ -149,6 +166,8 @@ export function validationHtml(): string {
       .secondary-details[open] { flex-basis:100%; }
       .filter-label { width:100%; }
       .toolbar-actions .spacer { display:none; width:100%; }
+      .week-preview-item { grid-template-columns:1fr; gap:3px; }
+      .week-preview-channels { text-align:left; }
     }
   </style>
 </head>
@@ -215,6 +234,10 @@ export function validationHtml(): string {
     </section>
     <div class="period-context"><span id="period-context"></span><button class="period-filter" id="show-day" data-period="day">Voir toute la journée</button></div>
     <section class="cards" id="cards"><div class="empty">Chargement…</div></section>
+    <section class="week-preview" id="week-preview" hidden>
+      <div class="section-heading"><h2>À venir jusqu’à dimanche</h2><span id="week-preview-context"></span></div>
+      <div class="week-preview-list" id="week-preview-items"></div>
+    </section>
     <section class="bottom-panels">
       <section class="exhaustivity-panel">
         <details class="exhaustivity-details">
@@ -225,6 +248,12 @@ export function validationHtml(): string {
             <section class="missing">
               <label for="missing-event">Un événement majeur manque-t-il ?</label>
               <textarea id="missing-event" placeholder="Facultatif — indique ici un événement important absent"></textarea>
+            </section>
+            <section class="debug-feedback">
+              <label for="debug-note">Commentaire général / debug</label>
+              <textarea id="debug-note" placeholder="Ex. : affiche terminée encore visible, diffuseur incorrect, problème d’affichage…"></textarea>
+              <p class="preference-help">Enregistré sur le serveur pour cette date. Tu peux récupérer l’ensemble des retours en JSON.</p>
+              <a class="button" href="/feedback.json" download>Télécharger les retours</a>
             </section>
             <section class="coverage-panel" id="coverage-panel" hidden>
               <h2>Couverture EPG des chaînes prioritaires</h2>
@@ -255,11 +284,14 @@ export function validationHtml(): string {
     let activeSports = new Set();
     let noteTimer = null;
     let missingTimer = null;
+    let debugTimer = null;
     let favorites = new Set();
     const preferenceStorageKey = 'sporttoday-preferences-v2';
     const previousPreferenceStorageKey = 'sporttoday-preferences-v1';
     let preferenceMode = 'preferences';
-    let preferences = { version:2, excludedSports:[], packages:[] };
+    let preferences = { version:2, excludedSports:[], excludedCompetitions:[], packages:[] };
+    const ratingStorageKey = 'sporttoday-ratings-v1';
+    let ratings = {};
     try {
       const saved = JSON.parse(localStorage.getItem('sporttoday-favorites') || '[]');
       if (Array.isArray(saved)) favorites = new Set(saved.filter(value=>typeof value==='string'));
@@ -270,6 +302,7 @@ export function validationHtml(): string {
         preferences = {
           version:2,
           excludedSports:[...new Set(saved.excludedSports.filter(value=>typeof value==='string'&&value).map(canonicalSport))],
+          excludedCompetitions:Array.isArray(saved.excludedCompetitions)?[...new Set(saved.excludedCompetitions.filter(value=>typeof value==='string'&&value))]:[],
           packages:[...new Set(saved.packages.filter(value=>typeof value==='string'&&value))]
         };
         preferenceMode=saved.mode==='all'?'all':'preferences';
@@ -279,6 +312,10 @@ export function validationHtml(): string {
           preferences.packages=[...new Set(previous.channels.map(channel=>packageForName(channel?.label||channel?.id||'')).filter(Boolean))];
         }
       }
+    } catch {}
+    try {
+      const saved=JSON.parse(localStorage.getItem(ratingStorageKey)||'{}');
+      if(saved&&typeof saved==='object'&&!Array.isArray(saved)) ratings=Object.fromEntries(Object.entries(saved).filter(([,value])=>Number.isInteger(value)&&value>=1&&value<=5));
     } catch {}
     const collapsedSports = new Set();
 
@@ -304,6 +341,7 @@ export function validationHtml(): string {
       activePeriod=state.report.date===todayInTimeZone(state.report.timeZone)?'now':'day';
       if (state.programmeReport) document.getElementById('view-filters').hidden=false;
       document.getElementById('missing-event').value = state.validation.missingEventNote || '';
+      document.getElementById('debug-note').value = state.validation.debugNote || '';
       renderDateFilters();
       renderSportFilters();
       renderPreferences();
@@ -332,6 +370,7 @@ export function validationHtml(): string {
         if (next.report.generatedAt === state.report.generatedAt) return;
         state = next;
         document.getElementById('missing-event').value = state.validation.missingEventNote || '';
+        document.getElementById('debug-note').value = state.validation.debugNote || '';
         renderDateFilters();
         renderSportFilters();
         renderPreferences();
@@ -344,7 +383,7 @@ export function validationHtml(): string {
     }
 
     function renderDateFilters() {
-      const dates = state.availableDates || [state.report.date];
+      const dates = (state.availableDates || [state.report.date]).slice(0,2);
       const selected = state.report.date;
       const labels = ['Aujourd’hui','Demain'];
       const buttons = dates.map((date,index) => '<button class="date-filter '+(date===selected?'active':'')+'" data-date="'+escapeHtml(date)+'">'+(labels[index]||escapeHtml(date))+' <small>'+escapeHtml(formatShortDate(date))+'</small></button>');
@@ -395,6 +434,7 @@ export function validationHtml(): string {
       document.getElementById('cards').innerHTML = visible.length
         ? (eventFirst ? renderEventSelection(visible,report) : visible.map(item=>cardHtml(item,report)).join(''))
         : '<div class="empty">'+(activePeriod==='now'?'Rien en cours ou dans les trois prochaines heures.':'Aucun événement dans ce filtre.')+'</div>';
+      renderWeekPreview(report,eventFirst);
       const selectedSports = [...activeSports].sort().map(encodeURIComponent).join('%2C');
       const query = '?category='+encodeURIComponent(activeCategory)+'&period='+encodeURIComponent(activePeriod)+(selectedSports?'&sports='+selectedSports:'');
       const dateQuery='&date='+encodeURIComponent(report.date);
@@ -456,11 +496,12 @@ export function validationHtml(): string {
       const options=allPreferenceOptions();
       const excludedSports=new Set(preferences.excludedSports), selectedPackages=new Set(preferences.packages);
       const sportChoices=options.sports.length?'<div class="preference-chips">'+options.sports.map(sport=>'<button class="preference-chip" data-excluded-sport="'+escapeHtml(sport)+'" aria-pressed="'+excludedSports.has(sport)+'">'+(excludedSports.has(sport)?'× ':'')+escapeHtml(sportLabel(sport))+'</button>').join('')+'</div>':'<p class="preference-help">Aucun sport disponible pour le moment.</p>';
+      const competitionChoices=preferences.excludedCompetitions.length?'<div class="preference-chips">'+preferences.excludedCompetitions.map(key=>'<button class="preference-chip" data-excluded-competition="'+escapeHtml(key)+'" aria-pressed="true">× '+escapeHtml(competitionLabelFromKey(key))+'</button>').join('')+'</div>':'<p class="preference-help">Aucune compétition masquée.</p>';
       const packageChoices=accessPackages.map(value=>'<label class="preference-choice"><input type="checkbox" data-preference-package="'+escapeHtml(value.id)+'" '+(selectedPackages.has(value.id)?'checked':'')+'> '+escapeHtml(value.label)+'</label>').join('');
       const help=preferenceMode==='preferences'
         ? 'Les sports barrés sont masqués. Sans bouquet coché, tous les diffuseurs français sont proposés.'
         : 'Tout voir inclut temporairement les sports masqués et les chaînes étrangères.';
-      document.getElementById('preferences-content').innerHTML='<p class="preference-help">'+escapeHtml(help)+' Ces choix restent sur cet appareil.</p><div class="preference-options"><section><h3>Sports à masquer</h3>'+sportChoices+'</section><section><h3>Mes bouquets et services</h3>'+packageChoices+'</section></div>';
+      document.getElementById('preferences-content').innerHTML='<p class="preference-help">'+escapeHtml(help)+' Ces choix restent sur cet appareil.</p><div class="preference-options"><section><h3>Sports à masquer</h3>'+sportChoices+'</section><section><h3>Compétitions masquées</h3>'+competitionChoices+'</section><section><h3>Mes bouquets et services</h3>'+packageChoices+'</section></div>';
       syncFilterButtons();
     }
 
@@ -497,10 +538,11 @@ export function validationHtml(): string {
 
     function updateAccessSummary() {
       const hidden=preferences.excludedSports.length;
+      const hiddenCompetitions=preferences.excludedCompetitions.length;
       const packages=preferences.packages.map(id=>accessPackages.find(value=>value.id===id)?.label).filter(Boolean);
       document.getElementById('access-label').textContent=preferenceMode==='all'
         ? 'Tous les sports et diffuseurs'
-        : (packages.length?packages.join(' · '):'Tous les diffuseurs français')+(hidden?' · '+hidden+' sport'+(hidden>1?'s':'')+' masqué'+(hidden>1?'s':''):' · tous les sports');
+        : (packages.length?packages.join(' · '):'Tous les diffuseurs français')+(hidden?' · '+hidden+' sport'+(hidden>1?'s':'')+' masqué'+(hidden>1?'s':''):' · tous les sports')+(hiddenCompetitions?' · '+hiddenCompetitions+' compétition'+(hiddenCompetitions>1?'s':'')+' masquée'+(hiddenCompetitions>1?'s':''):'');
     }
 
     function sportLabel(value) {
@@ -511,6 +553,17 @@ export function validationHtml(): string {
     function canonicalSport(value) {
       return value==='athlétisme'?'athletics':value==='volley'?'volleyball':value;
     }
+
+    function competitionPreferenceKey(item) { return canonicalSport(item.sport)+'|'+String(item.competition||'Compétition non précisée').trim(); }
+    function competitionLabelFromKey(key) { return String(key).split('|').slice(1).join('|')||key; }
+    function ratingKey(kind,item) { return kind==='sport'?'sport:'+canonicalSport(item.sport):'competition:'+competitionPreferenceKey(item); }
+    function ratingFor(key) { return ratings[key]||3; }
+    function ratingOptions(selected) { return [1,2,3,4,5].map(value=>'<option value="'+value+'" '+(value===selected?'selected':'')+'>'+value+'/5</option>').join(''); }
+    function ratingControls(item) {
+      const sportKey=ratingKey('sport',item),competitionKey=ratingKey('competition',item);
+      return '<div class="rating-controls"><label>Intérêt '+escapeHtml(sportLabel(item.sport))+' <select data-rating-key="'+escapeHtml(sportKey)+'">'+ratingOptions(ratingFor(sportKey))+'</select></label><label>Intérêt '+escapeHtml(item.competition)+' <select data-rating-key="'+escapeHtml(competitionKey)+'">'+ratingOptions(ratingFor(competitionKey))+'</select></label></div>';
+    }
+    function preferenceScore(item) { return (ratingFor(ratingKey('sport',item))-3)*40+(ratingFor(ratingKey('competition',item))-3)*60; }
 
     function currentReport() { return activeView==='programmes'&&state.programmeReport ? state.programmeReport : state.report; }
 
@@ -563,7 +616,7 @@ export function validationHtml(): string {
 
     function matchesSport(item) {
       const temporaryMatch=activeSports.size===0||activeSports.has(item.sport);
-      const preferenceMatch=preferenceMode!=='preferences'||!preferences.excludedSports.includes(canonicalSport(item.sport));
+      const preferenceMatch=preferenceMode!=='preferences'||(!preferences.excludedSports.includes(canonicalSport(item.sport))&&!preferences.excludedCompetitions.includes(competitionPreferenceKey(item)));
       return temporaryMatch&&preferenceMatch;
     }
 
@@ -600,13 +653,13 @@ export function validationHtml(): string {
 
     function renderEventSelection(items,report) {
       const highlights=highlightSelection(items);
-      const heading={now:'À regarder maintenant',evening:'À voir ce soir',day:'Les incontournables'}[activePeriod];
-      const highlightHtml=highlights.length?'<section class="highlights"><div class="section-heading"><h2>'+heading+'</h2><span>'+highlights.length+' rendez-vous</span></div>'+highlights.map(item=>cardHtml(item,report,true,true)).join('')+'</section>':'';
+      const context={now:'maintenant',evening:'ce soir',day:'sur la journée'}[activePeriod];
+      const highlightHtml=highlights.length?'<section class="highlights"><div class="section-heading"><h2>À ne pas manquer</h2><span>'+highlights.length+' rendez-vous '+context+'</span></div>'+highlights.map(item=>cardHtml(item,report,true,true)).join('')+'</section>':'';
       return highlightHtml+'<div class="section-heading"><h2>Tous les rendez-vous</h2><span>Par sport et compétition</span></div>'+renderEventGroups(items,report);
     }
 
     function highlightSelection(items) {
-      const ranked=items.filter(item=>isFavorite(item)||item.broadcasts.some(b=>b.liveStatus==='confirmed'||b.liveStatus==='probable')).sort((left,right)=>highlightScore(right)-highlightScore(left)||firstItemStart(left).localeCompare(firstItemStart(right)));
+      const ranked=items.filter(item=>!isFinished(item,currentReport())&&(isFavorite(item)||item.broadcasts.some(b=>b.liveStatus==='confirmed'||b.liveStatus==='probable'))).sort((left,right)=>highlightScore(right)-highlightScore(left)||firstItemStart(left).localeCompare(firstItemStart(right)));
       const selected=[],sports=new Map(),competitions=new Map();
       for(const item of ranked) {
         const competition=item.sport+'|'+item.competition;
@@ -614,7 +667,7 @@ export function validationHtml(): string {
         selected.push(item);sports.set(item.sport,(sports.get(item.sport)||0)+1);competitions.set(competition,(competitions.get(competition)||0)+1);
         if(selected.length===5)break;
       }
-      return selected;
+      return selected.sort((left,right)=>firstItemStart(left).localeCompare(firstItemStart(right)));
     }
 
     function highlightScore(item) {
@@ -623,7 +676,7 @@ export function validationHtml(): string {
       const keyMoment=/finale|course|sprint|1\\/2|1\\/4|demi|quart/i.test((item.title||'')+' '+(item.eventRoundLabel||''))?15:0;
       const start=Date.parse(firstItemStart(item)),hoursUntilStart=(start-Date.now())/3_600_000;
       const urgency=activePeriod==='now'&&Number.isFinite(hoursUntilStart)?(hoursUntilStart<=0?20:Math.max(0,20-hoursUntilStart*6)):0;
-      return favorite+importance+keyMoment+urgency+item.score;
+      return favorite+preferenceScore(item)+importance+keyMoment+urgency+item.score;
     }
 
     function highlightReason(item) {
@@ -634,6 +687,65 @@ export function validationHtml(): string {
       if(/sprint/i.test(item.title))return 'Sprint';
       if(item.eventStage)return item.eventStage;
       return item.eventImportance==='A'?'Compétition prioritaire':'Rendez-vous du jour';
+    }
+
+    function renderWeekPreview(report,eventFirst) {
+      const panel=document.getElementById('week-preview');
+      if(!eventFirst||!Array.isArray(state.weekPreview)) { panel.hidden=true; return; }
+      const detailedThrough=(state.availableDates||[]).slice(0,2).at(-1)||report.date;
+      let candidates=state.weekPreview.filter(item=>item.date>detailedThrough&&matchesSport(item));
+      candidates=candidates.filter(item=>['A','B'].includes(item.eventImportance)||item.score>=85||ratingFor(ratingKey('sport',item))>=4||ratingFor(ratingKey('competition',item))>=4);
+      const motorGroups=new Map();
+      for(const item of candidates.filter(item=>['f1','motogp'].includes(canonicalSport(item.sport)))) {
+        const key=competitionPreferenceKey(item);
+        if(!motorGroups.has(key))motorGroups.set(key,[]);
+        motorGroups.get(key).push(item);
+      }
+      const retainedMotor=new Set();
+      for(const group of motorGroups.values()) {
+        const race=group.filter(item=>/course|\\brace\\b/i.test((item.title||'')+' '+(item.eventStage||''))&&!/sprint|qualification|qualif|practice|essai/i.test((item.title||'')+' '+(item.eventStage||''))).sort((a,b)=>previewScore(b)-previewScore(a))[0];
+        const fallback=group.sort((a,b)=>previewScore(b)-previewScore(a))[0];
+        if(race||fallback)retainedMotor.add((race||fallback).id);
+      }
+      candidates=candidates.filter(item=>!['f1','motogp'].includes(canonicalSport(item.sport))||retainedMotor.has(item.id));
+      const compactSports=new Set(['f1','motogp','golf','tennis','athletics','cyclisme']);
+      const deduplicated=new Map();
+      for(const item of candidates) {
+        const key=compactSports.has(canonicalSport(item.sport))?competitionPreferenceKey(item):item.id;
+        const current=deduplicated.get(key);
+        if(!current||previewScore(item)>previewScore(current))deduplicated.set(key,item);
+      }
+      const ranked=[...deduplicated.values()].sort((a,b)=>previewScore(b)-previewScore(a)||firstItemStart(a).localeCompare(firstItemStart(b)));
+      const picked=[],competitionCounts=new Map();
+      for(const item of ranked) {
+        const key=competitionPreferenceKey(item),count=competitionCounts.get(key)||0;
+        if(count>=2)continue;
+        picked.push(item);competitionCounts.set(key,count+1);
+        if(picked.length===8)break;
+      }
+      const selected=picked.sort((a,b)=>firstItemStart(a).localeCompare(firstItemStart(b)));
+      panel.hidden=selected.length===0;
+      if(!selected.length)return;
+      document.getElementById('week-preview-context').textContent=selected.length+' rendez-vous principaux';
+      document.getElementById('week-preview-items').innerHTML=selected.map(item=>weekPreviewHtml(item,report)).join('');
+    }
+
+    function previewScore(item) {
+      const importance={A:40,B:15,C:0}[item.eventImportance]||0;
+      const main=/finale|course|\\brace\\b|demi|quart/i.test((item.title||'')+' '+(item.eventStage||''))?25:0;
+      return preferenceScore(item)+importance+main+(item.score||0);
+    }
+
+    function weekPreviewHtml(item,report) {
+      const instant=new Date(firstItemStart(item));
+      const day=new Intl.DateTimeFormat('fr-FR',{timeZone:report.timeZone,weekday:'long'}).format(instant);
+      const time=item.eventTimeLabel==='Horaire non publié'?'':new Intl.DateTimeFormat('fr-FR',{timeZone:report.timeZone,hour:'2-digit',minute:'2-digit'}).format(instant).replace(':','h');
+      const normalizedCompetition=String(item.competition||'').trim().toLocaleLowerCase('fr-FR');
+      const normalizedTitle=String(item.title||'').trim().toLocaleLowerCase('fr-FR');
+      const title=normalizedTitle&&normalizedTitle!==normalizedCompetition?' — '+item.title:'';
+      const stage=item.eventStage&&!normalizedTitle.includes(String(item.eventStage).toLocaleLowerCase('fr-FR'))?' — '+item.eventStage:'';
+      const channels=[...new Set((item.broadcasts||[]).filter(matchesChannelPreference).map(b=>b.platform||b.channel))].sort((a,b)=>a.localeCompare(b,'fr',{numeric:true}));
+      return '<article class="week-preview-item"><span class="week-preview-when">'+escapeHtml(day+(time?' · '+time:''))+'</span><span class="week-preview-title"><strong>'+escapeHtml(sportLabel(item.sport))+'</strong> · '+escapeHtml(item.competition)+escapeHtml(title)+escapeHtml(stage)+'</span><span class="week-preview-channels">'+escapeHtml(channels.join(' · ')||'Diffuseur à confirmer')+'</span></article>';
     }
 
     function renderEventGroups(items,report) {
@@ -657,6 +769,17 @@ export function validationHtml(): string {
       return item.eventStartAtUtc||item.broadcasts[0]?.startAtUtc||'';
     }
 
+    function isFinished(item,report) {
+      if(report.viewMode!=='event-first')return false;
+      const status=String(item.eventStatus||'').trim();
+      if(/^(FT|AOT|PEN|FINAL|FINISHED|ENDED|CLOSED)$/i.test(status)||/termin|finished|ended/i.test(status))return true;
+      if(report.date!==todayInTimeZone(report.timeZone))return false;
+      const end=Date.parse(item.eventEndAtUtc||'');
+      if(Number.isFinite(end))return end<Date.now();
+      const stops=item.broadcasts.map(b=>Date.parse(b.stopAtUtc)).filter(Number.isFinite);
+      return stops.length>0&&Math.max(...stops)<Date.now();
+    }
+
     function cardHtml(item,report,compact=false,highlight=false) {
       const validation = validationFor(item.id);
       const eventFirst=report.viewMode==='event-first';
@@ -668,6 +791,7 @@ export function validationHtml(): string {
       const badges = [item.sport,item.competition,item.participants,eventFirst&&item.eventImportance?'Priorité '+item.eventImportance:'',category,statusBadge,rights.length?'Droits officiels':'',item.titleQuality==='unclear'?'Intitulé peu précis':''].filter(Boolean);
       const buttons = verdicts.map(([value,label]) => '<button data-action="verdict" data-id="'+item.id+'" data-value="'+value+'" class="'+(validation.verdict===value?'selected':'')+'">'+label+'</button>').join('');
       const official=eventFirst?'<span class="official-time"><strong>'+escapeHtml(item.eventTimeLabel)+'</strong></span>':'';
+      const finished=isFinished(item,report);
       const tennisRound=eventFirst&&item.sport==='tennis'&&item.eventRoundLabel?' - '+item.eventRoundLabel:'';
       const titleWithRound=item.title+tennisRound;
       const displayTitle=highlight&&eventFirst?sportLabel(item.sport)+' · '+item.competition+' — '+titleWithRound:titleWithRound;
@@ -677,7 +801,7 @@ export function validationHtml(): string {
       const schedule=item.eventSchedule?.length?'<div class="event-schedule">'+item.eventSchedule.map(entry=>'<span><strong>'+escapeHtml(entry.timeConfirmed===false?'Horaire à venir':formatEventTime(entry.startAtUtc))+'</strong> '+escapeHtml((entry.participants||[]).map(abbreviateFirstName).join(' / '))+(entry.roundLabel&&typeof item.eventRoundRank==='number'&&typeof entry.roundRank==='number'&&entry.roundRank<item.eventRoundRank?' ('+escapeHtml(entry.roundLabel)+')':'')+'</span>').join(' · ')+'</div>':'';
       const broadcastDetails=item.broadcasts.length?'<div class="detail-broadcasts"><strong>Diffusions :</strong> '+item.broadcasts.map(b=>'<span>'+escapeHtml(b.timeRangeLabel||b.timeLabel)+' · '+escapeHtml(b.platform||b.channel)+' · '+escapeHtml(broadcastTrustLabel([b]))+'</span>').join(' · ')+'</div>':'';
       const detailsLabel=eventFirst?'Détails et validation ponctuelle':'Détails du programme';
-      const favoriteControls=eventFirst?'<div class="badges">'+favoriteButton('competition',item,item.competition)+(item.participants||'').split(' | ').filter(Boolean).map(team=>favoriteButton('team',item,team)).join('')+'</div><p>Favoris enregistrés sur cet appareil · prioritaires dans « Ma sélection ».</p>':'';
+      const favoriteControls=eventFirst?'<div class="badges">'+favoriteButton('competition',item,item.competition)+(item.participants||'').split(' | ').filter(Boolean).map(team=>favoriteButton('team',item,team)).join('')+'</div>'+ratingControls(item)+'<button class="danger-link" data-hide-competition="'+escapeHtml(competitionPreferenceKey(item))+'">Masquer cette compétition</button><p>Favoris et intérêt restent sur cet appareil et personnalisent « À ne pas manquer ».</p>':'';
       const details = '<details class="secondary-details"><summary aria-label="'+escapeHtml(detailsLabel)+'" title="'+escapeHtml(detailsLabel)+'"></summary>'+
         favoriteControls+
         '<div class="badges">'+badges.map(value=>'<span class="badge">'+escapeHtml(value)+'</span>').join('')+'</div>'+
@@ -686,8 +810,8 @@ export function validationHtml(): string {
         '<p><strong>Pourquoi ?</strong> Score '+item.score+' · '+escapeHtml(item.selectionReasons.join(' · '))+'</p>'+
         (eventFirst?'<div class="validation"><div class="verdicts">'+buttons+'</div><textarea data-action="note" data-id="'+item.id+'" placeholder="Commentaire facultatif">'+escapeHtml(validation.note)+'</textarea></div>':'')+
         '</details>';
-      return '<article class="card '+(compact?'compact-card':'')+'" data-verdict="'+validation.verdict+'">'+
-        '<div class="card-head"><div class="card-main"><div class="event-line">'+official+'<h2>'+escapeHtml(displayTitle)+'</h2>'+
+      return '<article class="card '+(compact?'compact-card ':'')+(finished?'finished':'')+'" data-verdict="'+validation.verdict+'">'+
+        '<div class="card-head"><div class="card-main"><div class="event-line">'+official+(finished?'<span class="finished-label">Terminé</span>':'')+'<h2>'+escapeHtml(displayTitle)+'</h2>'+
         broadcasts+
         details+'</div>'+(highlight?'<p class="highlight-reason">'+escapeHtml(highlightReason(item))+'</p>':'')+schedule+'</div></div></article>';
     }
@@ -764,6 +888,18 @@ export function validationHtml(): string {
         preferences.excludedSports=preferences.excludedSports.includes(sport)?preferences.excludedSports.filter(value=>value!==sport):[...preferences.excludedSports,sport];
         savePreferences();renderPreferences();render();return;
       }
+      const excludedCompetition=event.target.closest('[data-excluded-competition]');
+      if(excludedCompetition) {
+        const key=excludedCompetition.dataset.excludedCompetition;
+        preferences.excludedCompetitions=preferences.excludedCompetitions.filter(value=>value!==key);
+        savePreferences();renderPreferences();render();return;
+      }
+      const hiddenCompetition=event.target.closest('[data-hide-competition]');
+      if(hiddenCompetition) {
+        const key=hiddenCompetition.dataset.hideCompetition;
+        preferences.excludedCompetitions=[...new Set([...preferences.excludedCompetitions,key])];
+        savePreferences();renderPreferences();render();return;
+      }
       const date = event.target.closest('.date-filter');
       if (date && date.dataset.date) { loadDate(date.dataset.date).catch(showError); return; }
       const view = event.target.closest('.view-filter');
@@ -795,14 +931,24 @@ export function validationHtml(): string {
         clearTimeout(missingTimer); const note=event.target.value; setSaving();
         missingTimer=setTimeout(async()=>{try{const response=await fetch('/api/missing-event',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({date:state.report.date,note})});if(!response.ok)throw new Error(await response.text());state.validation=await response.json();setSaved();}catch(error){showError(error)}},500);
       }
+      if (event.target.id==='debug-note') {
+        clearTimeout(debugTimer); const note=event.target.value; setSaving();
+        debugTimer=setTimeout(async()=>{try{const response=await fetch('/api/debug-note',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({date:state.report.date,note})});if(!response.ok)throw new Error(await response.text());state.validation=await response.json();setSaved();}catch(error){showError(error)}},500);
+      }
     });
 
     document.addEventListener('change', event => {
       const target=event.target;
-      if(!target.matches('[data-preference-package]'))return;
-      const value=target.dataset.preferencePackage;
-      preferences.packages=target.checked?[...new Set([...preferences.packages,value])]:preferences.packages.filter(id=>id!==value);
-      savePreferences(); renderPreferences(); render();
+      if(target.matches('[data-rating-key]')) {
+        ratings[target.dataset.ratingKey]=Number(target.value);
+        try { localStorage.setItem(ratingStorageKey,JSON.stringify(ratings)); } catch { showError(new Error('Impossible de mémoriser les notes sur cet appareil.')); }
+        render(); return;
+      }
+      if(target.matches('[data-preference-package]')) {
+        const value=target.dataset.preferencePackage;
+        preferences.packages=target.checked?[...new Set([...preferences.packages,value])]:preferences.packages.filter(id=>id!==value);
+        savePreferences(); renderPreferences(); render();
+      }
     });
 
     function setSaving(){document.getElementById('save-state').textContent='Sauvegarde…';}

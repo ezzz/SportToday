@@ -429,6 +429,31 @@ test("agrège les sources événementielles disponibles dans le catalogue", asyn
   }
 });
 
+test("n'appelle pas les API-Sports gratuites au-delà de demain", async () => {
+  const dataRoot = await mkdtemp(path.join(os.tmpdir(), "sporttoday-future-catalogue-"));
+  try {
+    let apiSportsCalls = 0;
+    const unavailable = async () => { apiSportsCalls += 1; return { response: [] }; };
+    await loadEventCatalogue("2026-08-26", {
+      dataRoot,
+      timeZone: "Europe/Paris",
+      dateLimitedSourcesEnabled: false,
+      apiFootball: { fixturesForDate: unavailable },
+      apiVolleyball: { gamesForDate: unavailable },
+      apiBasketball: { gamesForDate: unavailable },
+      apiRugby: { gamesForDate: unavailable },
+      espnTennis: { scoreboardsForDate: async () => ({ tours: [] }) },
+      espnGolf: { scoreboardForDate: async () => ({ tours: [] }) },
+      worldAthletics: { calendarForDate: async () => '<script id="__NEXT_DATA__">{"events":[]}</script>' },
+      jolpicaF1: { scheduleForSeason: async () => ({ MRData: { RaceTable: { Races: [] } } }) },
+      motogp: { calendarForSeason: async () => ({ events: [] }) }
+    });
+    assert.equal(apiSportsCalls, 0);
+  } finally {
+    await rm(dataRoot, { recursive: true, force: true });
+  }
+});
+
 test("actualise le cache expiré et conserve la dernière réponse lors d'une panne", async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "sporttoday-refresh-"));
   const file = path.join(directory, "day.json");
@@ -446,6 +471,26 @@ test("actualise le cache expiré et conserve la dernière réponse lors d'une pa
     assert.match(JSON.stringify(failed.payload), /offline/);
     const recovered = await loadOrFetch(file, true, fetchPayload);
     assert.deepEqual(recovered.payload, { response: [3] });
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+test("mutualise une collecte simultanée vers le même cache saisonnier", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "sporttoday-shared-cache-"));
+  const file = path.join(directory, "season.json");
+  try {
+    let calls = 0;
+    const fetchPayload = async () => {
+      calls += 1;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      return { season: 2026 };
+    };
+    const results = await Promise.all([
+      loadOrFetch(file, false, fetchPayload),
+      loadOrFetch(file, false, fetchPayload),
+      loadOrFetch(file, false, fetchPayload)
+    ]);
+    assert.equal(calls, 1);
+    assert.deepEqual(results.map((result) => result.payload), [{ season: 2026 }, { season: 2026 }, { season: 2026 }]);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 

@@ -69,7 +69,7 @@ async function reportPoc4(serve: boolean): Promise<void> {
         console.warn(`[startup] XMLTV indisponible, démarrage avec un agenda vide : ${error instanceof Error ? error.message : String(error)}`);
       }
     }
-    const dates = poc4Dates(serve, date);
+    const dates = poc4Dates(serve, date, !requestedDate);
     const buildBundles = async (
       targetDatabase: ReturnType<typeof openDatabase>,
       targetDates: readonly string[],
@@ -141,7 +141,7 @@ async function reportPoc4(serve: boolean): Promise<void> {
               refreshError = error instanceof Error ? error.message : String(error);
               console.error(`[refresh] XMLTV impossible : ${refreshError}`);
             }
-            const refreshedDates = poc4Dates(true, requestedDate ?? todayInTimeZone(config.timeZone));
+            const refreshedDates = poc4Dates(true, requestedDate ?? todayInTimeZone(config.timeZone), !requestedDate);
             console.log(`[refresh] reconstruction des journées ${refreshedDates.join(", ")}…`);
             const refreshed = await buildBundles(refreshDatabase, refreshedDates, false);
             for (const [day, value] of Object.entries(refreshed)) {
@@ -237,7 +237,8 @@ async function buildPoc4Bundle(
   const catalogue = await loadEventCatalogue(date, {
     dataRoot: config.dataRoot,
     timeZone: config.timeZone,
-    refresh: refreshEvents
+    refresh: refreshEvents,
+    dateLimitedSourcesEnabled: date <= nextDate(todayInTimeZone(config.timeZone))
   });
   const report = buildPoc4EventReport(catalogue.events, day, followingDay, limit);
   report.eventSourceErrors = catalogue.sourceErrors;
@@ -527,8 +528,16 @@ function nextDate(value: string): string {
   return date.toISOString().slice(0, 10);
 }
 
-function poc4Dates(serve: boolean, date: string): string[] {
-  return serve ? [date, nextDate(date)] : [date];
+function poc4Dates(serve: boolean, date: string, throughWeekend = false): string[] {
+  if (!serve) return [date];
+  const start = new Date(`${date}T12:00:00Z`);
+  const daysUntilSunday = (7 - start.getUTCDay()) % 7;
+  const horizon = throughWeekend ? Math.max(1, daysUntilSunday) : 1;
+  return Array.from({ length: horizon + 1 }, (_, offset) => {
+    const value = new Date(start);
+    value.setUTCDate(value.getUTCDate() + offset);
+    return value.toISOString().slice(0, 10);
+  });
 }
 
 function todayInTimeZone(timeZone: string): string {

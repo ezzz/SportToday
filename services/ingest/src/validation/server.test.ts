@@ -27,6 +27,22 @@ test("expose un healthcheck sans chemin local et permet l'arrêt propre", async 
     const reportResponse = await fetch(`${server.url}/api/report`);
     const reportPayload = await reportResponse.json() as Record<string, unknown>;
     assert.equal("validationFile" in reportPayload, false);
+    assert.deepEqual(reportPayload.weekPreview, []);
+
+    const savedResponse = await fetch(`${server.url}/api/debug-note`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ date: report.date, note: "  anomalie depuis le site  " })
+    });
+    assert.equal(savedResponse.status, 200);
+    const saved = await savedResponse.json() as { debugNote: string };
+    assert.equal(saved.debugNote, "anomalie depuis le site");
+
+    const feedbackResponse = await fetch(`${server.url}/feedback.json`);
+    assert.equal(feedbackResponse.status, 200);
+    assert.match(feedbackResponse.headers.get("content-disposition") ?? "", /sporttoday-feedback\.json/u);
+    const feedback = await feedbackResponse.json() as { feedback: Array<{ date: string; debugNote: string }> };
+    assert.equal(feedback.feedback.find((entry) => entry.date === report.date)?.debugNote, "anomalie depuis le site");
   } finally {
     await server.close();
     await rm(directory, { recursive: true, force: true });

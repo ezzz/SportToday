@@ -8,11 +8,12 @@ import type { ValidationFile } from "./store.js";
 test("génère un CSV Excel français et un classeur XLSX", async () => {
   const report = fixtureReport();
   const validation: ValidationFile = {
-    version: 1,
+    version: 2,
     source: "xmltvfr",
     date: report.date,
     updatedAt: "2026-08-19T08:00:00.000Z",
     missingEventNote: "Aucun",
+    debugNote: "Contrôle en ligne",
     items: {
       event1: { verdict: "ok", note: "Chaîne et horaire vérifiés", validatedAt: "2026-08-19T08:00:00.000Z" }
     }

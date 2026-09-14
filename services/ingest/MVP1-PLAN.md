@@ -1,12 +1,12 @@
 # SportToday — plan consolidé MVP1
 
-Dernière consolidation : 12 septembre 2026.
+Dernière consolidation : 14 septembre 2026.
 
 ## 1. Cible produit à court terme
 
 La promesse MVP1 est :
 
-> En quelques secondes, trouver les rendez-vous sportifs qui m’intéressent aujourd’hui et demain, avec une diffusion adaptée à mes accès.
+> En quelques secondes, trouver les rendez-vous sportifs qui m’intéressent aujourd’hui et demain, avec une diffusion adaptée à mes accès, puis anticiper les principaux temps forts jusqu’au week-end.
 
 La première cible est une bêta privée mono-utilisateur. Elle doit être utile au quotidien sur téléphone avant toute ouverture publique. Le produit ne cherche pas à reproduire une grille TV exhaustive : sa valeur vient de la sélection, de la hiérarchie des événements et de la transparence sur la fiabilité des diffuseurs.
 
@@ -19,7 +19,7 @@ Le parcours principal est :
 
 ## 2. Périmètre MVP1
 
-- Dates : aujourd’hui et demain, fuseau `Europe/Paris`.
+- Dates détaillées : aujourd’hui et demain, fuseau `Europe/Paris` ; aperçu synthétique des événements prioritaires jusqu’au dimanche suivant.
 - Vues : `À voir` orientée événements et `Agenda TV` secondaire.
 - Sports couverts : football, tennis, Formule 1, MotoGP, golf, rugby (Top 14 et Pro D2), basket (NBA, EuroLeague et compétition féminine suivie), volley, athlétisme et cyclisme sur route sélectionné.
 - Football : principales compétitions diffusées en France ; la 2. Bundesliga et les compétitions secondaires non validables restent hors périmètre.
@@ -37,6 +37,8 @@ Hors périmètre MVP1 : application mobile native, comptes multi-utilisateurs, n
 - Demain s’ouvre sur la journée complète afin d’éviter une page vide liée à l’heure courante.
 - La sélection de tête met en avant au plus cinq rendez-vous, avec diversité par sport et compétition.
 - Le classement privilégie favoris, importance, finales, courses et horaires proches.
+- Les notes d’intérêt de 1 à 5 par sport et compétition influencent la sélection, sans casser son ordre chronologique.
+- Les événements terminés sont visuellement atténués et exclus de la sélection de tête.
 - Les regroupements Sport puis Compétition sont triés par importance décroissante.
 - Le motif de mise en avant est visible sans ouvrir les détails.
 
@@ -50,6 +52,7 @@ Hors périmètre MVP1 : application mobile native, comptes multi-utilisateurs, n
 - `Ma sélection` applique les préférences ; `Tout voir` les contourne temporairement.
 - Les préférences sont locales au navigateur et indépendantes des favoris.
 - Les filtres ponctuels de sport se combinent aux préférences permanentes.
+- Une compétition entière peut être masquée depuis le détail d’un événement puis réactivée dans les préférences.
 
 ### Itération courte 3 — confiance et continuité
 
@@ -62,6 +65,7 @@ Hors périmètre MVP1 : application mobile native, comptes multi-utilisateurs, n
 - Le détail replié explique le statut de chaque diffuseur.
 - L’heure de dernière génération est visible ; les erreurs de sources sont regroupées dans le panneau Qualité.
 - Une erreur temporaire conserve les dernières données en cache et dégrade le healthcheck au lieu de vider silencieusement le site.
+- Un commentaire général de debug est sauvegardé côté serveur pour chaque date et exportable via `/feedback.json`.
 
 ## 4. Sources retenues
 
@@ -81,6 +85,8 @@ Hors périmètre MVP1 : application mobile native, comptes multi-utilisateurs, n
 | Droits France | règles datées et sourcées dans le code | complément seulement | ne prouve pas la chaîne ni le créneau exact |
 
 Une seule clé API-Sports est réutilisée par défaut pour Football, Volleyball, Basketball et Rugby. `API_FOOTBALL_KEY` est donc la seule clé obligatoire aujourd’hui.
+
+Le forfait gratuit de ces quatre produits limite les dates consultables à aujourd’hui et demain. Le service ne les appelle pas à partir de J+2 ; l’aperçu jusqu’au week-end est volontairement plus partiel et repose sur les sources à horizon plus long.
 
 Sources écartées ou différées :
 
@@ -110,7 +116,8 @@ Les classements, mappings de bouquets et identifications de pays restent des heu
 - génération atomique des fichiers de rapport.
 - serveur HTTP léger avec `/healthz`.
 - Docker Compose, utilisateur non privilégié, volumes persistants, rotation des logs.
-- actualisation interne : tennis au plus toutes les 30 minutes, XMLTV selon `--refresh-hours` (6 h par défaut), autres catalogues avec cache.
+- actualisation interne : tennis aujourd’hui/demain au plus toutes les 30 minutes, dates suivantes et autres catalogues avec cache de 6 h, XMLTV selon `--refresh-hours` (6 h par défaut).
+- les rapports futurs sont préparés jusqu’au dimanche ; les collectes saisonnières identiques sont mutualisées pour ne pas multiplier les appels F1/MotoGP.
 - sauvegarde et restauration fournies dans `scripts/`.
 
 Les noms internes `poc4`, certains noms de rapports et les scripts Windows `*-poc4-*` sont maintenus provisoirement pour compatibilité avec les données et installations existantes. Les nouvelles commandes publiques sont `mvp:*`.

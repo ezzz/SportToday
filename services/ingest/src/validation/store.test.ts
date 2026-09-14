@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 
 import type { TonightReport } from "../reports/tonight.js";
-import { loadValidation, saveValidation, updateItemValidation, validationPath, type ValidationFile } from "./store.js";
+import { loadValidation, saveValidation, updateDebugNote, updateItemValidation, validationPath, type ValidationFile } from "./store.js";
 
 test("sauvegarde les verdicts et retire les entrées en attente ou obsolètes", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "sporttoday-validation-"));
@@ -13,11 +13,12 @@ test("sauvegarde les verdicts et retire les entrées en attente ou obsolètes", 
   const report = fixtureReport();
   try {
     const initial: ValidationFile = {
-      version: 1,
+      version: 2,
       source: "xmltvfr",
       date: report.date,
       updatedAt: "",
       missingEventNote: "",
+      debugNote: "",
       items: {
         event1: { verdict: "pending", note: "", validatedAt: "" },
         obsolete: { verdict: "ok", note: "ancienne ligne", validatedAt: "" }
@@ -32,6 +33,7 @@ test("sauvegarde les verdicts et retire les entrées en attente ou obsolètes", 
     await saveValidation(filePath, checked);
     assert.equal(JSON.parse(await readFile(filePath, "utf8")).items.event1.verdict, "ok");
     assert.deepEqual(updateItemValidation(checked, "event1", "pending", "").items, {});
+    assert.equal(updateDebugNote(checked, "  test depuis le VPS  ").debugNote, "test depuis le VPS");
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

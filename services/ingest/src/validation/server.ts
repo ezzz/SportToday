@@ -1,4 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { readFile, readdir } from "node:fs/promises";
+import path from "node:path";
 
 import type { TonightReport } from "../reports/tonight.js";
 import type { CoverageReport } from "../reports/coverage.js";
@@ -9,6 +11,7 @@ import {
   loadValidation,
   saveValidation,
   updateItemValidation,
+  updateDebugNote,
   updateMissingEventNote,
   validationPath,
   type ValidationFile
@@ -157,7 +160,8 @@ export async function startValidationServer(options: ValidationServerOptions): P
           programmeReport: bundle.programmeReport ?? null,
           coverageReport: bundle.coverageReport ?? null,
           validation: validationForDate(selectedDate),
-          availableDates: Object.keys(reportsByDate).sort()
+          availableDates: Object.keys(reportsByDate).sort(),
+          weekPreview: weekPreviewItems(reportsByDate, selectedDate)
         });
       }
       if (request.method === "POST" && url.pathname === "/api/validation") {
@@ -177,6 +181,19 @@ export async function startValidationServer(options: ValidationServerOptions): P
         const bundle = bundleForDate(stringField(body, "date", false));
         const selectedDate = bundle.report.date;
         return sendJson(response, await persist(selectedDate, updateMissingEventNote(validationForDate(selectedDate), stringField(body, "note", false))));
+      }
+      if (request.method === "POST" && url.pathname === "/api/debug-note") {
+        const body = await readJson(request);
+        const bundle = bundleForDate(stringField(body, "date", false));
+        const selectedDate = bundle.report.date;
+        return sendJson(response, await persist(selectedDate, updateDebugNote(validationForDate(selectedDate), stringField(body, "note", false))));
+      }
+      if (request.method === "GET" && url.pathname === "/feedback.json") {
+        const body = Buffer.from(`${JSON.stringify({
+          exportedAt: new Date().toISOString(),
+          feedback: await persistedFeedback(options.reportsRoot)
+        }, null, 2)}\n`, "utf8");
+        return sendDownload(response, body, "sporttoday-feedback.json", "application/json; charset=utf-8");
       }
       if (request.method === "GET" && url.pathname === "/export.csv") {
         const bundle = bundleForDate(url.searchParams.get("date"));
@@ -232,6 +249,47 @@ export async function startValidationServer(options: ValidationServerOptions): P
       await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
     }
   };
+}
+
+async function persistedFeedback(reportsRoot: string): Promise<Array<ValidationFile & { file: string }>> {
+  const names = (await readdir(reportsRoot))
+    .filter((name) => /^validation-.*\.json$/u.test(name))
+    .sort();
+  const entries = await Promise.all(names.map(async (name) => {
+    try {
+      const parsed = JSON.parse(await readFile(path.join(reportsRoot, name), "utf8")) as Partial<ValidationFile>;
+      if (typeof parsed.date !== "string" || typeof parsed.source !== "string" || !parsed.items || typeof parsed.items !== "object") return null;
+      return { ...parsed, file: name } as ValidationFile & { file: string };
+    } catch {
+      return null;
+    }
+  }));
+  return entries.filter((entry): entry is ValidationFile & { file: string } => entry !== null)
+    .sort((left, right) => left.date.localeCompare(right.date) || left.file.localeCompare(right.file));
+}
+
+function weekPreviewItems(
+  reportsByDate: Record<string, { report: TonightReport }>,
+  selectedDate: string
+) {
+  return Object.entries(reportsByDate)
+    .filter(([date, bundle]) => date > selectedDate && bundle.report.viewMode === "event-first")
+    .sort(([left], [right]) => left.localeCompare(right))
+    .flatMap(([date, bundle]) => bundle.report.items.map((item) => ({
+      date,
+      id: item.id,
+      title: item.title,
+      sport: item.sport,
+      competition: item.competition,
+      score: item.score,
+      broadcasts: item.broadcasts,
+      eventStartAtUtc: item.eventStartAtUtc,
+      eventEndAtUtc: item.eventEndAtUtc,
+      eventTimeLabel: item.eventTimeLabel,
+      eventStatus: item.eventStatus,
+      eventStage: item.eventStage,
+      eventImportance: item.eventImportance
+    })));
 }
 
 function formatRefreshInterval(intervalMs: number): string {

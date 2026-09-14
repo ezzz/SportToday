@@ -31,6 +31,7 @@ export interface EventCatalogueOptions {
   dataRoot: string;
   timeZone: string;
   refresh?: boolean;
+  dateLimitedSourcesEnabled?: boolean;
   motogp?: Pick<MotoGpSource, "calendarForSeason">;
   apiBasketball?: Pick<ApiBasketballSource, "gamesForDate">;
   apiRugby?: Pick<ApiRugbySource, "gamesForDate">;
@@ -47,9 +48,14 @@ interface CachedPayload {
   payload: unknown;
 }
 
+const inFlightLoads = new Map<string, Promise<CachedPayload>>();
+
 export async function loadEventCatalogue(date: string, options: EventCatalogueOptions): Promise<EventCatalogue> {
   validateDate(date);
   const season = Number(date.slice(0, 4));
+  const tennisCacheMaxAgeMs = date <= dateOffset(todayInTimeZone(options.timeZone), 1)
+    ? 30 * 60_000
+    : 6 * 3_600_000;
   const footballPath = path.join(options.dataRoot, "raw", "api-football", `${date}.json`);
   const volleyballPath = path.join(options.dataRoot, "raw", "api-volleyball", `${date}.json`);
   const tennisPath = path.join(options.dataRoot, "raw", "espn-tennis", `${date}.json`);
@@ -58,20 +64,24 @@ export async function loadEventCatalogue(date: string, options: EventCatalogueOp
   const f1Path = path.join(options.dataRoot, "raw", "jolpica-f1", `${season}.json`);
   const basketballPath = path.join(options.dataRoot, "raw", "api-basketball", `${date}.json`);
   const rugbyPath = path.join(options.dataRoot, "raw", "api-rugby", `${date}.json`);
-  const rugbyEnabled = Boolean(options.apiRugby || config.apiRugby.apiKey);
+  const dateLimitedSourcesEnabled = options.dateLimitedSourcesEnabled ?? true;
+  const footballEnabled = dateLimitedSourcesEnabled;
+  const rugbyEnabled = dateLimitedSourcesEnabled && Boolean(options.apiRugby || config.apiRugby.apiKey);
   const motogpPath = path.join(options.dataRoot, "raw", "motogp", `${season}.json`);
   const motogpEnabled = Boolean(options.motogp || config.motogp.enabled);
-  const basketballEnabled = Boolean(options.apiBasketball || config.apiBasketball.apiKey);
-  const volleyballEnabled = Boolean(options.apiVolleyball || config.apiVolleyball.apiKey);
+  const basketballEnabled = dateLimitedSourcesEnabled && Boolean(options.apiBasketball || config.apiBasketball.apiKey);
+  const volleyballEnabled = dateLimitedSourcesEnabled && Boolean(options.apiVolleyball || config.apiVolleyball.apiKey);
   const tennisEnabled = Boolean(options.espnTennis || config.espnTennis.enabled);
   const golfEnabled = Boolean(options.espnGolf || config.espnGolf.enabled);
   const athleticsEnabled = Boolean(options.worldAthletics || config.worldAthletics.baseUrl);
   const [footballResult, volleyballResult, tennisResult, golfResult, athleticsResult, f1Result, basketballResult, rugbyResult, motogpResult] = await Promise.allSettled([
-    loadOrFetch(
-      footballPath,
-      Boolean(options.refresh),
-      () => (options.apiFootball ?? new ApiFootballSource()).fixturesForDate(date, options.timeZone)
-    ),
+    footballEnabled
+      ? loadOrFetch(
+          footballPath,
+          Boolean(options.refresh),
+          () => (options.apiFootball ?? new ApiFootballSource()).fixturesForDate(date, options.timeZone)
+        )
+      : Promise.resolve({ fetchedAt: new Date().toISOString(), payload: { errors: [], response: [] } } satisfies CachedPayload),
     volleyballEnabled
       ? loadOrFetch(
           volleyballPath,
@@ -84,7 +94,7 @@ export async function loadEventCatalogue(date: string, options: EventCatalogueOp
           tennisPath,
           Boolean(options.refresh),
           () => (options.espnTennis ?? new EspnTennisSource()).scoreboardsForDate(date),
-          30 * 60_000
+          tennisCacheMaxAgeMs
         )
       : Promise.resolve({ fetchedAt: new Date().toISOString(), payload: { tours: [] } } satisfies CachedPayload),
     golfEnabled
@@ -155,8 +165,8 @@ export async function loadEventCatalogue(date: string, options: EventCatalogueOp
       ...(motogpEnabled && motogpResult.status === "fulfilled" ? [motogpPath] : []),
       ...(rugbyEnabled && rugbyResult.status === "fulfilled" ? [rugbyPath] : []),
       ...(basketballEnabled && basketballResult.status === "fulfilled" ? [basketballPath] : []),
-      ...(footballResult.status === "fulfilled" ? [footballPath] : []),
-      ...(volleyballResult.status === "fulfilled" ? [volleyballPath] : []),
+      ...(footballEnabled && footballResult.status === "fulfilled" ? [footballPath] : []),
+      ...(volleyballEnabled && volleyballResult.status === "fulfilled" ? [volleyballPath] : []),
       ...(tennisResult.status === "fulfilled" && tennisEnabled ? [tennisPath] : []),
       ...(golfResult.status === "fulfilled" && golfEnabled ? [golfPath] : []),
       ...(athleticsResult.status === "fulfilled" && athleticsEnabled ? [athleticsPath] : []),
@@ -172,6 +182,18 @@ function payloadWarnings(payload: unknown): string[] {
 }
 
 export async function loadOrFetch(filePath: string, refresh: boolean, fetchPayload: () => Promise<unknown>, maxAgeMs = 6 * 3_600_000): Promise<CachedPayload> {
+  const inFlight = inFlightLoads.get(filePath);
+  if (inFlight) return inFlight;
+  const pending = loadOrFetchUnshared(filePath, refresh, fetchPayload, maxAgeMs);
+  inFlightLoads.set(filePath, pending);
+  try {
+    return await pending;
+  } finally {
+    if (inFlightLoads.get(filePath) === pending) inFlightLoads.delete(filePath);
+  }
+}
+
+async function loadOrFetchUnshared(filePath: string, refresh: boolean, fetchPayload: () => Promise<unknown>, maxAgeMs: number): Promise<CachedPayload> {
   let previous: CachedPayload | null = null;
   {
     try {
@@ -209,6 +231,23 @@ function validateDate(value: string): void {
   if (!/^\d{4}-\d{2}-\d{2}$/u.test(value) || !Number.isFinite(Date.parse(`${value}T00:00:00Z`))) {
     throw new Error(`Date invalide: ${value}. Utilisez YYYY-MM-DD.`);
   }
+}
+
+function todayInTimeZone(timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function dateOffset(date: string, days: number): string {
+  const value = new Date(`${date}T12:00:00Z`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
 }
 
 function isFileNotFound(error: unknown): boolean {

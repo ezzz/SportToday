@@ -71,7 +71,8 @@ export async function validationXlsx(report: TonightReport, validation: Validati
     ["Fenêtre", `${report.windowStartUtc} → ${report.windowEndUtc}`],
     ["Événements sélectionnés", report.selectedCount],
     ["Dernière sauvegarde", validation.updatedAt || "Pas encore validé"],
-    ["Événement majeur manquant", validation.missingEventNote]
+    ["Événement majeur manquant", validation.missingEventNote],
+    ["Feedback général / debug", validation.debugNote]
   ]);
   summary.getColumn(1).width = 30;
   summary.getColumn(2).width = 80;
