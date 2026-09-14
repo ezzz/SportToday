@@ -36,17 +36,11 @@ sudo apt install -y ca-certificates curl git
 Installer Docker Engine et le plugin Compose depuis le dépôt officiel Docker pour Ubuntu, puis vérifier :
 
 ```bash
-docker --version
-docker compose version
+sudo docker --version
+sudo docker compose version
 ```
 
-Ajouter l’utilisateur courant au groupe Docker seulement si l’on accepte qu’il dispose de privilèges équivalents à `root` :
-
-```bash
-sudo usermod -aG docker "$USER"
-```
-
-Se déconnecter puis se reconnecter après cette commande.
+Les commandes Docker de ce guide utilisent volontairement `sudo`. L’utilisateur n’est pas ajouté au groupe `docker`, car l’accès à ce groupe équivaut pratiquement à un accès `root` permanent.
 
 ## Première installation SportToday
 
@@ -69,10 +63,10 @@ La même clé est utilisée automatiquement pour les API-Sports Football, Volley
 Construire et démarrer :
 
 ```bash
-docker compose up -d --build
-docker compose ps
+sudo docker compose up -d --build
+sudo docker compose ps
 curl http://127.0.0.1:4173/healthz
-docker compose logs -f --tail=100 sporttoday
+sudo docker compose logs -f --tail=100 sporttoday
 ```
 
 Compose lie volontairement le service à `127.0.0.1`. Tant que Tailscale n’est pas configuré, le site est donc joignable uniquement depuis le VPS lui-même.
@@ -101,8 +95,8 @@ Installer uniquement une version explicitement validée :
 cd SportToday
 git pull --ff-only
 cd services/ingest
-docker compose up -d --build
-docker compose ps
+sudo docker compose up -d --build
+sudo docker compose ps
 curl http://127.0.0.1:4173/healthz
 ```
 
@@ -114,7 +108,7 @@ Créer une sauvegarde cohérente :
 
 ```bash
 cd SportToday/services/ingest
-./scripts/backup.sh
+sudo ./scripts/backup.sh
 ls -la runtime/backups
 ```
 
@@ -123,9 +117,9 @@ Copier régulièrement le dernier dossier de sauvegarde hors du VPS.
 Pour restaurer :
 
 ```bash
-docker compose stop sporttoday
-./scripts/restore.sh runtime/backups/sporttoday-YYYYMMDDhhmmss
-docker compose up -d
+sudo docker compose stop sporttoday
+sudo ./scripts/restore.sh runtime/backups/sporttoday-YYYYMMDDhhmmss
+sudo docker compose up -d
 curl http://127.0.0.1:4173/healthz
 ```
 
@@ -134,10 +128,10 @@ Le script conserve les données remplacées sous un nom `.before-restore-*`. Ne 
 ## Exploitation courante
 
 ```bash
-docker compose ps
-docker compose logs --tail=200 sporttoday
+sudo docker compose ps
+sudo docker compose logs --tail=200 sporttoday
 curl http://127.0.0.1:4173/healthz
-docker compose restart sporttoday
+sudo docker compose restart sporttoday
 ```
 
 Un statut `degraded` signifie que le dernier rapport reste servi mais qu’une actualisation a échoué. Vérifier `lastRefreshError` et les logs avant toute relance. Ne jamais copier `.env` dans un ticket, un commit ou une capture d’écran.
