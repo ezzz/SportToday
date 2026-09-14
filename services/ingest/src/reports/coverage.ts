@@ -1,9 +1,9 @@
-import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import type { SportEvent } from "../events/model.js";
 import type { DayProgramme, DayReport } from "./day-filter.js";
 import type { TonightReport } from "./tonight.js";
+import { writeTextFileAtomic } from "../storage/atomic-file.js";
 
 /** A diagnostic-only watchlist of French sports channels and their XMLTV aliases. */
 export interface CoverageChannelRule {
@@ -157,9 +157,8 @@ function statusOrder(status: CoverageEventStatus): number {
 }
 
 export async function writeCoverageReport(reportsRoot: string, report: CoverageReport): Promise<string> {
-  await mkdir(reportsRoot, { recursive: true });
   const filePath = path.join(reportsRoot, `poc4-coverage-${report.source}-${report.date}.json`);
-  await writeFile(filePath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+  await writeTextFileAtomic(filePath, `${JSON.stringify(report, null, 2)}\n`);
   return filePath;
 }
 

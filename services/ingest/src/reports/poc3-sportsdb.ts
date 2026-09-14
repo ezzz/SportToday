@@ -1,4 +1,3 @@
-import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import {
@@ -8,6 +7,7 @@ import {
   type TheSportsDbTvBroadcast
 } from "../sportsdb/events.js";
 import type { TonightBroadcast, TonightItem, TonightReport } from "./tonight.js";
+import { writeTextFileAtomic } from "../storage/atomic-file.js";
 
 export type Poc3MatchConfidence = "high" | "medium" | "none";
 export type Poc3BroadcastSuggestion = "probable-live" | "probable-delayed" | "unknown";
@@ -104,9 +104,8 @@ export async function buildPoc3SportsDbReport(
 }
 
 export async function writePoc3SportsDbReport(reportsRoot: string, report: Poc3SportsDbReport): Promise<string> {
-  await mkdir(reportsRoot, { recursive: true });
   const filePath = path.join(reportsRoot, `poc3-sportsdb-${report.source}-${report.date}.json`);
-  await writeFile(filePath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+  await writeTextFileAtomic(filePath, `${JSON.stringify(report, null, 2)}\n`);
   return filePath;
 }
 

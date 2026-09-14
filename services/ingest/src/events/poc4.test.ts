@@ -4,7 +4,7 @@ import test from "node:test";
 import os from "node:os";
 import path from "node:path";
 
-import { loadEventCatalogue } from "./catalogue.js";
+import { loadEventCatalogue, loadOrFetch } from "./catalogue.js";
 import { buildPoc4EventReport } from "../reports/poc4-events.js";
 import type { DayProgramme, DayReport } from "../reports/day-filter.js";
 import { parseApiFootballEvents } from "../sources/api-football.js";
@@ -14,6 +14,140 @@ import { parseEspnGolfEvents } from "../sources/espn-golf.js";
 import { parseEspnTennisEvents } from "../sources/espn-tennis.js";
 import { parseJolpicaEvents } from "../sources/jolpica-f1.js";
 import { parseWorldAthleticsEvents } from "../sources/world-athletics.js";
+import { parseApiBasketballEvents } from "../sources/api-basketball.js";
+import { ultimateAthleticsEvents } from "../sources/ultimate-athletics.js";
+import { parseApiRugbyEvents } from "../sources/api-rugby.js";
+import { parseMotoGpEvents } from "../sources/motogp.js";
+import { uciRoadEvents } from "../sources/uci-road.js";
+
+test("MotoGP : regroupe Q1/Q2, respecte le fuseau et exclut Moto2 et essais libres", () => {
+  const session = (shortname: string, date_start: string, date_end = date_start, category = "MotoGP") =>
+    ({ shortname, date_start, date_end, category: { name: category }, type: "SESSION" });
+  const payload = { events: [{ id: "rsm", kind: "GP", season: { year: 2026 }, shortname: "RSM", broadcasts: [
+    session("Q1", "2026-09-12T10:50:00+0200", "2026-09-12T11:05:00+0200"),
+    session("Q2", "2026-09-12T11:15:00+0200", "2026-09-12T11:30:00+0200"),
+    session("SPR", "2026-09-12T15:00:00+0200"),
+    session("FP2", "2026-09-12T10:00:00+0200"),
+    session("RAC", "2026-09-12T12:00:00+0200", undefined, "Moto2"),
+    session("RAC", "2026-09-12T23:30:00Z")
+  ] }] };
+  const events = parseMotoGpEvents(payload, "2026-09-12");
+  assert.deepEqual(events.map(e => e.stage), ["Qualifications", "Sprint"]);
+  assert.equal(events[0]?.startAtUtc, "2026-09-12T08:50:00.000Z");
+  assert.equal(events[0]?.endAtUtc, "2026-09-12T09:30:00.000Z");
+  assert.equal(events[1]?.endAtUtc, undefined);
+  assert.equal(parseMotoGpEvents(payload, "2026-09-13")[0]?.stage, "Course");
+  const programmes = [
+    dayProgramme("Moto GP : Grand Prix de San Marin - Essais qualificatifs 1 et 2", "2026-09-12T08:45:00Z", "2026-09-12T09:46:00Z", "Canal+ Sport 360", ["motogp"]),
+    dayProgramme("Moto GP : Grand Prix de San Marin - Sprint", "2026-09-12T12:55:00Z", "2026-09-12T13:26:00Z", "Canal+ Sport 360", ["motogp"]),
+    dayProgramme("Moto2 : Grand Prix de San Marin - Sprint", "2026-09-12T12:55:00Z", "2026-09-12T13:26:00Z", "Wrong category", ["motogp"]),
+    dayProgramme("Moto GP : Grand Prix de France - Sprint", "2026-09-12T12:55:00Z", "2026-09-12T13:26:00Z", "Wrong GP", ["motogp"])
+  ];
+  const report = buildPoc4EventReport(events, dayReport("2026-09-12", programmes));
+  assert.equal(report.items.length, 2);
+  for (const item of report.items) {
+    assert.deepEqual(item.broadcasts.map(b => b.channel), ["Canal+ Sport 360"]);
+    assert.equal(item.broadcasts[0]?.liveStatus, "probable");
+  }
+});
+
+test("sélectionne le Top 14 et distingue l'affiche des autres matchs de rugby", () => {
+  const game = { id: 54086, date: "2026-09-06T21:05:00+02:00", week: "1", league: { id: 16 },
+    teams: { home: { name: "Stade Rochelais" }, away: { name: "Stade Toulousain" } }, status: { short: "NS" } };
+  const events = parseApiRugbyEvents({ response: [game, { ...game, id: 2, league: { id: 1 } }] }, "2026-09-06");
+  assert.equal(events.length, 1);
+  assert.equal(events[0]?.title, "La Rochelle / Toulouse");
+  assert.equal(events[0]?.stage, "Journée 1");
+  assert.equal(events[0]?.startAtUtc, "2026-09-06T19:05:00.000Z");
+  assert.equal(parseApiRugbyEvents({ response: [game] }, "2026-09-07").length, 0);
+  const tv = dayProgramme("Rugby : La Rochelle / Toulouse", "2026-09-06T19:05:00Z", "2026-09-06T21:05:00Z", "Canal+", ["rugby"]);
+  tv.subTitle = "Top 14 — 1re journée";
+  const wrong = { ...tv, sourceId: "wrong", channelName: "Autre chaîne", title: "Rugby : Toulon / Pau", description: "La Rochelle et Toulouse jouent aussi ce soir." };
+  const report = buildPoc4EventReport(events, dayReport("2026-09-06", [tv, wrong]));
+  assert.deepEqual(report.items[0]?.broadcasts.map((b) => b.channel), ["Canal+"]);
+});
+
+test("limite le basket au Mondial féminin, à la France en poules et à la phase finale", () => {
+  const game = (id: number, home: string, league = 284) => ({ id, date: "2026-09-07T12:30:00Z", league: { id: league }, teams: { home: { name: home }, away: { name: "Nigeria W" } } });
+  const payload = { response: [game(1, "France W"), game(2, "USA W"), game(3, "France W", 1)] };
+  assert.deepEqual(parseApiBasketballEvents(payload, "2026-09-07").map((e) => e.title), ["France / Nigeria"]);
+  assert.equal(parseApiBasketballEvents({ response: payload.response.map((game) => ({ ...game, date: "2026-09-08T12:30:00Z" })) }, "2026-09-08").length, 2);
+  assert.equal(parseApiBasketballEvents(payload, "2026-09-08").length, 0);
+  assert.equal(parseApiBasketballEvents(payload, "2027-09-08").length, 0);
+});
+
+test("rattache un programme basket générique quand un seul match de la compétition couvre le créneau", () => {
+  const events = parseApiBasketballEvents({ response: [
+    { id: 501, date: "2026-09-10T15:45:00Z", league: { id: 284 }, teams: { home: { name: "Belgium W" }, away: { name: "Germany W" } } },
+    { id: 502, date: "2026-09-10T18:45:00Z", league: { id: 284 }, teams: { home: { name: "Australia W" }, away: { name: "Spain W" } } }
+  ] }, "2026-09-10");
+  const early = dayProgramme("Basket-ball : Coupe du monde féminine", "2026-09-10T15:30:00Z", "2026-09-10T17:30:00Z", "beIN SPORTS 1", ["basket"]);
+  const late = dayProgramme("Basket-ball : Coupe du monde féminine", "2026-09-10T18:30:00Z", "2026-09-10T20:30:00Z", "beIN SPORTS 1", ["basket"]);
+  const report = buildPoc4EventReport(events, dayReport("2026-09-10", [early, late]));
+
+  assert.ok(report.items.every((item) => item.broadcasts[0]?.channel === "beIN SPORTS 1"));
+  assert.ok(report.items.every((item) => item.broadcastMatchConfidence === "high"));
+});
+
+test("étend le basket à EuroLeague et NBA sans étendre le Mondial féminin hors de sa période", () => {
+  const games = [
+    { id: 1200, date: "2026-10-01T18:30:00Z", league: { id: 120 }, teams: { home: { name: "AS Monaco" }, away: { name: "Barcelona" } } },
+    { id: 1201, date: "2026-10-01T20:00:00Z", league: { id: 12 }, teams: { home: { name: "New York Knicks" }, away: { name: "Boston Celtics" } } },
+    { id: 1202, date: "2026-10-01T18:30:00Z", league: { id: 284 }, teams: { home: { name: "France W" }, away: { name: "Spain W" } } }
+  ];
+  const events = parseApiBasketballEvents({ response: games }, "2026-10-01");
+  assert.deepEqual(events.map((event) => event.competition), ["EuroLeague", "NBA"]);
+  assert.deepEqual(events.map((event) => event.importance), ["A", "B"]);
+});
+
+test("intègre Pro D2 avec un rapprochement TV exigeant la compétition et les équipes", () => {
+  const game = { id: 17001, date: "2026-09-11T17:30:00Z", week: 3, league: { id: 17 },
+    teams: { home: { name: "SU Agen" }, away: { name: "Biarritz Olympique" } }, status: { short: "NS" } };
+  const events = parseApiRugbyEvents({ response: [game] }, "2026-09-11");
+  assert.equal(events[0]?.competition, "Pro D2");
+  assert.equal(events[0]?.title, "Agen / Biarritz");
+  const right = dayProgramme("Rugby : Agen / Biarritz", "2026-09-11T17:30:00Z", "2026-09-11T19:35:00Z", "Canal+ Sport", ["rugby"]);
+  right.subTitle = "Pro D2 — 3e journée";
+  const wrong = { ...right, sourceId: "wrong-pro-d2", subTitle: "Top 14 — 3e journée" };
+  const report = buildPoc4EventReport(events, dayReport("2026-09-11", [right, wrong]));
+  assert.deepEqual(report.items[0]?.broadcasts.map((broadcast) => broadcast.channel), ["Canal+ Sport"]);
+});
+
+test("référence les classiques UCI sans inventer d'horaire et distingue la course femmes", () => {
+  const men = uciRoadEvents("2026-09-11");
+  assert.equal(men[0]?.competition, "Grand Prix Cycliste de Québec");
+  assert.equal(men[0]?.timeConfidence, "estimated");
+  assert.equal(uciRoadEvents("2026-09-12").find((event) => event.competition === "La Vuelta")?.title, "20e étape");
+  const women = uciRoadEvents("2026-04-12").find((event) => /Femmes/u.test(event.stage))!;
+  const right = dayProgramme("Cyclisme : Paris-Roubaix Femmes", "2026-04-12T12:00:00Z", "2026-04-12T15:00:00Z", "France 3", ["cyclisme"]);
+  const wrong = { ...right, sourceId: "men", title: "Cyclisme : Paris-Roubaix" };
+  const report = buildPoc4EventReport([women], dayReport("2026-04-12", [right, wrong]));
+  assert.equal(report.items[0]?.eventTimeLabel, "Dès 14h00");
+  assert.deepEqual(report.items[0]?.broadcasts.map((broadcast) => broadcast.channel), ["France 3"]);
+});
+
+test("ajoute les étapes des trois grands tours et ignore la rediffusion de l'étape précédente", () => {
+  assert.equal(uciRoadEvents("2026-05-20").find((event) => event.competition === "Giro d'Italia")?.title, "11e étape");
+  assert.equal(uciRoadEvents("2026-07-24").find((event) => event.competition === "Tour de France")?.title, "19e étape");
+  const vuelta = uciRoadEvents("2026-09-11").find((event) => event.competition === "La Vuelta")!;
+  const replay = dayProgramme("La Vuelta | 18e étape", "2026-09-11T02:00:00Z", "2026-09-11T04:00:00Z", "Eurosport 2", ["cyclisme"]);
+  const live = dayProgramme("Cyclisme : Tour d'Espagne", "2026-09-11T10:45:00Z", "2026-09-11T16:00:00Z", "Eurosport 360 20", ["cyclisme"]);
+  const report = buildPoc4EventReport([vuelta], dayReport("2026-09-11", [replay, live]));
+
+  assert.equal(report.items[0]?.eventTimeLabel, "Dès 12h45");
+  assert.deepEqual(report.items[0]?.broadcasts.map((broadcast) => broadcast.channel), ["Eurosport 360"]);
+});
+
+test("programme une session Ultimate par jour et ne la rattache pas à la Diamond League", () => {
+  const events = ultimateAthleticsEvents("2026-09-11");
+  assert.equal(events[0]?.startAtUtc, "2026-09-11T17:00:00.000Z");
+  assert.equal(ultimateAthleticsEvents("2026-09-12")[0]?.endAtUtc, "2026-09-12T19:00:00.000Z");
+  assert.equal(ultimateAthleticsEvents("2026-09-14").length, 0);
+  const wrong = dayProgramme("Athlétisme : Diamond League", "2026-09-11T17:00:00Z", "2026-09-11T20:00:00Z", "Eurosport", ["athlétisme"]);
+  const right = { ...wrong, sourceId: "ultimate", title: "Athlétisme : Ultimate Championship", channelName: "Chaîne test" };
+  const report = buildPoc4EventReport(events, dayReport("2026-09-11", [wrong, right]));
+  assert.deepEqual(report.items[0]?.broadcasts.map((b) => b.channel), ["Chaîne test"]);
+});
 
 test("filtre API-Football sur la watchlist et classe une grande affiche", () => {
   const events = parseApiFootballEvents({
@@ -68,6 +202,52 @@ test("rattache la prise d'antenne XMLTV à l'événement officiel", () => {
   assert.equal(item?.broadcasts[0]?.liveStatus, "probable");
   assert.equal(item?.broadcasts[0]?.broadcastAlignedToEvent, true);
   assert.equal(item?.broadcastMatchConfidence, "high");
+});
+
+test("normalise les variantes géographiques et orthographiques des équipes", () => {
+  const events = parseApiFootballEvents({ response: [
+    fixture(111, 2, "UEFA Champions League", "League Stage", "Slavia Praha", "Lens"),
+    fixture(112, 2, "UEFA Champions League", "League Stage", "PSV Eindhoven", "Shakhtar Donetsk"),
+    fixture(114, 2, "UEFA Champions League", "League Stage", "Bayern München", "Bodo/Glimt")
+  ] });
+  const slavia = dayProgramme("Slavia Prague / Lens", "2026-08-23T19:00:00Z", "2026-08-23T21:00:00Z", "Canal+ Live 1", ["football"]);
+  const psv = dayProgramme("PSV Eindhoven / Chakhtior Donetsk", "2026-08-23T19:00:00Z", "2026-08-23T21:00:00Z", "Canal+ Live 2", ["football"]);
+  const bayern = dayProgramme("Bayern Munich / FK Bodø/Glimt", "2026-08-23T18:55:00Z", "2026-08-23T21:00:00Z", "Canal+ Live 3", ["football"]);
+  const report = buildPoc4EventReport(events, dayReport("2026-08-23", [slavia, psv, bayern]));
+
+  assert.deepEqual(report.items.find((item) => item.id === "api-football:111")?.broadcasts.map((broadcast) => broadcast.channel), ["Canal+ Live 1"]);
+  assert.deepEqual(report.items.find((item) => item.id === "api-football:112")?.broadcasts.map((broadcast) => broadcast.channel), ["Canal+ Live 2"]);
+  assert.deepEqual(report.items.find((item) => item.id === "api-football:114")?.broadcasts.map((broadcast) => broadcast.channel), ["Canal+ Live 3"]);
+});
+
+test("remplace des numéros de chaînes contradictoires par le bouquet générique", () => {
+  const event = parseApiFootballEvents({ response: [
+    fixture(113, 2, "UEFA Champions League", "League Stage", "Manchester United", "Sabah FA")
+  ] })[0]!;
+  const live3 = dayProgramme("Manchester United / Sabah FK", "2026-08-23T18:55:00Z", "2026-08-23T21:00:00Z", "Canal+ Live 3", ["football"]);
+  const live4 = { ...live3, sourceId: "live4", channelSourceId: "CanalPlusLive4.fr", channelName: "Canal+ Live 4" };
+  const item = buildPoc4EventReport([event], dayReport("2026-08-23", [live3, live4])).items[0]!;
+
+  assert.deepEqual(item.broadcasts.map((broadcast) => broadcast.channel), ["Canal+ Live"]);
+  assert.equal(item.broadcasts[0]?.liveStatus, "unknown");
+  assert.match(item.broadcasts[0]?.liveEvidence ?? "", /contradictoires/u);
+});
+
+test("distingue le multiplex du bouquet secondaire quand les numéros beIN Max sont indéterminables", () => {
+  const events = parseApiFootballEvents({ response: [
+    fixture(121, 62, "Ligue 2", "Regular Season", "Clermont Foot", "Boulogne"),
+    fixture(122, 62, "Ligue 2", "Regular Season", "Rodez", "Grenoble")
+  ] });
+  const multiplex = dayProgramme("Football : Ligue 2 BKT", "2026-08-23T19:00:00Z", "2026-08-23T21:00:00Z", "beIN SPORTS 1", ["football"]);
+  multiplex.description = "Multiplex avec Clermont/Boulogne et Rodez/Grenoble.";
+  const max4 = dayProgramme("Football : Ligue 2 BKT", "2026-08-23T19:00:00Z", "2026-08-23T21:00:00Z", "beIN SPORTS MAX 4", ["football"]);
+  const max5 = { ...max4, sourceId: "max5", channelSourceId: "beINSPORTSMAX5.fr", channelName: "beIN SPORTS MAX 5" };
+  const report = buildPoc4EventReport(events, dayReport("2026-08-23", [multiplex, max4, max5]));
+
+  for (const item of report.items) {
+    assert.deepEqual(new Set(item.broadcasts.map((broadcast) => broadcast.channel)), new Set(["beIN SPORTS 1 · Multiplex", "beIN Sports Max"]));
+    assert.equal(item.broadcasts.find((broadcast) => broadcast.channel === "beIN Sports Max")?.liveStatus, "unknown");
+  }
 });
 
 test("ne classe pas un direct comme replay à cause d'un contexte historique", () => {
@@ -231,6 +411,9 @@ test("agrège les sources événementielles disponibles dans le catalogue", asyn
     const catalogue = await loadEventCatalogue("2026-08-26", {
       dataRoot,
       timeZone: "Europe/Paris",
+      apiBasketball: { gamesForDate: async () => ({ response: [] }) },
+      apiRugby: { gamesForDate: async () => ({ response: [] }) },
+      motogp: { calendarForSeason: async () => ({ events: [] }) },
       apiFootball: { fixturesForDate: async () => ({ errors: [], response: [fixture(10, 2, "UEFA Champions League", "Semi-finals", "Paris Saint Germain", "Real Madrid")] }) },
       apiVolleyball: { gamesForDate: async () => ({ response: [{ id: 11, date: "2026-08-26T18:00:00Z", country: { name: "France" }, league: { name: "Ligue A" }, teams: { home: { name: "Tours" }, away: { name: "Montpellier" } }, status: { short: "NS" } }] }) },
       espnTennis: { scoreboardsForDate: async () => ({ tours: [] }) },
@@ -238,12 +421,32 @@ test("agrège les sources événementielles disponibles dans le catalogue", asyn
       worldAthletics: { calendarForDate: async () => '<script id="__NEXT_DATA__">{"events":[{"id":"14","name":"Diamond League","startDate":"2026-08-26","disciplines":"Track and Field"}]}</script>' },
       jolpicaF1: { scheduleForSeason: async () => ({ MRData: { RaceTable: { Races: [] } } }) }
     });
-    assert.equal(catalogue.events.length, 4);
-    assert.deepEqual(catalogue.eventCounts, { football: 1, volleyball: 1, golf: 1, athletics: 1 });
+    assert.equal(catalogue.events.length, 5);
+    assert.deepEqual(catalogue.eventCounts, { cyclisme: 1, football: 1, volleyball: 1, golf: 1, athletics: 1 });
     assert.equal(catalogue.sourceErrors.length, 0);
   } finally {
     await rm(dataRoot, { recursive: true, force: true });
   }
+});
+
+test("actualise le cache expiré et conserve la dernière réponse lors d'une panne", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "sporttoday-refresh-"));
+  const file = path.join(directory, "day.json");
+  try {
+    let calls = 0;
+    const fetchPayload = async () => ({ response: [++calls] });
+    await loadOrFetch(file, false, fetchPayload);
+    await loadOrFetch(file, false, fetchPayload);
+    assert.equal(calls, 1);
+    const updated = await loadOrFetch(file, false, fetchPayload, 0);
+    assert.deepEqual(updated.payload, { response: [2] });
+    const failed = await loadOrFetch(file, true, async () => { throw new Error("offline"); });
+    assert.equal(failed.fetchedAt, updated.fetchedAt);
+    assert.deepEqual((failed.payload as { response: number[] }).response, [2]);
+    assert.match(JSON.stringify(failed.payload), /offline/);
+    const recovered = await loadOrFetch(file, true, fetchPayload);
+    assert.deepEqual(recovered.payload, { response: [3] });
+  } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
 function fixture(id: number, leagueId: number, leagueName: string, round: string, home: string, away: string) {
@@ -278,6 +481,34 @@ function espnTennisFixture() {
     ]
   }] } }] };
 }
+
+test("conserve les affiches tennis sans transformer l'heure provisoire en horaire confirmé", () => {
+  const payload = espnTennisFixture();
+  for (const tour of payload.tours) for (const event of tour.payload.events)
+    for (const grouping of event.groupings) for (const match of grouping.competitions) match.timeValid = false;
+  const events = parseEspnTennisEvents(payload, "2026-09-06", "Europe/Paris");
+  const tv = dayProgramme("Tennis : US Open", "2026-09-06T15:00:00Z", "2026-09-06T23:00:00Z", "Eurosport 1", ["tennis"]);
+  const report = buildPoc4EventReport(events, dayReport("2026-09-06", [tv]));
+  assert.equal(report.items.length, 2);
+  assert.ok(report.items.every((item) => item.eventTimeLabel === "Horaires à venir"));
+  assert.ok(report.items.every((item) => item.eventSchedule?.every((entry) => entry.timeConfirmed === false)));
+  assert.ok(report.items.every((item) => item.broadcasts.every((broadcast) => broadcast.liveStatus !== "probable")));
+});
+
+test("privilégie l'affiche au descriptif copié et utilise le plateau précédant un match générique", () => {
+  const events = parseApiFootballEvents({ response: [
+    fixture(901, 2, "UEFA Champions League", "League Stage", "Lille", "Real Betis"),
+    fixture(902, 2, "UEFA Champions League", "League Stage", "Real Madrid", "Inter")
+  ] });
+  const madrid = dayProgramme("Real Madrid / Inter Milan", "2026-08-23T19:00:00Z", "2026-08-23T21:00:00Z", "Canal+ Foot", ["football"]);
+  madrid.description = "Lille accueille le Real Betis.";
+  const before = dayProgramme("Plateau avant-match UEFA Champions League", "2026-08-23T18:54:00Z", "2026-08-23T19:00:00Z", "Canal+", ["football"]);
+  before.subTitle = "Lille - Betis Séville";
+  const generic = dayProgramme("Football : Ligue des champions", "2026-08-23T19:00:00Z", "2026-08-23T21:00:00Z", "Canal+", ["football"]);
+  const report = buildPoc4EventReport(events, dayReport("2026-08-23", [madrid, before, generic]));
+  assert.deepEqual(report.items.find((item) => item.title === "Lille / Real Betis")?.broadcasts.map((b) => b.channel), ["Canal+"]);
+  assert.deepEqual(report.items.find((item) => item.title === "Real Madrid / Inter")?.broadcasts.map((b) => b.channel), ["Canal+ Foot"]);
+});
 
 function dayProgramme(title: string, startAt: string, stopAt: string, channelName: string, sportSignals: string[]): DayProgramme {
   return {

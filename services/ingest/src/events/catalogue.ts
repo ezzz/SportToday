@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 import { ApiFootballSource, parseApiFootballEvents } from "../sources/api-football.js";
@@ -8,7 +8,13 @@ import { EspnTennisSource, parseEspnTennisEvents } from "../sources/espn-tennis.
 import { JolpicaF1Source, parseJolpicaEvents } from "../sources/jolpica-f1.js";
 import { WorldAthleticsSource, parseWorldAthleticsEvents } from "../sources/world-athletics.js";
 import { config } from "../config.js";
+import { ApiBasketballSource, parseApiBasketballEvents } from "../sources/api-basketball.js";
+import { ultimateAthleticsEvents } from "../sources/ultimate-athletics.js";
+import { ApiRugbySource, parseApiRugbyEvents } from "../sources/api-rugby.js";
 import type { SportEvent } from "./model.js";
+import { MotoGpSource, parseMotoGpEvents } from "../sources/motogp.js";
+import { uciRoadEvents } from "../sources/uci-road.js";
+import { writeTextFileAtomic } from "../storage/atomic-file.js";
 
 export interface EventCatalogue {
   date: string;
@@ -25,6 +31,9 @@ export interface EventCatalogueOptions {
   dataRoot: string;
   timeZone: string;
   refresh?: boolean;
+  motogp?: Pick<MotoGpSource, "calendarForSeason">;
+  apiBasketball?: Pick<ApiBasketballSource, "gamesForDate">;
+  apiRugby?: Pick<ApiRugbySource, "gamesForDate">;
   apiFootball?: Pick<ApiFootballSource, "fixturesForDate">;
   apiVolleyball?: Pick<ApiVolleyballSource, "gamesForDate">;
   espnTennis?: Pick<EspnTennisSource, "scoreboardsForDate">;
@@ -47,11 +56,17 @@ export async function loadEventCatalogue(date: string, options: EventCatalogueOp
   const golfPath = path.join(options.dataRoot, "raw", "espn-golf", `${date}.json`);
   const athleticsPath = path.join(options.dataRoot, "raw", "world-athletics", `${date}.json`);
   const f1Path = path.join(options.dataRoot, "raw", "jolpica-f1", `${season}.json`);
+  const basketballPath = path.join(options.dataRoot, "raw", "api-basketball", `${date}.json`);
+  const rugbyPath = path.join(options.dataRoot, "raw", "api-rugby", `${date}.json`);
+  const rugbyEnabled = Boolean(options.apiRugby || config.apiRugby.apiKey);
+  const motogpPath = path.join(options.dataRoot, "raw", "motogp", `${season}.json`);
+  const motogpEnabled = Boolean(options.motogp || config.motogp.enabled);
+  const basketballEnabled = Boolean(options.apiBasketball || config.apiBasketball.apiKey);
   const volleyballEnabled = Boolean(options.apiVolleyball || config.apiVolleyball.apiKey);
   const tennisEnabled = Boolean(options.espnTennis || config.espnTennis.enabled);
   const golfEnabled = Boolean(options.espnGolf || config.espnGolf.enabled);
   const athleticsEnabled = Boolean(options.worldAthletics || config.worldAthletics.baseUrl);
-  const [footballResult, volleyballResult, tennisResult, golfResult, athleticsResult, f1Result] = await Promise.allSettled([
+  const [footballResult, volleyballResult, tennisResult, golfResult, athleticsResult, f1Result, basketballResult, rugbyResult, motogpResult] = await Promise.allSettled([
     loadOrFetch(
       footballPath,
       Boolean(options.refresh),
@@ -68,7 +83,8 @@ export async function loadEventCatalogue(date: string, options: EventCatalogueOp
       ? loadOrFetch(
           tennisPath,
           Boolean(options.refresh),
-          () => (options.espnTennis ?? new EspnTennisSource()).scoreboardsForDate(date)
+          () => (options.espnTennis ?? new EspnTennisSource()).scoreboardsForDate(date),
+          30 * 60_000
         )
       : Promise.resolve({ fetchedAt: new Date().toISOString(), payload: { tours: [] } } satisfies CachedPayload),
     golfEnabled
@@ -89,7 +105,16 @@ export async function loadEventCatalogue(date: string, options: EventCatalogueOp
       f1Path,
       Boolean(options.refresh),
       () => (options.jolpicaF1 ?? new JolpicaF1Source()).scheduleForSeason(season)
-    )
+    ),
+    basketballEnabled ? loadOrFetch(basketballPath, Boolean(options.refresh),
+      () => (options.apiBasketball ?? new ApiBasketballSource()).gamesForDate(date, options.timeZone))
+      : Promise.resolve({ fetchedAt: new Date().toISOString(), payload: { response: [] } }),
+    rugbyEnabled ? loadOrFetch(rugbyPath, Boolean(options.refresh),
+      () => (options.apiRugby ?? new ApiRugbySource()).gamesForDate(date, options.timeZone))
+      : Promise.resolve({ fetchedAt: new Date().toISOString(), payload: { response: [] } }),
+    motogpEnabled ? loadOrFetch(motogpPath, Boolean(options.refresh),
+      () => (options.motogp ?? new MotoGpSource()).calendarForSeason(season))
+      : Promise.resolve({ fetchedAt: new Date().toISOString(), payload: { events: [] } })
   ]);
   const footballEvents = footballResult.status === "fulfilled" ? parseApiFootballEvents(footballResult.value.payload) : [];
   const volleyballEvents = volleyballResult.status === "fulfilled" ? parseApiVolleyballEvents(volleyballResult.value.payload) : [];
@@ -97,7 +122,12 @@ export async function loadEventCatalogue(date: string, options: EventCatalogueOp
   const golfEvents = golfResult.status === "fulfilled" ? parseEspnGolfEvents(golfResult.value.payload, date) : [];
   const athleticsEvents = athleticsResult.status === "fulfilled" ? parseWorldAthleticsEvents(athleticsResult.value.payload, date) : [];
   const f1Events = f1Result.status === "fulfilled" ? parseJolpicaEvents(f1Result.value.payload, date) : [];
+  const basketballEvents = basketballResult.status === "fulfilled" ? parseApiBasketballEvents(basketballResult.value.payload, date, options.timeZone) : [];
   const sourceErrors = [
+    ...(motogpResult.status === "fulfilled" ? payloadWarnings(motogpResult.value.payload) : [`MotoGP : ${errorMessage(motogpResult.reason)}`]),
+    ...(rugbyResult.status === "fulfilled" ? payloadWarnings(rugbyResult.value.payload) : [`API-Rugby : ${errorMessage(rugbyResult.reason)}`]),
+    ...(basketballResult.status === "fulfilled" ? payloadWarnings(basketballResult.value.payload) : [`API-Basketball : ${errorMessage(basketballResult.reason)}`]),
+    ...[footballResult, volleyballResult, athleticsResult, f1Result].flatMap((result) => result.status === "fulfilled" ? payloadWarnings(result.value.payload) : []),
     ...(golfResult.status === "fulfilled" ? payloadWarnings(golfResult.value.payload) : []),
     ...(tennisResult.status === "fulfilled" ? payloadWarnings(tennisResult.value.payload) : []),
     ...(footballResult.status === "rejected" ? [`API-Football : ${errorMessage(footballResult.reason)}`] : []),
@@ -107,7 +137,9 @@ export async function loadEventCatalogue(date: string, options: EventCatalogueOp
     ...(athleticsResult.status === "rejected" ? [`World Athletics : ${errorMessage(athleticsResult.reason)}`] : []),
     ...(f1Result.status === "rejected" ? [`Jolpica F1 : ${errorMessage(f1Result.reason)}`] : [])
   ];
-  const allEvents = [...footballEvents, ...volleyballEvents, ...tennisEvents, ...golfEvents, ...athleticsEvents, ...f1Events]
+  const rugbyEvents = rugbyResult.status === "fulfilled" ? parseApiRugbyEvents(rugbyResult.value.payload, date, options.timeZone) : [];
+  const motogpEvents = motogpResult.status === "fulfilled" ? parseMotoGpEvents(motogpResult.value.payload, date, options.timeZone) : [];
+  const allEvents = [...footballEvents, ...volleyballEvents, ...tennisEvents, ...golfEvents, ...athleticsEvents, ...f1Events, ...basketballEvents, ...ultimateAthleticsEvents(date), ...rugbyEvents, ...motogpEvents, ...uciRoadEvents(date)]
     .sort((left, right) => right.priorityScore - left.priorityScore || left.startAtUtc.localeCompare(right.startAtUtc));
   return {
     date,
@@ -120,6 +152,9 @@ export async function loadEventCatalogue(date: string, options: EventCatalogueOp
       return counts;
     }, {}),
     snapshots: [
+      ...(motogpEnabled && motogpResult.status === "fulfilled" ? [motogpPath] : []),
+      ...(rugbyEnabled && rugbyResult.status === "fulfilled" ? [rugbyPath] : []),
+      ...(basketballEnabled && basketballResult.status === "fulfilled" ? [basketballPath] : []),
       ...(footballResult.status === "fulfilled" ? [footballPath] : []),
       ...(volleyballResult.status === "fulfilled" ? [volleyballPath] : []),
       ...(tennisResult.status === "fulfilled" && tennisEnabled ? [tennisPath] : []),
@@ -136,19 +171,29 @@ function payloadWarnings(payload: unknown): string[] {
   return Array.isArray(payload.warnings) ? payload.warnings.filter((value): value is string => typeof value === "string") : [];
 }
 
-async function loadOrFetch(filePath: string, refresh: boolean, fetchPayload: () => Promise<unknown>): Promise<CachedPayload> {
-  if (!refresh) {
+export async function loadOrFetch(filePath: string, refresh: boolean, fetchPayload: () => Promise<unknown>, maxAgeMs = 6 * 3_600_000): Promise<CachedPayload> {
+  let previous: CachedPayload | null = null;
+  {
     try {
       const parsed: unknown = JSON.parse(await readFile(filePath, "utf8"));
       const cache = cachedPayload(parsed);
-      if (cache) return cache;
+      previous = cache;
+      if (cache && !refresh && Date.now() - Date.parse(cache.fetchedAt) < maxAgeMs) return cache;
     } catch (error) {
       if (!isFileNotFound(error)) throw error;
     }
   }
-  const cache = { fetchedAt: new Date().toISOString(), payload: await fetchPayload() } satisfies CachedPayload;
-  await mkdir(path.dirname(filePath), { recursive: true });
-  await writeFile(filePath, `${JSON.stringify(cache, null, 2)}\n`, "utf8");
+  let payload: unknown;
+  try {
+    payload = await fetchPayload();
+  } catch (error) {
+    if (!previous || !previous.payload || typeof previous.payload !== "object" || Array.isArray(previous.payload)) throw error;
+    return { ...previous, payload: { ...previous.payload,
+      warnings: [...payloadWarnings(previous.payload), `${path.basename(path.dirname(filePath))} : données conservées du ${previous.fetchedAt} après échec : ${errorMessage(error)}`]
+    } };
+  }
+  const cache = { fetchedAt: new Date().toISOString(), payload } satisfies CachedPayload;
+  await writeTextFileAtomic(filePath, `${JSON.stringify(cache, null, 2)}\n`);
   return cache;
 }
 

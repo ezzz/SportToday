@@ -1,4 +1,3 @@
-import { writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { createHash } from "node:crypto";
 
@@ -6,6 +5,7 @@ import type { DayProgramme, DayReport } from "./day-filter.js";
 import { autoAnnotate, type ContentCategory } from "./auto-annotation.js";
 import { matchProgrammeToSportsDb } from "./sportsdb-match.js";
 import type { TheSportsDbEvent } from "../sportsdb/events.js";
+import { writeTextFileAtomic } from "../storage/atomic-file.js";
 
 const DEFAULT_SPORT_LIMIT = 100;
 const DEFAULT_NON_SPORT_LIMIT = 50;
@@ -44,9 +44,8 @@ export async function writeValidationCsv(
     "isLive", "channelCorrect", "timeCorrect", "referenceUrl", "referenceStartAt", "checkedAt", "notes"
   ];
   const csv = [header, ...rows].map((row) => row.map(csvCell).join(",")).join("\n") + "\n";
-  await mkdir(reportsRoot, { recursive: true });
   const filePath = path.join(reportsRoot, `validation-${report.source}-${report.date}.csv`);
-  await writeFile(filePath, csv, "utf8");
+  await writeTextFileAtomic(filePath, csv);
   return { path: filePath, sportCount: sportCandidates.length, nonSportCount: nonSportCandidates.length };
 }
 

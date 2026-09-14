@@ -6,7 +6,11 @@ import type { ParsedXmltv, RawSnapshot, SourceId } from "../types.js";
 import type { StoredSnapshot } from "./snapshot-store.js";
 
 export function openDatabase(filePath: string): DatabaseSync {
-  return new DatabaseSync(filePath);
+  const database = new DatabaseSync(filePath);
+  // Refreshes use a second connection while the web process serves the last
+  // complete report. A short busy timeout avoids failing on normal WAL locks.
+  database.exec("PRAGMA busy_timeout = 5000;");
+  return database;
 }
 
 export async function initializeDatabase(filePath: string): Promise<DatabaseSync> {

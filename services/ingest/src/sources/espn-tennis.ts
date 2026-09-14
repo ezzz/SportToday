@@ -59,12 +59,13 @@ export function parseEspnTennisEvents(payload: unknown, date: string, timeZone =
           const id = stringValue(competition?.id);
           const startAtUtc = isoDate(competition?.date) || isoDate(competition?.startDate);
           const players = competitors(competition);
-          if (!id || !startAtUtc || !sameLocalDate(startAtUtc, date, tournamentTimeZone) || competition?.timeValid === false || players.length !== 2) continue;
+          if (!id || !startAtUtc || !sameLocalDate(startAtUtc, date, tournamentTimeZone) || players.length !== 2) continue;
           const round = stringValue(objectValue(competition?.round)?.displayName);
           const roundInfo = tennisRoundInfo(round, tournament);
           group.entries.push({
             id,
             startAtUtc,
+            timeConfirmed: competition?.timeValid !== false,
             participants: players,
             round,
             ...(roundInfo ? { roundLabel: roundInfo.label, roundRank: roundInfo.rank } : {}),
@@ -94,7 +95,7 @@ export function parseEspnTennisEvents(payload: unknown, date: string, timeZone =
       schedule: entries,
       startAtUtc: entries[0]!.startAtUtc,
       endAtUtc,
-      timeConfidence: "confirmed",
+      timeConfidence: entries.some((entry) => entry.timeConfirmed !== false) ? "confirmed" : "estimated",
       status: entries.some((entry) => entry.status === "in") ? "in" : "scheduled",
       importance: priority.importance,
       priorityScore: priority.score + 4,

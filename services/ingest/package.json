@@ -1,5 +1,5 @@
 {
-  "name": "@sporttoday/ingest-poc",
+  "name": "@sporttoday/ingest",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -7,8 +7,9 @@
     "node": ">=22.5"
   },
   "scripts": {
+    "start": "tsx src/cli.ts mvp:web --source=xmltvfr",
     "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node --test dist/xmltv/parser.test.js dist/events/poc4.test.js dist/events/rights.test.js dist/reports/poc3-sportsdb.test.js dist/reports/tonight.test.js dist/reports/coverage.test.js dist/sources/data-source.test.js dist/validation/export.test.js dist/validation/filters.test.js dist/validation/store.test.js dist/validation/ui.test.js",
+    "test": "npm run build && node --test dist/xmltv/parser.test.js dist/events/poc4.test.js dist/events/rights.test.js dist/reports/poc3-sportsdb.test.js dist/reports/tonight.test.js dist/reports/coverage.test.js dist/sources/data-source.test.js dist/validation/export.test.js dist/validation/filters.test.js dist/validation/server.test.js dist/validation/store.test.js dist/validation/ui.test.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "xmltv:fetch": "tsx src/cli.ts fetch",
     "xmltv:report": "tsx src/cli.ts report",
@@ -20,7 +21,10 @@
     "sportsdb:poc3": "tsx src/cli.ts sportsdb:poc3",
     "poc4:report": "tsx src/cli.ts poc4:report",
     "poc4:web": "tsx src/cli.ts poc4:web",
-    "poc4:coverage": "tsx src/cli.ts poc4:coverage"
+    "poc4:coverage": "tsx src/cli.ts poc4:coverage",
+    "mvp:report": "tsx src/cli.ts mvp:report",
+    "mvp:web": "tsx src/cli.ts mvp:web",
+    "mvp:coverage": "tsx src/cli.ts mvp:coverage"
   },
   "dependencies": {
     "dotenv": "^17.4.2",

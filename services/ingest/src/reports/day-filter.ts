@@ -1,9 +1,9 @@
-import { writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 
 import type { ProgrammeRecord, SourceId } from "../types.js";
 import { sportSignals } from "../xmltv/parser.js";
+import { writeTextFileAtomic } from "../storage/atomic-file.js";
 
 export interface DayProgramme extends ProgrammeRecord {
   channelName: string;
@@ -126,9 +126,8 @@ export function buildDayReport(
 }
 
 export async function writeDayReport(reportsRoot: string, report: DayReport): Promise<string> {
-  await mkdir(reportsRoot, { recursive: true });
   const reportPath = path.join(reportsRoot, `day-${report.source}-${report.date}.json`);
-  await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+  await writeTextFileAtomic(reportPath, `${JSON.stringify(report, null, 2)}\n`);
   return reportPath;
 }
 

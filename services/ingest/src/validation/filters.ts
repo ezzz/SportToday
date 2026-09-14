@@ -1,7 +1,7 @@
 import type { TonightItem, TonightReport } from "../reports/tonight.js";
 
 export const categoryFilters = ["live", "uncertain", "delayed", "editorial", "all"] as const;
-export const periodFilters = ["evening", "day"] as const;
+export const periodFilters = ["now", "evening", "day"] as const;
 
 export type CategoryFilter = typeof categoryFilters[number];
 export type PeriodFilter = typeof periodFilters[number];
@@ -11,7 +11,7 @@ export function parseCategoryFilter(value: string | null): CategoryFilter {
 }
 
 export function parsePeriodFilter(value: string | null): PeriodFilter {
-  return periodFilters.includes(value as PeriodFilter) ? value as PeriodFilter : "evening";
+  return periodFilters.includes(value as PeriodFilter) ? value as PeriodFilter : "now";
 }
 
 export function parseSportFilters(value: string | null): string[] {
@@ -27,6 +27,8 @@ export function filteredReport(
 ): TonightReport {
   if (report.viewMode === "event-first") {
     const matching = report.items
+      .map((item) => ({ ...item, broadcasts: matchingEventBroadcasts(item, category) }))
+      .filter((item) => item.broadcasts.length > 0)
       .filter((item) => matchesCategory(item, category))
       .filter((item) => matchesPeriod(item, report, period))
       .filter((item) => matchesSports(item, sports));
@@ -47,24 +49,26 @@ export function matchesSports(item: TonightItem, sports: readonly string[]): boo
 
 export function matchesCategory(item: TonightItem, category: CategoryFilter): boolean {
   if (category === "all") return true;
-  if (item.eventSource) {
-    if (category === "live") return item.broadcasts.length === 0 || item.broadcasts.some((broadcast) => broadcast.liveStatus !== "delayed");
-    if (category === "uncertain") {
-      return item.broadcastMatchConfidence === "none"
-        || item.broadcasts.some((broadcast) => broadcast.liveStatus === "unknown");
-    }
-    return false;
-  }
   if (category === "live") return item.contentCategory !== "Emission" && item.broadcasts.some((broadcast) => broadcast.liveStatus !== "delayed");
   if (category === "uncertain") return item.contentCategory !== "Emission" && item.broadcasts.some((broadcast) => broadcast.liveStatus === "unknown");
   if (category === "delayed") return item.broadcasts.some((broadcast) => broadcast.liveStatus === "delayed");
   return item.contentCategory === "Emission";
 }
 
-export function matchesPeriod(item: TonightItem, report: TonightReport, period: PeriodFilter): boolean {
+export function matchesPeriod(
+  item: TonightItem,
+  report: TonightReport,
+  period: PeriodFilter,
+  now = new Date()
+): boolean {
   if (period === "day") return true;
+  if (period === "now") return overlapsNow(item, now.getTime());
   const start = Date.parse(report.eveningStartUtc);
   const end = Date.parse(report.windowEndUtc);
+  if (item.eventTimeConfidence === "estimated") {
+    return item.broadcasts.length === 0
+      || item.broadcasts.some((broadcast) => broadcastOverlaps(broadcast.startAtUtc, broadcast.stopAtUtc, start, end));
+  }
   if (item.eventStartAtUtc) {
     return broadcastOverlaps(item.eventStartAtUtc, item.eventEndAtUtc ?? item.eventStartAtUtc, start, end);
   }
@@ -75,7 +79,8 @@ export function matchingBroadcasts(
   item: TonightItem,
   report: TonightReport,
   category: CategoryFilter,
-  period: PeriodFilter
+  period: PeriodFilter,
+  now = new Date()
 ): TonightItem["broadcasts"] {
   const periodStart = Date.parse(report.eveningStartUtc);
   const periodEnd = Date.parse(report.windowEndUtc);
@@ -85,9 +90,27 @@ export function matchingBroadcasts(
       || (category === "uncertain" && item.contentCategory !== "Emission" && broadcast.liveStatus === "unknown")
       || (category === "delayed" && broadcast.liveStatus === "delayed")
       || (category === "editorial" && item.contentCategory === "Emission");
-    const periodMatch = period === "day" || broadcastOverlaps(broadcast.startAtUtc, broadcast.stopAtUtc, periodStart, periodEnd);
+    const periodMatch = period === "day"
+      || period === "now" && broadcastOverlapsNow(broadcast.startAtUtc, broadcast.stopAtUtc, now.getTime())
+      || period === "evening" && broadcastOverlaps(broadcast.startAtUtc, broadcast.stopAtUtc, periodStart, periodEnd);
     return categoryMatch && periodMatch;
   });
+}
+
+const NOW_LOOKAHEAD_MS = 3 * 60 * 60_000;
+
+function overlapsNow(item: TonightItem, now: number): boolean {
+  if (item.eventTimeConfidence !== "estimated" && item.eventStartAtUtc) {
+    return broadcastOverlapsNow(item.eventStartAtUtc, item.eventEndAtUtc ?? "", now);
+  }
+  return item.broadcasts.some((broadcast) => broadcastOverlapsNow(broadcast.startAtUtc, broadcast.stopAtUtc, now));
+}
+
+function broadcastOverlapsNow(startAtUtc: string, stopAtUtc: string, now: number): boolean {
+  const start = Date.parse(startAtUtc);
+  const parsedStop = Date.parse(stopAtUtc);
+  const stop = Number.isFinite(parsedStop) && parsedStop > start ? parsedStop : start + NOW_LOOKAHEAD_MS;
+  return Number.isFinite(start) && start <= now + NOW_LOOKAHEAD_MS && stop > now;
 }
 
 function broadcastOverlaps(startAtUtc: string, stopAtUtc: string, periodStart: number, periodEnd: number): boolean {
@@ -95,6 +118,17 @@ function broadcastOverlaps(startAtUtc: string, stopAtUtc: string, periodStart: n
   const parsedStop = Date.parse(stopAtUtc);
   const broadcastStop = Number.isFinite(parsedStop) && parsedStop > broadcastStart ? parsedStop : broadcastStart;
   return broadcastStart < periodEnd && (broadcastStop > periodStart || broadcastStart >= periodStart);
+}
+
+function matchingEventBroadcasts(item: TonightItem, category: CategoryFilter): TonightItem["broadcasts"] {
+  if (category === "all") return item.broadcasts;
+  return item.broadcasts.filter((broadcast) => category === "live"
+    ? item.contentCategory !== "Emission" && broadcast.liveStatus !== "delayed"
+    : category === "uncertain"
+      ? item.contentCategory !== "Emission" && broadcast.liveStatus === "unknown"
+      : category === "delayed"
+        ? broadcast.liveStatus === "delayed"
+        : item.contentCategory === "Emission");
 }
 
 export function diversifiedSelection(items: readonly TonightItem[], limit: number, competitionCap = 2): TonightItem[] {

@@ -1,7 +1,7 @@
 import type { TonightBroadcast } from "../reports/tonight.js";
 
 /** Sports currently supported by the event-first reference catalogue. */
-export type EventSport = "football" | "f1" | "volleyball" | "tennis" | "golf" | "athletics";
+export type EventSport = "football" | "f1" | "volleyball" | "tennis" | "golf" | "athletics" | "basket" | "rugby" | "motogp" | "cyclisme";
 export type EventImportance = "A" | "B" | "C";
 export type EventTimeConfidence = "confirmed" | "estimated";
 
@@ -10,6 +10,7 @@ export interface SportEventScheduleEntry {
   startAtUtc: string;
   participants: string[];
   round: string;
+  timeConfirmed?: boolean;
   roundLabel?: string;
   roundRank?: number;
   status: string;
@@ -17,7 +18,7 @@ export interface SportEventScheduleEntry {
 
 export interface SportEvent {
   id: string;
-  source: "api-football" | "jolpica-f1" | "api-volleyball" | "api-tennis" | "espn-tennis" | "espn-golf" | "world-athletics" | "xmltvfr" | "xmltvfree";
+  source: "motogp" | "api-football" | "jolpica-f1" | "api-volleyball" | "api-basketball" | "api-rugby" | "api-tennis" | "espn-tennis" | "espn-golf" | "world-athletics" | "uci-road" | "xmltvfr" | "xmltvfree";
   sourceEventId: string;
   sport: EventSport;
   title: string;

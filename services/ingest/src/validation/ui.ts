@@ -4,7 +4,7 @@ export function validationHtml(): string {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SportToday — Validation du soir</title>
+  <title>SportToday — Quel sport regarder ?</title>
   <style>
     :root { color-scheme: light; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background:#f4f6fa; color:#182033; }
     * { box-sizing:border-box; }
@@ -24,6 +24,21 @@ export function validationHtml(): string {
     .advanced-filters { margin-top:12px; border-top:1px solid #edf0f4; padding-top:10px; }
     .advanced-filters > summary { cursor:pointer; color:#50627e; font-size:13px; font-weight:700; }
     .advanced-filters[open] > summary { margin-bottom:4px; }
+    .preferences { margin:8px 0 2px; padding:9px 0 0; border-top:1px solid #edf0f4; }
+    .preferences > summary { cursor:pointer; color:#50627e; font-size:13px; font-weight:700; }
+    .preferences[open] > summary { margin-bottom:8px; }
+    .preference-mode { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:8px; }
+    .preference-help { color:#637087; font-size:12px; margin:0 0 9px; line-height:1.4; }
+    .preference-options { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px 18px; }
+    .preference-options h3 { margin:0 0 5px; color:#50627e; font-size:12px; }
+    .preference-choice { display:flex; align-items:center; gap:6px; padding:3px 0; font-size:13px; }
+    .preference-choice input { accent-color:#172033; }
+    .preference-chips { display:flex; flex-wrap:wrap; gap:6px; }
+    .preference-chip { padding:6px 9px; font-size:12px; }
+    .preference-chip[aria-pressed="true"] { background:#fbe8e8; border-color:#efbcbc; color:#9a3030; text-decoration:line-through; }
+    .access-summary { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .access-summary .preference-mode { margin:0; }
+    .access-label { color:#637087; font-size:12px; }
     .toolbar-actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:9px; padding-top:12px; border-top:1px solid #edf0f4; }
     .toolbar-actions .spacer { flex:1; }
     button,.button { appearance:none; border:1px solid #cbd3df; background:white; color:#182033; border-radius:8px; padding:8px 12px; cursor:pointer; font:inherit; text-decoration:none; }
@@ -33,6 +48,7 @@ export function validationHtml(): string {
     .summary-footer { color:#637087; font-size:12px; line-height:1.4; margin:0; padding:2px 4px; text-align:right; }
     .cards { display:grid; gap:14px; }
     .highlights { display:grid; gap:8px; margin-bottom:8px; }
+    .highlight-reason { margin:5px 0 0; color:#50627e; font-size:12px; font-weight:700; }
     .section-heading { display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin:4px 2px; color:#26334b; }
     .section-heading h2 { margin:0; font-size:17px; }
     .section-heading span { color:#637087; font-size:12px; }
@@ -90,6 +106,7 @@ export function validationHtml(): string {
     .missing label { display:block; font-weight:700; margin-bottom:6px; }
     .result-note { color:#637087; font-size:13px; margin:0; }
     .source-warning { background:#fff3cf; color:#765500; border:1px solid #ead48b; border-radius:9px; padding:10px 12px; margin:0 0 14px; }
+    .freshness { color:#cbd3e1; font-size:12px; }
     .empty { text-align:center; color:#637087; padding:36px; }
     .bottom-panels { display:grid; gap:10px; margin-top:16px; }
     .exhaustivity-panel { background:white; border:1px solid #dfe4ec; border-radius:12px; padding:0; }
@@ -136,7 +153,7 @@ export function validationHtml(): string {
   </style>
 </head>
 <body>
-  <header><h1>Quel sport regarder ?</h1><p id="subtitle">Chargement de la sélection…</p></header>
+  <header><h1>Quel sport regarder ?</h1><p id="subtitle">Chargement de la sélection…</p><p class="freshness" id="freshness"></p></header>
   <main>
     <section class="toolbar">
       <div class="primary-row">
@@ -151,12 +168,21 @@ export function validationHtml(): string {
         </div>
       </div>
       <div class="filter-row">
-        <span class="filter-label">Période</span>
-        <button class="period-filter active" data-period="evening">Soirée · dès 20 h</button>
-        <button class="period-filter" data-period="day">Journée complète</button>
+        <span class="filter-label">Quand</span>
+        <button class="period-filter active" data-period="now">Maintenant</button>
+        <button class="period-filter" data-period="evening">Ce soir</button>
+        <button class="period-filter" data-period="day">Toute la journée</button>
+      </div>
+      <div class="filter-row access-summary">
+        <span class="filter-label">Affichage</span>
+        <div class="preference-mode">
+          <button class="preference-mode-filter active" data-preference-mode="preferences">Ma sélection</button>
+          <button class="preference-mode-filter" data-preference-mode="all">Tout voir</button>
+        </div>
+        <span class="access-label" id="access-label">Diffuseurs français · tous les sports</span>
       </div>
       <details class="advanced-filters">
-        <summary>Filtres supplémentaires et validation</summary>
+        <summary>Personnaliser et diagnostiquer</summary>
         <div class="filter-row">
           <span class="filter-label">Programme</span>
           <button class="category-filter active" data-category="live">● Direct</button>
@@ -168,6 +194,10 @@ export function validationHtml(): string {
           <span class="filter-label">Sport</span>
           <span id="sport-buttons"><button class="sport-filter active" data-sport="all">Tous les sports</button></span>
         </div>
+        <details class="preferences">
+          <summary>Mes sports et mes bouquets</summary>
+          <div id="preferences-content"></div>
+        </details>
         <div class="filter-row">
           <span class="filter-label">Validation</span>
           <button class="validation-filter active" data-validation="all">Tous</button>
@@ -185,17 +215,17 @@ export function validationHtml(): string {
     </section>
     <div class="period-context"><span id="period-context"></span><button class="period-filter" id="show-day" data-period="day">Voir toute la journée</button></div>
     <section class="cards" id="cards"><div class="empty">Chargement…</div></section>
-    <section class="missing">
-      <label for="missing-event">Un événement majeur manque-t-il à cette sélection ?</label>
-      <textarea id="missing-event" placeholder="Facultatif — indique ici un événement important absent"></textarea>
-    </section>
     <section class="bottom-panels">
       <section class="exhaustivity-panel">
         <details class="exhaustivity-details">
-          <summary>Exhaustivité et qualité des sources</summary>
+          <summary>Qualité des données et signaler un manque</summary>
           <div class="exhaustivity-content">
             <p class="source-warning" id="source-warning" hidden></p>
             <p class="result-note" id="result-note"></p>
+            <section class="missing">
+              <label for="missing-event">Un événement majeur manque-t-il ?</label>
+              <textarea id="missing-event" placeholder="Facultatif — indique ici un événement important absent"></textarea>
+            </section>
             <section class="coverage-panel" id="coverage-panel" hidden>
               <h2>Couverture EPG des chaînes prioritaires</h2>
               <div class="coverage-metrics" id="coverage-metrics"></div>
@@ -219,16 +249,36 @@ export function validationHtml(): string {
     ];
     let state = null;
     let activeCategory = 'live';
-    let activePeriod = 'evening';
+    let activePeriod = 'now';
     let activeValidation = 'all';
     let activeView = 'events';
     let activeSports = new Set();
     let noteTimer = null;
     let missingTimer = null;
     let favorites = new Set();
+    const preferenceStorageKey = 'sporttoday-preferences-v2';
+    const previousPreferenceStorageKey = 'sporttoday-preferences-v1';
+    let preferenceMode = 'preferences';
+    let preferences = { version:2, excludedSports:[], packages:[] };
     try {
       const saved = JSON.parse(localStorage.getItem('sporttoday-favorites') || '[]');
       if (Array.isArray(saved)) favorites = new Set(saved.filter(value=>typeof value==='string'));
+    } catch {}
+    try {
+      const saved = JSON.parse(localStorage.getItem(preferenceStorageKey) || 'null');
+      if (saved && saved.version === 2 && Array.isArray(saved.excludedSports) && Array.isArray(saved.packages)) {
+        preferences = {
+          version:2,
+          excludedSports:[...new Set(saved.excludedSports.filter(value=>typeof value==='string'&&value).map(canonicalSport))],
+          packages:[...new Set(saved.packages.filter(value=>typeof value==='string'&&value))]
+        };
+        preferenceMode=saved.mode==='all'?'all':'preferences';
+      } else {
+        const previous=JSON.parse(localStorage.getItem(previousPreferenceStorageKey)||'null');
+        if(previous&&Array.isArray(previous.channels)) {
+          preferences.packages=[...new Set(previous.channels.map(channel=>packageForName(channel?.label||channel?.id||'')).filter(Boolean))];
+        }
+      }
     } catch {}
     const collapsedSports = new Set();
 
@@ -251,27 +301,46 @@ export function validationHtml(): string {
       const response = await fetch('/api/report'+query);
       if (!response.ok) throw new Error('Impossible de charger la sélection.');
       state = await response.json();
+      activePeriod=state.report.date===todayInTimeZone(state.report.timeZone)?'now':'day';
       if (state.programmeReport) document.getElementById('view-filters').hidden=false;
       document.getElementById('missing-event').value = state.validation.missingEventNote || '';
       renderDateFilters();
       renderSportFilters();
+      renderPreferences();
+      syncFilterButtons();
       setSaved();
       render();
     }
 
     async function load() { await loadDate(); }
 
+    function todayInTimeZone(timeZone) {
+      return new Intl.DateTimeFormat('en-CA',{timeZone,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+    }
+
+    function syncFilterButtons() {
+      document.querySelectorAll('.period-filter').forEach(button=>button.classList.toggle('active',button.dataset.period===activePeriod));
+      document.querySelectorAll('.preference-mode-filter').forEach(button=>button.classList.toggle('active',button.dataset.preferenceMode===preferenceMode));
+    }
+
     async function checkForUpdatedReport() {
       if (!state || document.activeElement?.matches('textarea')) return;
-      const response = await fetch('/api/report?date='+encodeURIComponent(state.report.date));
-      if (!response.ok) return;
-      const next = await response.json();
-      if (next.report.generatedAt === state.report.generatedAt) return;
-      state = next;
-      document.getElementById('missing-event').value = state.validation.missingEventNote || '';
-      renderDateFilters();
-      renderSportFilters();
-      render();
+      try {
+        const response = await fetch('/api/report?date='+encodeURIComponent(state.report.date));
+        if (!response.ok) return;
+        const next = await response.json();
+        if (next.report.generatedAt === state.report.generatedAt) return;
+        state = next;
+        document.getElementById('missing-event').value = state.validation.missingEventNote || '';
+        renderDateFilters();
+        renderSportFilters();
+        renderPreferences();
+        render();
+      } catch (error) {
+        // The scheduler is best effort; keep the current page usable while the
+        // next poll retries after a transient network/restart error.
+        console.warn('Actualisation automatique indisponible', error);
+      }
     }
 
     function renderDateFilters() {
@@ -291,13 +360,15 @@ export function validationHtml(): string {
       updateSubtitle(report);
       const eventFirst=report.viewMode==='event-first';
       const matching = eventFirst
-        ? report.items.filter(item=>matchesEventCategory(item)).filter(item=>matchesEventPeriod(item,report)).filter(matchesSport)
-        : report.items.map(item=>({...item,broadcasts:item.broadcasts.filter(broadcast=>matchesBroadcast(item,broadcast,report))})).filter(item=>item.broadcasts.length>0).filter(matchesSport);
+        ? report.items.map(filterEventBroadcasts).map(filterPreferredBroadcasts).filter(Boolean).filter(item=>item.broadcasts.length>0).filter(item=>matchesEventCategory(item)).filter(item=>matchesEventPeriod(item,report)).filter(matchesSport)
+        : report.items.map(item=>({...item,broadcasts:item.broadcasts.filter(broadcast=>matchesBroadcast(item,broadcast,report)&&matchesChannelPreference(broadcast))})).filter(item=>item.broadcasts.length>0).filter(matchesSport);
       const stats = matching.reduce((acc,item) => { const v=validationFor(item.id).verdict; acc[v==='pending'?'pending':v==='ok'?'ok':'issues']++; return acc; }, {pending:0,ok:0,issues:0});
       const filtered = eventFirst ? matching.filter(item => { const v=validationFor(item.id).verdict; return activeValidation==='all'||activeValidation===v||(activeValidation==='issues'&&issue(v)); }) : matching;
       const visible = eventFirst ? filtered : diversifiedSelection(filtered,report.limit);
-      const dayCount=report.items.filter(item=>eventFirst?matchesEventCategory(item):true).filter(matchesSport).length;
-      document.getElementById('period-context').textContent=(activePeriod==='day'?'Journée complète':'Soirée · événements en cours ou à venir dès 20 h')+' · '+matching.length+' événements dans la période'+(activePeriod==='evening'?' / '+dayCount+' sur la journée':'');
+      const dayCount=report.items.map(item=>eventFirst?filterEventBroadcasts(item):item).filter(item=>eventFirst?item.broadcasts.length>0&&matchesEventCategory(item):true).filter(matchesSport).map(filterPreferredBroadcasts).filter(Boolean).length;
+      const preferenceLabel=preferenceMode==='preferences'?' · Ma sélection':'';
+      const periodLabels={now:'Maintenant et dans les 3 prochaines heures',evening:'Ce soir · dès 20 h',day:'Toute la journée'};
+      document.getElementById('period-context').textContent=periodLabels[activePeriod]+preferenceLabel+' · '+matching.length+' événement'+(matching.length>1?'s':'')+(activePeriod!=='day'?' / '+dayCount+' sur la journée':'');
       document.getElementById('show-day').hidden=activePeriod==='day';
       const summary=eventFirst
         ? [['Compétitions',new Set(matching.map(item=>item.competition||'Autre')).size],['Événements',matching.length],['Catalogue',report.catalogueEventCount??matching.length],['Chaîne ou plateforme',matching.filter(item=>item.broadcasts.length).length],['Sans diffuseur',matching.filter(item=>!item.broadcasts.length).length],['À valider',stats.pending],['Validés OK',stats.ok],['Doutes / erreurs',stats.issues]]
@@ -307,10 +378,8 @@ export function validationHtml(): string {
             summary[0][1]+' compétitions',
             summary[1][1]+' événements',
             summary[3][1]+' avec chaîne ou plateforme',
-            summary[4][1]+' sans diffuseur',
-            summary[5][1]+' à valider',
-            summary[6][1]+' validés',
-            summary[7][1]+' doutes / erreurs'
+            summary[6][1]+' vérifiés',
+            summary[7][1]+' signalements'
           ].join(' · ')
         : summary.map(([label,value]) => value+' '+label.toLocaleLowerCase('fr-FR')).join(' · ');
       document.getElementById('summary').textContent = summaryText;
@@ -320,12 +389,12 @@ export function validationHtml(): string {
       sourceWarning.textContent=sourceErrors.length?'Source incomplète · '+sourceErrors.join(' · '):'';
       const hidden=filtered.length-visible.length;
       document.getElementById('result-note').textContent = eventFirst
-        ? (activeCategory==='live' ? 'Les événements officiels avec une chaîne ou une plateforme identifiée sont mis en avant. Les autres restent visibles dans l’agenda.' : visible.length+' événement'+(visible.length>1?'s':'')+' officiel'+(visible.length>1?'s':'')+' dans le catalogue filtré.')
+        ? (activeCategory==='live' ? 'Événements officiels avec une chaîne ou une plateforme identifiée. Les événements sans diffuseur restent disponibles dans l’exhaustivité.' : visible.length+' événement'+(visible.length>1?'s':'')+' officiel'+(visible.length>1?'s':'')+' avec diffusion dans le catalogue filtré.')
         : hidden>0 ? visible.length+' événements principaux affichés sur '+filtered.length+' · maximum 2 par compétition pour diversifier la sélection.' : '';
       renderCoverage();
       document.getElementById('cards').innerHTML = visible.length
         ? (eventFirst ? renderEventSelection(visible,report) : visible.map(item=>cardHtml(item,report)).join(''))
-        : '<div class="empty">Aucun événement dans ce filtre.</div>';
+        : '<div class="empty">'+(activePeriod==='now'?'Rien en cours ou dans les trois prochaines heures.':'Aucun événement dans ce filtre.')+'</div>';
       const selectedSports = [...activeSports].sort().map(encodeURIComponent).join('%2C');
       const query = '?category='+encodeURIComponent(activeCategory)+'&period='+encodeURIComponent(activePeriod)+(selectedSports?'&sports='+selectedSports:'');
       const dateQuery='&date='+encodeURIComponent(report.date);
@@ -334,6 +403,7 @@ export function validationHtml(): string {
       document.querySelector('.toolbar-actions').hidden=!eventFirst;
       document.querySelector('.missing').hidden=!eventFirst;
       document.querySelectorAll('.validation-filter').forEach(button=>button.disabled=!eventFirst);
+      updateAccessSummary();
     }
 
     function renderCoverage() {
@@ -372,29 +442,108 @@ export function validationHtml(): string {
       document.getElementById('sport-buttons').innerHTML=buttons.join('');
     }
 
+    function allPreferenceOptions() {
+      const reports=[state?.report,state?.programmeReport].filter(Boolean);
+      const sports=new Set();
+      for(const report of reports) for(const item of report.items||[]) {
+        if(item.sport) sports.add(canonicalSport(item.sport));
+      }
+      for(const sport of preferences.excludedSports) sports.add(sport);
+      return { sports:[...sports].sort((a,b)=>sportLabel(a).localeCompare(sportLabel(b),'fr')) };
+    }
+
+    function renderPreferences() {
+      const options=allPreferenceOptions();
+      const excludedSports=new Set(preferences.excludedSports), selectedPackages=new Set(preferences.packages);
+      const sportChoices=options.sports.length?'<div class="preference-chips">'+options.sports.map(sport=>'<button class="preference-chip" data-excluded-sport="'+escapeHtml(sport)+'" aria-pressed="'+excludedSports.has(sport)+'">'+(excludedSports.has(sport)?'× ':'')+escapeHtml(sportLabel(sport))+'</button>').join('')+'</div>':'<p class="preference-help">Aucun sport disponible pour le moment.</p>';
+      const packageChoices=accessPackages.map(value=>'<label class="preference-choice"><input type="checkbox" data-preference-package="'+escapeHtml(value.id)+'" '+(selectedPackages.has(value.id)?'checked':'')+'> '+escapeHtml(value.label)+'</label>').join('');
+      const help=preferenceMode==='preferences'
+        ? 'Les sports barrés sont masqués. Sans bouquet coché, tous les diffuseurs français sont proposés.'
+        : 'Tout voir inclut temporairement les sports masqués et les chaînes étrangères.';
+      document.getElementById('preferences-content').innerHTML='<p class="preference-help">'+escapeHtml(help)+' Ces choix restent sur cet appareil.</p><div class="preference-options"><section><h3>Sports à masquer</h3>'+sportChoices+'</section><section><h3>Mes bouquets et services</h3>'+packageChoices+'</section></div>';
+      syncFilterButtons();
+    }
+
+    function savePreferences() {
+      try { localStorage.setItem(preferenceStorageKey,JSON.stringify({...preferences,mode:preferenceMode})); }
+      catch { showError(new Error('Impossible de mémoriser les préférences sur cet appareil.')); }
+    }
+
+    const accessPackages = [
+      {id:'free',label:'Chaînes gratuites françaises'},
+      {id:'canal',label:'Canal+ et Golf+'},
+      {id:'bein',label:'beIN Sports'},
+      {id:'dazn',label:'DAZN et Ligue 1+'},
+      {id:'eurosport',label:'Eurosport'},
+      {id:'rmc',label:'RMC Sport'},
+      {id:'other',label:'Autres diffuseurs français'}
+    ];
+
+    function packageForName(value) {
+      const name=String(value||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLocaleLowerCase('fr-FR');
+      if(/canal|golf\\+|golf plus/.test(name))return 'canal';
+      if(/bein/.test(name))return 'bein';
+      if(/dazn|ligue 1\\+/.test(name))return 'dazn';
+      if(/eurosport/.test(name))return 'eurosport';
+      if(/rmc sport/.test(name))return 'rmc';
+      if(/france [2345]|france\\.tv|l.?equipe|sport en france|tf1|tmc|m6|w9/.test(name))return 'free';
+      return 'other';
+    }
+
+    function isFrenchBroadcast(broadcast) {
+      const name=String(broadcast.platform||broadcast.channel||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLocaleLowerCase('fr-FR');
+      return !/\\brts\\s*[12]?\\b|tipik|la une|club rtl|voosport|rtbf/.test(name);
+    }
+
+    function updateAccessSummary() {
+      const hidden=preferences.excludedSports.length;
+      const packages=preferences.packages.map(id=>accessPackages.find(value=>value.id===id)?.label).filter(Boolean);
+      document.getElementById('access-label').textContent=preferenceMode==='all'
+        ? 'Tous les sports et diffuseurs'
+        : (packages.length?packages.join(' · '):'Tous les diffuseurs français')+(hidden?' · '+hidden+' sport'+(hidden>1?'s':'')+' masqué'+(hidden>1?'s':''):' · tous les sports');
+    }
+
     function sportLabel(value) {
-      const labels={football:'Football',footvolley:'FootVolley',tennis:'Tennis',cyclisme:'Cyclisme',rugby:'Rugby',boxe:'Boxe',basket:'Basket',golf:'Golf',f1:'Formule 1',motonautisme:'Motonautisme',motogp:'MotoGP',judo:'Judo',ski:'Ski',handball:'Handball',volley:'Volley',volleyball:'Volleyball',athlétisme:'Athlétisme',natation:'Natation'};
+      const labels={football:'Football',footvolley:'FootVolley',tennis:'Tennis',cyclisme:'Cyclisme',rugby:'Rugby',boxe:'Boxe',basket:'Basket',golf:'Golf',f1:'Formule 1',motonautisme:'Motonautisme',motogp:'MotoGP',judo:'Judo',ski:'Ski',handball:'Handball',volley:'Volley',volleyball:'Volley',athletics:'Athlétisme',athlétisme:'Athlétisme',natation:'Natation'};
       return labels[value]||value.charAt(0).toLocaleUpperCase('fr-FR')+value.slice(1);
+    }
+
+    function canonicalSport(value) {
+      return value==='athlétisme'?'athletics':value==='volley'?'volleyball':value;
     }
 
     function currentReport() { return activeView==='programmes'&&state.programmeReport ? state.programmeReport : state.report; }
 
     function updateSubtitle(report) {
       const date = new Intl.DateTimeFormat('fr-FR',{dateStyle:'full',timeZone:report.timeZone}).format(new Date(report.date+'T12:00:00Z'));
-      document.getElementById('subtitle').textContent = date+' · '+report.source+' · '+(report.viewMode==='event-first'?'sélection construite depuis les événements officiels':'grille issue des programmes XMLTV');
+      const generated=new Intl.DateTimeFormat('fr-FR',{timeZone:report.timeZone,hour:'2-digit',minute:'2-digit'}).format(new Date(report.generatedAt));
+      document.getElementById('subtitle').textContent = date+' · '+(report.viewMode==='event-first'?'Les rendez-vous à regarder':'Agenda TV détaillé');
+      document.getElementById('freshness').textContent='Sélection générée à '+generated+((report.eventSourceErrors||[]).length?' · données partielles':'');
     }
 
     function matchesEventCategory(item) {
       if (activeCategory==='all') return true;
-      if (activeCategory==='live') return item.contentCategory!=='Emission'&&(item.broadcasts.length===0||item.broadcasts.some(b=>b.liveStatus!=='delayed'));
+      if (activeCategory==='live') return item.contentCategory!=='Emission'&&item.broadcasts.some(b=>b.liveStatus!=='delayed');
       if (activeCategory==='uncertain') return item.broadcastMatchConfidence==='none'||item.broadcasts.some(b=>b.liveStatus==='unknown');
       if (activeCategory==='delayed') return item.broadcasts.some(b=>b.liveStatus==='delayed');
       return false;
     }
 
+    function filterEventBroadcasts(item) {
+      if(activeCategory==='all')return item;
+      const broadcasts=item.broadcasts.filter(b=>activeCategory==='live'?b.liveStatus!=='delayed':activeCategory==='uncertain'?b.liveStatus==='unknown':activeCategory==='delayed'?b.liveStatus==='delayed':false);
+      return {...item,broadcasts};
+    }
+
     function matchesEventPeriod(item,report) {
       if (activePeriod==='day') return true;
+      if(activePeriod==='now') {
+        const now=Date.now(),overlaps=(startValue,stopValue)=>{const start=Date.parse(startValue),parsedStop=Date.parse(stopValue),stop=Number.isFinite(parsedStop)&&parsedStop>start?parsedStop:start+3*60*60_000;return Number.isFinite(start)&&start<=now+3*60*60_000&&stop>now};
+        if(item.eventTimeConfidence!=='estimated'&&item.eventStartAtUtc)return overlaps(item.eventStartAtUtc,item.eventEndAtUtc||'');
+        return item.broadcasts.some(b=>overlaps(b.startAtUtc,b.stopAtUtc));
+      }
       const start=Date.parse(report.eveningStartUtc),end=Date.parse(report.windowEndUtc);
+      if(item.eventTimeConfidence==='estimated')return item.broadcasts.length===0||item.broadcasts.some(b=>{const value=Date.parse(b.startAtUtc),parsedStop=Date.parse(b.stopAtUtc),stop=Number.isFinite(parsedStop)&&parsedStop>value?parsedStop:value;return value<end&&(stop>start||value>=start)});
       const eventStart=Date.parse(item.eventStartAtUtc),eventEnd=Date.parse(item.eventEndAtUtc||item.eventStartAtUtc);
       return eventStart<end&&(eventEnd>start||eventStart>=start);
     }
@@ -403,13 +552,37 @@ export function validationHtml(): string {
       const categoryMatch=activeCategory==='all'||(activeCategory==='live'&&item.contentCategory!=='Emission'&&broadcast.liveStatus!=='delayed')||(activeCategory==='uncertain'&&broadcast.liveStatus==='unknown'&&item.contentCategory!=='Emission')||(activeCategory==='delayed'&&broadcast.liveStatus==='delayed')||(activeCategory==='editorial'&&item.contentCategory==='Emission');
       if (!categoryMatch) return false;
       if (activePeriod==='day') return true;
+      if(activePeriod==='now') {
+        const value=Date.parse(broadcast.startAtUtc),parsedStop=Date.parse(broadcast.stopAtUtc),stop=Number.isFinite(parsedStop)&&parsedStop>value?parsedStop:value+3*60*60_000,now=Date.now();
+        return value<=now+3*60*60_000&&stop>now;
+      }
       const start=Date.parse(report.eveningStartUtc),end=Date.parse(report.windowEndUtc);
       const value=Date.parse(broadcast.startAtUtc),parsedStop=Date.parse(broadcast.stopAtUtc),stop=Number.isFinite(parsedStop)&&parsedStop>value?parsedStop:value;
       return value<end&&(stop>start||value>=start);
     }
 
     function matchesSport(item) {
-      return activeSports.size===0||activeSports.has(item.sport);
+      const temporaryMatch=activeSports.size===0||activeSports.has(item.sport);
+      const preferenceMatch=preferenceMode!=='preferences'||!preferences.excludedSports.includes(canonicalSport(item.sport));
+      return temporaryMatch&&preferenceMatch;
+    }
+
+    function matchesChannelPreference(broadcast) {
+      if(preferenceMode!=='preferences')return true;
+      if(!isFrenchBroadcast(broadcast))return false;
+      return preferences.packages.length===0||preferences.packages.includes(packageForName(broadcast.platform||broadcast.channel));
+    }
+
+    function filterPreferredBroadcasts(item) {
+      if(item.broadcasts.length===0) return null;
+      if(preferenceMode!=='preferences') return item;
+      if(preferences.packages.length===0) {
+        const broadcasts=item.broadcasts.filter(matchesChannelPreference);
+        return broadcasts.length?{...item,broadcasts}:null;
+      }
+      const broadcasts=item.broadcasts.filter(matchesChannelPreference);
+      if(broadcasts.length) return {...item,broadcasts};
+      return null;
     }
 
     function diversifiedSelection(items,limit) {
@@ -426,10 +599,41 @@ export function validationHtml(): string {
     }
 
     function renderEventSelection(items,report) {
-      const ranked=items.filter(item=>isFavorite(item)||item.broadcasts.some(b=>b.liveStatus==='confirmed'||b.liveStatus==='probable')).sort((left,right)=>Number(isFavorite(right))-Number(isFavorite(left))||right.score-left.score||firstItemStart(left).localeCompare(firstItemStart(right)));
-      const highlights=ranked.slice(0,3);
-      const highlightHtml=highlights.length?'<section class="highlights"><div class="section-heading"><h2>À ne pas manquer</h2><span>'+highlights.length+' sélection'+(highlights.length>1?'s':'')+'</span></div>'+highlights.map(item=>cardHtml(item,report,true,true)).join('')+'</section>':'';
-      return highlightHtml+'<div class="section-heading"><h2>Agenda complet</h2><span>Compétitions suivies · période sélectionnée</span></div>'+renderEventGroups(items,report);
+      const highlights=highlightSelection(items);
+      const heading={now:'À regarder maintenant',evening:'À voir ce soir',day:'Les incontournables'}[activePeriod];
+      const highlightHtml=highlights.length?'<section class="highlights"><div class="section-heading"><h2>'+heading+'</h2><span>'+highlights.length+' rendez-vous</span></div>'+highlights.map(item=>cardHtml(item,report,true,true)).join('')+'</section>':'';
+      return highlightHtml+'<div class="section-heading"><h2>Tous les rendez-vous</h2><span>Par sport et compétition</span></div>'+renderEventGroups(items,report);
+    }
+
+    function highlightSelection(items) {
+      const ranked=items.filter(item=>isFavorite(item)||item.broadcasts.some(b=>b.liveStatus==='confirmed'||b.liveStatus==='probable')).sort((left,right)=>highlightScore(right)-highlightScore(left)||firstItemStart(left).localeCompare(firstItemStart(right)));
+      const selected=[],sports=new Map(),competitions=new Map();
+      for(const item of ranked) {
+        const competition=item.sport+'|'+item.competition;
+        if((sports.get(item.sport)||0)>=2||(competitions.get(competition)||0)>=2)continue;
+        selected.push(item);sports.set(item.sport,(sports.get(item.sport)||0)+1);competitions.set(competition,(competitions.get(competition)||0)+1);
+        if(selected.length===5)break;
+      }
+      return selected;
+    }
+
+    function highlightScore(item) {
+      const importance={A:25,B:10,C:0}[item.eventImportance]||0;
+      const favorite=isFavorite(item)?1000:0;
+      const keyMoment=/finale|course|sprint|1\\/2|1\\/4|demi|quart/i.test((item.title||'')+' '+(item.eventRoundLabel||''))?15:0;
+      const start=Date.parse(firstItemStart(item)),hoursUntilStart=(start-Date.now())/3_600_000;
+      const urgency=activePeriod==='now'&&Number.isFinite(hoursUntilStart)?(hoursUntilStart<=0?20:Math.max(0,20-hoursUntilStart*6)):0;
+      return favorite+importance+keyMoment+urgency+item.score;
+    }
+
+    function highlightReason(item) {
+      if(isFavorite(item))return 'Favori suivi';
+      if(item.eventRoundLabel)return item.eventRoundLabel;
+      if(/finale/i.test(item.title))return 'Finale';
+      if(/course/i.test(item.title))return 'Course principale';
+      if(/sprint/i.test(item.title))return 'Sprint';
+      if(item.eventStage)return item.eventStage;
+      return item.eventImportance==='A'?'Compétition prioritaire':'Rendez-vous du jour';
     }
 
     function renderEventGroups(items,report) {
@@ -442,9 +646,9 @@ export function validationHtml(): string {
         if (!competitions.has(competition)) competitions.set(competition,[]);
         competitions.get(competition).push(item);
       }
-      return [...sports.entries()].sort((left,right)=>Math.max(...[...left[1].values()].flat().map(item=>item.score))-Math.max(...[...right[1].values()].flat().map(item=>item.score))||sportLabel(left[0]).localeCompare(sportLabel(right[0]),'fr')).map(([sport,competitions])=>{
+      return [...sports.entries()].sort((left,right)=>Math.max(...[...right[1].values()].flat().map(item=>item.score))-Math.max(...[...left[1].values()].flat().map(item=>item.score))||sportLabel(left[0]).localeCompare(sportLabel(right[0]),'fr')).map(([sport,competitions])=>{
         const total=[...competitions.values()].flat().length;
-        const competitionHtml=[...competitions.entries()].sort((left,right)=>Math.max(...left[1].map(item=>item.score))-Math.max(...right[1].map(item=>item.score))||left[0].localeCompare(right[0],'fr')).map(([competition,group])=>'<section class="competition-group"><div class="competition-heading"><h2>'+escapeHtml(competition)+'</h2><span>'+group.length+' événement'+(group.length>1?'s':'')+'</span></div>'+group.sort((left,right)=>firstItemStart(left).localeCompare(firstItemStart(right))||right.score-left.score).map(item=>cardHtml(item,report,true)).join('')+'</section>').join('');
+        const competitionHtml=[...competitions.entries()].sort((left,right)=>Math.max(...right[1].map(item=>item.score))-Math.max(...left[1].map(item=>item.score))||left[0].localeCompare(right[0],'fr')).map(([competition,group])=>'<section class="competition-group"><div class="competition-heading"><h2>'+escapeHtml(competition)+'</h2><span>'+group.length+' événement'+(group.length>1?'s':'')+'</span></div>'+group.sort((left,right)=>firstItemStart(left).localeCompare(firstItemStart(right))||right.score-left.score).map(item=>cardHtml(item,report,true)).join('')+'</section>').join('');
         return '<details class="sport-group" data-sport-group="'+escapeHtml(sport)+'" '+(collapsedSports.has(sport)?'':'open')+'><summary class="sport-heading"><h2>'+escapeHtml(sportLabel(sport))+'</h2><span>'+total+' événement'+(total>1?'s':'')+'</span></summary>'+competitionHtml+'</details>';
       }).join('');
     }
@@ -469,11 +673,11 @@ export function validationHtml(): string {
       const displayTitle=highlight&&eventFirst?sportLabel(item.sport)+' · '+item.competition+' — '+titleWithRound:titleWithRound;
       const channelGroups=new Map();
       for(const b of item.broadcasts){const name=b.platform||b.channel;if(!channelGroups.has(name))channelGroups.set(name,[]);channelGroups.get(name).push(b)}
-      const broadcasts=channelGroups.size?'<div class="broadcasts">'+[...channelGroups.entries()].sort((a,b)=>a[0].localeCompare(b[0],'fr',{numeric:true})).map(([name,values])=>'<span class="broadcast" data-tone="'+channelTone(values)+'">'+escapeHtml(name)+'</span>').join('')+'</div>':'<div class="unmatched">Diffuseur non identifié</div>';
-      const schedule=item.eventSchedule?.length?'<div class="event-schedule">'+item.eventSchedule.map(entry=>'<span><strong>'+escapeHtml(formatEventTime(entry.startAtUtc))+'</strong> '+escapeHtml((entry.participants||[]).map(abbreviateFirstName).join(' / '))+(entry.roundLabel&&typeof item.eventRoundRank==='number'&&typeof entry.roundRank==='number'&&entry.roundRank<item.eventRoundRank?' ('+escapeHtml(entry.roundLabel)+')':'')+'</span>').join(' · ')+'</div>':'';
-      const broadcastDetails=item.broadcasts.length?'<div class="detail-broadcasts"><strong>Créneaux TV :</strong> '+item.broadcasts.map(b=>'<span>'+escapeHtml(b.timeRangeLabel||b.timeLabel)+' · '+escapeHtml(b.platform||b.channel)+'</span>').join(' · ')+'</div>':'';
+      const broadcasts=channelGroups.size?'<div class="broadcasts">'+[...channelGroups.entries()].sort((a,b)=>a[0].localeCompare(b[0],'fr',{numeric:true})).map(([name,values])=>'<span class="broadcast" data-tone="'+channelTone(values)+'" title="'+escapeHtml(broadcastTrustLabel(values))+'" aria-label="'+escapeHtml(name+' · '+broadcastTrustLabel(values))+'">'+escapeHtml(name)+'</span>').join('')+'</div>':'<div class="unmatched">Diffuseur non identifié</div>';
+      const schedule=item.eventSchedule?.length?'<div class="event-schedule">'+item.eventSchedule.map(entry=>'<span><strong>'+escapeHtml(entry.timeConfirmed===false?'Horaire à venir':formatEventTime(entry.startAtUtc))+'</strong> '+escapeHtml((entry.participants||[]).map(abbreviateFirstName).join(' / '))+(entry.roundLabel&&typeof item.eventRoundRank==='number'&&typeof entry.roundRank==='number'&&entry.roundRank<item.eventRoundRank?' ('+escapeHtml(entry.roundLabel)+')':'')+'</span>').join(' · ')+'</div>':'';
+      const broadcastDetails=item.broadcasts.length?'<div class="detail-broadcasts"><strong>Diffusions :</strong> '+item.broadcasts.map(b=>'<span>'+escapeHtml(b.timeRangeLabel||b.timeLabel)+' · '+escapeHtml(b.platform||b.channel)+' · '+escapeHtml(broadcastTrustLabel([b]))+'</span>').join(' · ')+'</div>':'';
       const detailsLabel=eventFirst?'Détails et validation ponctuelle':'Détails du programme';
-      const favoriteControls=eventFirst?'<div class="badges">'+favoriteButton('competition',item,item.competition)+(item.participants||'').split(' | ').filter(Boolean).map(team=>favoriteButton('team',item,team)).join('')+'</div><p>Favoris enregistrés sur cet appareil · prioritaires dans « À ne pas manquer ».</p>':'';
+      const favoriteControls=eventFirst?'<div class="badges">'+favoriteButton('competition',item,item.competition)+(item.participants||'').split(' | ').filter(Boolean).map(team=>favoriteButton('team',item,team)).join('')+'</div><p>Favoris enregistrés sur cet appareil · prioritaires dans « Ma sélection ».</p>':'';
       const details = '<details class="secondary-details"><summary aria-label="'+escapeHtml(detailsLabel)+'" title="'+escapeHtml(detailsLabel)+'"></summary>'+
         favoriteControls+
         '<div class="badges">'+badges.map(value=>'<span class="badge">'+escapeHtml(value)+'</span>').join('')+'</div>'+
@@ -485,7 +689,7 @@ export function validationHtml(): string {
       return '<article class="card '+(compact?'compact-card':'')+'" data-verdict="'+validation.verdict+'">'+
         '<div class="card-head"><div class="card-main"><div class="event-line">'+official+'<h2>'+escapeHtml(displayTitle)+'</h2>'+
         broadcasts+
-        details+'</div>'+schedule+'</div></div></article>';
+        details+'</div>'+(highlight?'<p class="highlight-reason">'+escapeHtml(highlightReason(item))+'</p>':'')+schedule+'</div></div></article>';
     }
 
     function formatEventTime(value) {
@@ -505,9 +709,20 @@ export function validationHtml(): string {
     }
 
     function channelTone(values) {
-      if(values.some(b=>b.liveStatus==='confirmed'||(b.liveStatus==='probable'&&b.broadcastAlignedToEvent)))return 'green';
       if(values.every(b=>b.liveStatus==='delayed'))return 'red';
+      if(values.some(b=>b.provenance==='rights')||values.some(b=>/multiplex/i.test(String(b.platform||b.channel||''))))return 'yellow';
+      if(values.some(b=>b.liveStatus==='confirmed'||(b.liveStatus==='probable'&&b.broadcastAlignedToEvent)))return 'green';
       return 'yellow';
+    }
+
+    function broadcastTrustLabel(values) {
+      if(values.every(b=>b.liveStatus==='delayed'))return 'Rediffusion';
+      if(values.some(b=>b.provenance==='rights'))return 'Disponible selon les droits annoncés · chaîne exacte non vérifiée';
+      const name=String(values[0]?.platform||values[0]?.channel||'');
+      if(/multiplex/i.test(name))return 'Multiplex · canal individuel non identifié';
+      if(values.some(b=>b.liveStatus==='confirmed'))return 'Direct indiqué par la grille TV';
+      if(values.some(b=>b.liveStatus==='probable'&&b.broadcastAlignedToEvent))return 'Horaire TV aligné avec le début sportif';
+      return 'Diffusion trouvée · direct à confirmer';
     }
 
     function broadcastTone(broadcast) {
@@ -541,6 +756,14 @@ export function validationHtml(): string {
         try { localStorage.setItem('sporttoday-favorites',JSON.stringify([...favorites])); } catch { showError(new Error('Impossible de mémoriser les favoris sur cet appareil.')); }
         render(); return;
       }
+      const preferenceModeButton=event.target.closest('.preference-mode-filter');
+      if(preferenceModeButton) { preferenceMode=preferenceModeButton.dataset.preferenceMode; savePreferences(); renderPreferences(); render(); return; }
+      const excludedSport=event.target.closest('[data-excluded-sport]');
+      if(excludedSport) {
+        const sport=excludedSport.dataset.excludedSport;
+        preferences.excludedSports=preferences.excludedSports.includes(sport)?preferences.excludedSports.filter(value=>value!==sport):[...preferences.excludedSports,sport];
+        savePreferences();renderPreferences();render();return;
+      }
       const date = event.target.closest('.date-filter');
       if (date && date.dataset.date) { loadDate(date.dataset.date).catch(showError); return; }
       const view = event.target.closest('.view-filter');
@@ -572,6 +795,14 @@ export function validationHtml(): string {
         clearTimeout(missingTimer); const note=event.target.value; setSaving();
         missingTimer=setTimeout(async()=>{try{const response=await fetch('/api/missing-event',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({date:state.report.date,note})});if(!response.ok)throw new Error(await response.text());state.validation=await response.json();setSaved();}catch(error){showError(error)}},500);
       }
+    });
+
+    document.addEventListener('change', event => {
+      const target=event.target;
+      if(!target.matches('[data-preference-package]'))return;
+      const value=target.dataset.preferencePackage;
+      preferences.packages=target.checked?[...new Set([...preferences.packages,value])]:preferences.packages.filter(id=>id!==value);
+      savePreferences(); renderPreferences(); render();
     });
 
     function setSaving(){document.getElementById('save-state').textContent='Sauvegarde…';}

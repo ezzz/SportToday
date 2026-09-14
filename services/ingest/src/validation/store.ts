@@ -1,7 +1,8 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 import type { TonightReport } from "../reports/tonight.js";
+import { writeTextFileAtomic } from "../storage/atomic-file.js";
 
 export const validationVerdicts = [
   "pending",
@@ -70,10 +71,7 @@ export async function loadValidation(filePath: string, report: TonightReport): P
 }
 
 export async function saveValidation(filePath: string, validation: ValidationFile): Promise<void> {
-  await mkdir(path.dirname(filePath), { recursive: true });
-  const temporaryPath = `${filePath}.tmp`;
-  await writeFile(temporaryPath, `${JSON.stringify(validation, null, 2)}\n`, "utf8");
-  await rename(temporaryPath, filePath);
+  await writeTextFileAtomic(filePath, `${JSON.stringify(validation, null, 2)}\n`);
 }
 
 export function updateItemValidation(

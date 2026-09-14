@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { TonightItem, TonightReport } from "../reports/tonight.js";
-import { filteredReport, matchesSports } from "./filters.js";
+import { filteredReport, matchesCategory, matchesPeriod, matchesSports, parsePeriodFilter } from "./filters.js";
 
 test("filtre par catégorie et par soirée avec une limite par vue", () => {
   const report = fixtureReport([
@@ -19,6 +19,36 @@ test("filtre par catégorie et par soirée avec une limite par vue", () => {
   assert.deepEqual(filteredReport(report, "delayed", "evening").items.map(({ id }) => id), ["evening-delayed"]);
   assert.deepEqual(filteredReport(report, "all", "day", ["tennis"]).items.map(({ id }) => id), []);
   assert.equal(matchesSports(report.items[0]!, []), true);
+});
+
+test("propose par défaut les événements en cours ou dans les trois prochaines heures", () => {
+  const report = fixtureReport([]);
+  const ongoing = item("ongoing", "Sport Live", "2026-08-17T11:00:00.000Z", "confirmed", "2026-08-17T13:00:00.000Z");
+  const upcoming = item("upcoming", "Sport Live", "2026-08-17T14:30:00.000Z", "confirmed", "2026-08-17T16:00:00.000Z");
+  const later = item("later", "Sport Live", "2026-08-17T16:01:00.000Z", "confirmed", "2026-08-17T18:00:00.000Z");
+  const finished = item("finished", "Sport Live", "2026-08-17T09:00:00.000Z", "confirmed", "2026-08-17T11:59:00.000Z");
+  const now = new Date("2026-08-17T12:00:00.000Z");
+
+  assert.equal(parsePeriodFilter(null), "now");
+  assert.equal(matchesPeriod(ongoing, report, "now", now), true);
+  assert.equal(matchesPeriod(upcoming, report, "now", now), true);
+  assert.equal(matchesPeriod(later, report, "now", now), false);
+  assert.equal(matchesPeriod(finished, report, "now", now), false);
+
+  const split = item("split", "Sport Live", "2026-08-17T10:00:00.000Z", "confirmed", "2026-08-17T11:00:00.000Z");
+  split.eventTimeConfidence = "estimated";
+  split.broadcasts.push({ ...split.broadcasts[0]!, sourceId: "split-later", startAtUtc: "2026-08-17T16:00:00.000Z", stopAtUtc: "2026-08-17T17:00:00.000Z" });
+  assert.equal(matchesPeriod(split, report, "now", now), false);
+});
+
+test("ne présente pas comme direct un événement dont tous les créneaux sont des replays", () => {
+  const replay = item("replay", "Sport Live", "2026-08-17T19:00:00.000Z", "delayed");
+  replay.eventSource = "api-football";
+  assert.equal(matchesCategory(replay, "live"), false);
+  assert.equal(matchesCategory(replay, "delayed"), true);
+  const report = { ...fixtureReport([replay]), iteration: "poc41" as const, viewMode: "event-first" as const };
+  assert.deepEqual(filteredReport(report, "live", "day").items, []);
+  assert.deepEqual(filteredReport(report, "delayed", "day").items[0]?.broadcasts.map(({ sourceId }) => sourceId), ["replay"]);
 });
 
 test("limite à deux événements par compétition dans la sélection principale", () => {
@@ -54,7 +84,7 @@ test("filtre les créneaux d'une même carte individuellement", () => {
   assert.deepEqual(filteredReport(report, "delayed", "evening").items[0]?.broadcasts.map(({ sourceId }) => sourceId), ["mixed-replay"]);
 });
 
-test("conserve un événement POC4 sans diffusion dans la vue live", () => {
+test("retire un événement POC4 sans diffusion de la vue principale", () => {
   const event = item("official-event", "Sport Live", "2026-08-17T19:00:00.000Z", "unknown");
   event.broadcasts = [];
   event.eventSource = "api-football";
@@ -63,8 +93,20 @@ test("conserve un événement POC4 sans diffusion dans la vue live", () => {
   event.broadcastMatchConfidence = "none";
   const report = { ...fixtureReport([event]), iteration: "poc41" as const, viewMode: "event-first" as const };
 
-  assert.deepEqual(filteredReport(report, "live", "evening").items.map(({ id }) => id), ["official-event"]);
-  assert.deepEqual(filteredReport(report, "uncertain", "evening").items.map(({ id }) => id), ["official-event"]);
+  assert.deepEqual(filteredReport(report, "live", "evening").items.map(({ id }) => id), []);
+  assert.deepEqual(filteredReport(report, "uncertain", "evening").items.map(({ id }) => id), []);
+});
+
+test("utilise le créneau TV pour filtrer un événement dont l'horaire sportif n'est pas publié", () => {
+  const event = item("uci", "Sport Live", "2026-08-17T10:00:00.000Z", "unknown");
+  event.eventSource = "uci-road";
+  event.eventStartAtUtc = "2026-08-17T12:00:00.000Z";
+  event.eventTimeConfidence = "estimated";
+  const report = { ...fixtureReport([event]), iteration: "poc41" as const, viewMode: "event-first" as const };
+  assert.equal(matchesPeriod(event, report, "evening"), false);
+  event.broadcasts[0]!.startAtUtc = "2026-08-17T19:00:00.000Z";
+  event.broadcasts[0]!.stopAtUtc = "2026-08-17T21:00:00.000Z";
+  assert.equal(matchesPeriod(event, report, "evening"), true);
 });
 
 test("exporte tous les événements du catalogue même au-delà des plafonds de sélection", () => {

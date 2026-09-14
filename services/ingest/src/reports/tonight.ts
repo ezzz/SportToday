@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { autoAnnotate, type Confidence, type ContentCategory, type LiveStatus, type TriState } from "./auto-annotation.js";
 import type { DayProgramme, DayReport } from "./day-filter.js";
 import type { SportEventScheduleEntry } from "../events/model.js";
+import { writeTextFileAtomic } from "../storage/atomic-file.js";
 
 const DAY_START_HOUR = 0;
 const EVENING_START_HOUR = 20;
@@ -48,7 +48,7 @@ export interface TonightItem {
   eventStartAtUtc?: string;
   eventEndAtUtc?: string;
   eventTimeLabel?: string;
-  eventSource?: "api-football" | "jolpica-f1" | "api-volleyball" | "api-tennis" | "espn-tennis" | "espn-golf" | "world-athletics" | "xmltvfr" | "xmltvfree";
+  eventSource?: "motogp" | "api-football" | "jolpica-f1" | "api-volleyball" | "api-basketball" | "api-rugby" | "api-tennis" | "espn-tennis" | "espn-golf" | "world-athletics" | "uci-road" | "xmltvfr" | "xmltvfree";
   eventSourceId?: string;
   eventStatus?: string;
   eventStage?: string;
@@ -197,9 +197,8 @@ function appendReason(current: string, addition: string): string {
 }
 
 export async function writeTonightReport(reportsRoot: string, report: TonightReport): Promise<string> {
-  await mkdir(reportsRoot, { recursive: true });
   const filePath = path.join(reportsRoot, `tonight-${report.source}-${report.date}.json`);
-  await writeFile(filePath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+  await writeTextFileAtomic(filePath, `${JSON.stringify(report, null, 2)}\n`);
   return filePath;
 }
 

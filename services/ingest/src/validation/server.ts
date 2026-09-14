@@ -25,10 +25,17 @@ export interface ValidationServerOptions {
   port?: number;
   refreshReports?: () => Promise<Record<string, { report: TonightReport; programmeReport?: TonightReport; coverageReport?: CoverageReport }>>;
   refreshIntervalMs?: number;
+  rollingDate?: boolean;
   log?: (message: string) => void;
 }
 
-export async function startValidationServer(options: ValidationServerOptions): Promise<{ url: string; validationFile: string }> {
+export interface ValidationServerHandle {
+  url: string;
+  validationFile: string;
+  close: () => Promise<void>;
+}
+
+export async function startValidationServer(options: ValidationServerOptions): Promise<ValidationServerHandle> {
   const host = options.host ?? "127.0.0.1";
   const port = options.port ?? 4173;
   const reportsByDate: Record<string, { report: TonightReport; programmeReport?: TonightReport; coverageReport?: CoverageReport }> = options.reportsByDate ?? {
@@ -49,18 +56,27 @@ export async function startValidationServer(options: ValidationServerOptions): P
     filePaths.set(bundle.report.date, filePath);
   }
   let writeQueue = Promise.resolve();
+  let lastRefreshStartedAt: string | undefined;
+  let lastRefreshCompletedAt: string | undefined;
+  let lastRefreshError: string | undefined;
 
   const applyRefreshedReports = async (refreshed: Record<string, { report: TonightReport; programmeReport?: TonightReport; coverageReport?: CoverageReport }>): Promise<void> => {
+    if (!Object.keys(refreshed).length) throw new Error("Actualisation vide : les rapports précédents sont conservés.");
+    const nextValidations = new Map<string, { validation: ValidationFile; filePath: string }>();
+    for (const [date, bundle] of Object.entries(refreshed)) {
+      const filePath = validationPath(options.reportsRoot, bundle.report);
+      const loaded = await loadValidation(filePath, bundle.report);
+      await saveValidation(filePath, loaded);
+      nextValidations.set(date, { validation: loaded, filePath });
+    }
     for (const date of Object.keys(reportsByDate)) {
       if (!(date in refreshed)) delete reportsByDate[date];
     }
     for (const [date, bundle] of Object.entries(refreshed)) {
       reportsByDate[date] = bundle;
-      const filePath = validationPath(options.reportsRoot, bundle.report);
-      const loaded = await loadValidation(filePath, bundle.report);
-      await saveValidation(filePath, loaded);
-      validations.set(date, loaded);
-      filePaths.set(date, filePath);
+      const next = nextValidations.get(date)!;
+      validations.set(date, next.validation);
+      filePaths.set(date, next.filePath);
     }
     defaultDate = Object.keys(reportsByDate).sort()[0] ?? defaultDate;
   };
@@ -73,13 +89,17 @@ export async function startValidationServer(options: ValidationServerOptions): P
       return refreshInFlight;
     }
     const startedAt = Date.now();
+    lastRefreshStartedAt = new Date(startedAt).toISOString();
     options.log?.(`[refresh] démarrage (${reason})`);
     refreshInFlight = (async () => {
       try {
         await applyRefreshedReports(await options.refreshReports!());
+        lastRefreshCompletedAt = new Date().toISOString();
+        lastRefreshError = undefined;
         options.log?.(`[refresh] terminé en ${Math.round((Date.now() - startedAt) / 1000)} s`);
       } catch (error) {
-        options.log?.(`[refresh] échec : ${error instanceof Error ? error.message : String(error)}`);
+        lastRefreshError = error instanceof Error ? error.message : String(error);
+        options.log?.(`[refresh] échec : ${lastRefreshError}`);
       } finally {
         refreshInFlight = undefined;
       }
@@ -101,8 +121,11 @@ export async function startValidationServer(options: ValidationServerOptions): P
     validations.set(date, next);
     const filePath = filePaths.get(date);
     if (!filePath) throw new Error("Date indisponible.");
-    writeQueue = writeQueue.then(() => saveValidation(filePath, next));
-    await writeQueue;
+    const pendingWrite = writeQueue.then(() => saveValidation(filePath, next));
+    // Keep the queue usable after one failed disk write; a transient volume
+    // error must not disable all subsequent feedback saves.
+    writeQueue = pendingWrite.catch(() => undefined);
+    await pendingWrite;
     return next;
   };
 
@@ -111,6 +134,21 @@ export async function startValidationServer(options: ValidationServerOptions): P
       setSecurityHeaders(response);
       const url = new URL(request.url ?? "/", `http://${request.headers.host ?? `${host}:${port}`}`);
       if (request.method === "GET" && url.pathname === "/") return sendHtml(response, validationHtml());
+      if (request.method === "GET" && url.pathname === "/healthz") {
+        const current = bundleForDate(defaultDate).report;
+        const sourceErrors = current.eventSourceErrors ?? [];
+        return sendJson(response, {
+          status: lastRefreshError || sourceErrors.length > 0 ? "degraded" : "ok",
+          generatedAt: current.generatedAt,
+          dataDate: current.date,
+          sourceErrors,
+          refreshing: Boolean(refreshInFlight),
+          lastRefreshStartedAt,
+          lastRefreshCompletedAt,
+          lastRefreshError,
+          availableDates: Object.keys(reportsByDate).sort()
+        });
+      }
       if (request.method === "GET" && url.pathname === "/api/report") {
         const bundle = bundleForDate(url.searchParams.get("date"));
         const selectedDate = bundle.report.date;
@@ -119,7 +157,6 @@ export async function startValidationServer(options: ValidationServerOptions): P
           programmeReport: bundle.programmeReport ?? null,
           coverageReport: bundle.coverageReport ?? null,
           validation: validationForDate(selectedDate),
-          validationFile: filePaths.get(selectedDate),
           availableDates: Object.keys(reportsByDate).sort()
         });
       }
@@ -169,12 +206,32 @@ export async function startValidationServer(options: ValidationServerOptions): P
       resolve();
     });
   });
+  const timers: NodeJS.Timeout[] = [];
   if (options.refreshReports && (options.refreshIntervalMs ?? 0) > 0) {
     const intervalMs = options.refreshIntervalMs!;
-    setInterval(() => { void refreshInBackground("planifié"); }, intervalMs).unref();
+    const refreshTimer = setInterval(() => { void refreshInBackground("planifié"); }, intervalMs);
+    refreshTimer.unref();
+    timers.push(refreshTimer);
     options.log?.(`[refresh] planifié toutes les ${formatRefreshInterval(intervalMs)}.`);
+    if (options.rollingDate) {
+      const dateTimer = setInterval(() => {
+        const today = new Intl.DateTimeFormat("en-CA", { timeZone: options.report.timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+        if (defaultDate !== today) void refreshInBackground("changement de journée");
+      }, 60_000);
+      dateTimer.unref();
+      timers.push(dateTimer);
+    }
   }
-  return { url: `http://${host === "0.0.0.0" ? "127.0.0.1" : host}:${port}`, validationFile: filePaths.get(defaultDate)! };
+  const address = server.address();
+  const boundPort = typeof address === "object" && address ? address.port : port;
+  return {
+    url: `http://${host === "0.0.0.0" ? "127.0.0.1" : host}:${boundPort}`,
+    validationFile: filePaths.get(defaultDate)!,
+    close: async () => {
+      for (const timer of timers) clearInterval(timer);
+      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    }
+  };
 }
 
 function formatRefreshInterval(intervalMs: number): string {

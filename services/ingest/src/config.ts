@@ -10,7 +10,7 @@ export const config = {
   dataRoot,
   sqlitePath: path.join(dataRoot, "sporttoday.sqlite"),
   reportsRoot: path.resolve("reports"),
-  timeZone: process.env.POC_TIMEZONE ?? "Europe/Paris",
+  timeZone: process.env.SPORTTODAY_TIMEZONE ?? process.env.POC_TIMEZONE ?? "Europe/Paris",
   xmltv: {
     xmltvfr: process.env.XMLTVFR_URL ?? "https://xmltvfr.fr/xmltv/xmltv_fr.xml.gz",
     xmltvfree: process.env.XMLTVFREE_URL ?? "http://xmltvfree.free.fr/xmltv.xml.gz"
@@ -31,6 +31,14 @@ export const config = {
     baseUrl: process.env.API_TENNIS_BASE_URL ?? "https://api.api-tennis.com/tennis/",
     apiKey: process.env.API_TENNIS_KEY ?? ""
   },
+  apiBasketball: {
+    baseUrl: process.env.API_BASKETBALL_BASE_URL ?? "https://v1.basketball.api-sports.io",
+    apiKey: process.env.API_BASKETBALL_KEY ?? process.env.API_FOOTBALL_KEY ?? ""
+  },
+  apiRugby: {
+    baseUrl: process.env.API_RUGBY_BASE_URL ?? "https://v1.rugby.api-sports.io",
+    apiKey: process.env.API_RUGBY_KEY ?? process.env.API_FOOTBALL_KEY ?? ""
+  },
   espnGolf: {
     baseUrl: process.env.ESPN_BASE_URL ?? "https://site.api.espn.com/apis/site/v2/sports/golf",
     enabled: process.env.ESPN_GOLF_ENABLED !== "false"
@@ -44,6 +52,10 @@ export const config = {
   },
   jolpicaF1: {
     baseUrl: process.env.JOLPICA_F1_BASE_URL ?? "https://api.jolpi.ca/ergast/f1"
+  },
+  motogp: {
+    baseUrl: process.env.MOTOGP_BASE_URL ?? "https://api.motogp.pulselive.com/motogp/v1",
+    enabled: process.env.MOTOGP_ENABLED !== "false"
   }
 } as const;
 

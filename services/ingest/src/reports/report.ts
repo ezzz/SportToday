@@ -1,5 +1,5 @@
-import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { writeTextFileAtomic } from "../storage/atomic-file.js";
 
 import type { ParsedXmltv, SourceId } from "../types.js";
 import { isSportProgramme } from "../xmltv/parser.js";
@@ -29,8 +29,7 @@ export async function writeReport(
     horizonDays: horizonDays === null ? null : Number(horizonDays.toFixed(2))
   };
 
-  await mkdir(reportsRoot, { recursive: true });
   const reportPath = path.join(reportsRoot, `${source}-${fetchedAt.replace(/[-:TZ.]/g, "").slice(0, 12)}.json`);
-  await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+  await writeTextFileAtomic(reportPath, `${JSON.stringify(report, null, 2)}\n`);
   return reportPath;
 }

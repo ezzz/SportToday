@@ -51,7 +51,7 @@ if (-not (Test-Path $envPath)) {
 
 if ($AllowFirewall) {
   try {
-    $ruleName = "SportToday POC4 TCP $Port"
+    $ruleName = "SportToday MVP1 TCP $Port"
     if (-not (Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue)) {
       New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Protocol TCP -LocalPort $Port -Action Allow -Profile Private -ErrorAction Stop | Out-Null
       Write-Host "Règle pare-feu privée ajoutée pour le port TCP $Port."
@@ -63,7 +63,7 @@ if ($AllowFirewall) {
 
 Push-Location $ingestRoot
 try {
-  Write-Host "Compilation du POC..."
+  Write-Host "Compilation de SportToday..."
   & npm.cmd run build
   if ($LASTEXITCODE -ne 0) { throw "La compilation a échoué." }
 
@@ -74,7 +74,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "La récupération $Source a échoué." }
   }
 
-  $arguments = @("dist/cli.js", "poc4:web", "--source=$Source", "--limit=10", "--port=$Port", "--host=0.0.0.0", "--refresh-hours=$RefreshHours")
+  $arguments = @("dist/cli.js", "mvp:web", "--source=$Source", "--limit=10", "--port=$Port", "--host=0.0.0.0", "--refresh-hours=$RefreshHours")
   if ($Date) { $arguments += "--date=$Date" }
   if ($RefreshEvents) { $arguments += "--refresh-events" }
 
