@@ -4,7 +4,7 @@ SportToday répond à une question simple : **quel sport intéressant puis-je re
 
 Le service croise un catalogue d’événements sportifs avec la grille TV XMLTVFr. La vue principale est orientée événements ; l’Agenda TV reste disponible comme contrôle secondaire.
 
-Le périmètre produit, les sources retenues et les critères de sortie sont centralisés dans [MVP1-PLAN.md](./MVP1-PLAN.md). La préparation du serveur privé est décrite dans [DEPLOYMENT-PRIVEE.md](./DEPLOYMENT-PRIVEE.md).
+Le périmètre produit, les sources retenues et les critères de sortie sont centralisés dans [MVP1-PLAN.md](./MVP1-PLAN.md). La refonte de l'expérience est cadrée dans [UX-REDESIGN.md](./UX-REDESIGN.md). La préparation du serveur privé est décrite dans [DEPLOYMENT-PRIVEE.md](./DEPLOYMENT-PRIVEE.md).
 
 ## Démarrage local
 
