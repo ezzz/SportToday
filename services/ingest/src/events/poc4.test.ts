@@ -471,6 +471,9 @@ test("actualise le cache expiré et conserve la dernière réponse lors d'une pa
     assert.match(JSON.stringify(failed.payload), /offline/);
     const recovered = await loadOrFetch(file, true, fetchPayload);
     assert.deepEqual(recovered.payload, { response: [3] });
+    const bounded = await loadOrFetch(file, true, async () => await new Promise<never>(() => undefined), 0, 5);
+    assert.deepEqual((bounded.payload as { response: number[] }).response, [3]);
+    assert.match(JSON.stringify(bounded.payload), /collecte interrompue après 5 ms/);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 

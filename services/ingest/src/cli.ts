@@ -238,7 +238,9 @@ async function buildPoc4Bundle(
     dataRoot: config.dataRoot,
     timeZone: config.timeZone,
     refresh: refreshEvents,
-    dateLimitedSourcesEnabled: date <= nextDate(todayInTimeZone(config.timeZone))
+    // API-Sports calcule sa fenêtre gratuite en UTC. Entre minuit et 2 h à
+    // Paris, utiliser la date locale demanderait trop tôt le nouveau J+1.
+    dateLimitedSourcesEnabled: date <= nextDate(todayInTimeZone("UTC"))
   });
   const report = buildPoc4EventReport(catalogue.events, day, followingDay, limit);
   report.eventSourceErrors = catalogue.sourceErrors;

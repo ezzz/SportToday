@@ -85,13 +85,20 @@ export async function startValidationServer(options: ValidationServerOptions): P
   };
 
   let refreshInFlight: Promise<void> | undefined;
+  let lastBusyLogAt = 0;
   const refreshInBackground = (reason: string): Promise<void> => {
     if (!options.refreshReports) return Promise.resolve();
     if (refreshInFlight) {
-      options.log?.(`[refresh] ignoré (${reason}) : une actualisation est déjà en cours.`);
+      const now = Date.now();
+      if (now - lastBusyLogAt >= 10 * 60_000) {
+        const elapsedMs = lastRefreshStartedAt ? now - Date.parse(lastRefreshStartedAt) : 0;
+        options.log?.(`[refresh] reporté (${reason}) : actualisation en cours depuis ${formatRefreshDuration(elapsedMs)}.`);
+        lastBusyLogAt = now;
+      }
       return refreshInFlight;
     }
     const startedAt = Date.now();
+    lastBusyLogAt = 0;
     lastRefreshStartedAt = new Date(startedAt).toISOString();
     options.log?.(`[refresh] démarrage (${reason})`);
     refreshInFlight = (async () => {
@@ -295,6 +302,11 @@ function weekPreviewItems(
 function formatRefreshInterval(intervalMs: number): string {
   const hours = intervalMs / 3_600_000;
   return Number.isInteger(hours) ? `${hours} h` : `${Math.round(intervalMs / 60_000)} min`;
+}
+
+function formatRefreshDuration(durationMs: number): string {
+  if (durationMs < 60_000) return `${Math.max(1, Math.round(durationMs / 1_000))} s`;
+  return `${Math.round(durationMs / 60_000)} min`;
 }
 
 function exportReport(report: TonightReport, url: URL): TonightReport {

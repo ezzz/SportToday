@@ -49,6 +49,7 @@ interface CachedPayload {
 }
 
 const inFlightLoads = new Map<string, Promise<CachedPayload>>();
+const defaultFetchDeadlineMs = 30_000;
 
 export async function loadEventCatalogue(date: string, options: EventCatalogueOptions): Promise<EventCatalogue> {
   validateDate(date);
@@ -181,10 +182,16 @@ function payloadWarnings(payload: unknown): string[] {
   return Array.isArray(payload.warnings) ? payload.warnings.filter((value): value is string => typeof value === "string") : [];
 }
 
-export async function loadOrFetch(filePath: string, refresh: boolean, fetchPayload: () => Promise<unknown>, maxAgeMs = 6 * 3_600_000): Promise<CachedPayload> {
+export async function loadOrFetch(
+  filePath: string,
+  refresh: boolean,
+  fetchPayload: () => Promise<unknown>,
+  maxAgeMs = 6 * 3_600_000,
+  fetchDeadlineMs = defaultFetchDeadlineMs
+): Promise<CachedPayload> {
   const inFlight = inFlightLoads.get(filePath);
   if (inFlight) return inFlight;
-  const pending = loadOrFetchUnshared(filePath, refresh, fetchPayload, maxAgeMs);
+  const pending = loadOrFetchUnshared(filePath, refresh, fetchPayload, maxAgeMs, fetchDeadlineMs);
   inFlightLoads.set(filePath, pending);
   try {
     return await pending;
@@ -193,7 +200,13 @@ export async function loadOrFetch(filePath: string, refresh: boolean, fetchPaylo
   }
 }
 
-async function loadOrFetchUnshared(filePath: string, refresh: boolean, fetchPayload: () => Promise<unknown>, maxAgeMs: number): Promise<CachedPayload> {
+async function loadOrFetchUnshared(
+  filePath: string,
+  refresh: boolean,
+  fetchPayload: () => Promise<unknown>,
+  maxAgeMs: number,
+  fetchDeadlineMs: number
+): Promise<CachedPayload> {
   let previous: CachedPayload | null = null;
   {
     try {
@@ -207,7 +220,7 @@ async function loadOrFetchUnshared(filePath: string, refresh: boolean, fetchPayl
   }
   let payload: unknown;
   try {
-    payload = await fetchPayload();
+    payload = await withDeadline(fetchPayload(), fetchDeadlineMs);
   } catch (error) {
     if (!previous || !previous.payload || typeof previous.payload !== "object" || Array.isArray(previous.payload)) throw error;
     return { ...previous, payload: { ...previous.payload,
@@ -217,6 +230,21 @@ async function loadOrFetchUnshared(filePath: string, refresh: boolean, fetchPayl
   const cache = { fetchedAt: new Date().toISOString(), payload } satisfies CachedPayload;
   await writeTextFileAtomic(filePath, `${JSON.stringify(cache, null, 2)}\n`);
   return cache;
+}
+
+async function withDeadline<T>(operation: Promise<T>, timeoutMs: number): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<never>((_, reject) => {
+        const duration = timeoutMs >= 1_000 ? `${Math.round(timeoutMs / 1_000)} s` : `${timeoutMs} ms`;
+        timer = setTimeout(() => reject(new Error(`collecte interrompue après ${duration}`)), timeoutMs);
+      })
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 function cachedPayload(value: unknown): CachedPayload | null {

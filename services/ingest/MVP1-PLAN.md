@@ -65,6 +65,7 @@ Hors périmètre MVP1 : application mobile native, comptes multi-utilisateurs, n
 - Le détail replié explique le statut de chaque diffuseur.
 - L’heure de dernière génération est visible ; les erreurs de sources sont regroupées dans le panneau Qualité.
 - Une erreur temporaire conserve les dernières données en cache et dégrade le healthcheck au lieu de vider silencieusement le site.
+- Une collecte fournisseur ne peut pas bloquer une actualisation plus de 30 secondes ; un passage du scheduler pendant une actualisation est reporté et journalisé avec sa durée.
 - Un commentaire général de debug est sauvegardé côté serveur pour chaque date et exportable via `/feedback.json`.
 
 ## 4. Sources retenues

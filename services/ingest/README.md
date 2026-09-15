@@ -104,7 +104,7 @@ Le healthcheck renvoie le dernier état d’actualisation :
 curl http://127.0.0.1:4173/healthz
 ```
 
-En cas d’échec temporaire d’un fournisseur, le service conserve le dernier cache exploitable, affiche l’avertissement dans le panneau de qualité et passe le healthcheck en `degraded`. Les commentaires de validation restent stockés dans `reports/`.
+En cas d’échec temporaire d’un fournisseur, le service conserve le dernier cache exploitable, affiche l’avertissement dans le panneau de qualité et passe le healthcheck en `degraded`. Chaque collecte fournisseur est bornée globalement à 30 secondes, y compris si son timeout HTTP natif ne libère pas correctement la requête. Les commentaires de validation restent stockés dans `reports/`.
 
 Le forfait gratuit API-Sports ne donne accès qu’à aujourd’hui et demain : Football, Volley, Basket et Rugby ne sont donc pas interrogés à partir de J+2. L’aperçu de fin de semaine utilise les sources à horizon plus long (F1, MotoGP, ESPN/EPG, athlétisme et cyclisme) sans consommer inutilement le quota API-Sports.
 
