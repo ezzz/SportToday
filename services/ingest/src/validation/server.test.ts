@@ -29,6 +29,15 @@ test("expose un healthcheck sans chemin local et permet l'arrêt propre", async 
     assert.equal("validationFile" in reportPayload, false);
     assert.deepEqual(reportPayload.weekPreview, []);
 
+    const prototypeResponse = await fetch(`${server.url}/prototype`);
+    assert.equal(prototypeResponse.status, 200);
+    const prototype = await prototypeResponse.text();
+    assert.match(prototype, /SportToday — Prototype UX/u);
+    assert.match(prototype, /data-panel="upcoming">À venir/u);
+    assert.match(prototype, /Mes accès TV/u);
+    assert.match(prototype, /Dès 15:00/u);
+    assert.match(prototype, /Afficher les 2 autres matchs/u);
+
     const savedResponse = await fetch(`${server.url}/api/debug-note`, {
       method: "POST",
       headers: { "content-type": "application/json" },

@@ -40,6 +40,12 @@ test("sauvegarde un commentaire sans reconstruire la carte et perdre le focus", 
   assert.doesNotMatch(html, /id="refresh"/u);
   assert.match(html, /data-period="now">Maintenant/u);
   assert.match(html, /data-period="evening">Ce soir/u);
+  assert.match(html, /id="site-search"/u);
+  assert.match(html, /data-upcoming>À venir/u);
+  assert.match(html, /function matchesSearch\(item\)/u);
+  assert.match(html, /data-expand-competition/u);
+  assert.match(html, /function sportContext\(items,report\)/u);
+  assert.match(html, /class="live-state"/u);
   assert.match(html, /Personnaliser et diagnostiquer/u);
   assert.match(html, /Qualité des données et signaler un manque/u);
   assert.match(html, /Couverture EPG des chaînes prioritaires/u);

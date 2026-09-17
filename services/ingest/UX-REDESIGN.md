@@ -1,8 +1,27 @@
 # SportToday — cadrage UX et refonte visuelle
 
-Document de travail préparatoire à la maquette Figma Starter.
+Document de travail préparatoire au prototype UX local. La piste Figma Starter a été écartée pour cette étape car l'écriture MCP sur le canvas nécessite actuellement un forfait Figma compatible.
 
-Dernière mise à jour : 15 septembre 2026.
+Dernière mise à jour : 16 septembre 2026.
+
+## Décisions validées après le questionnaire UX
+
+- Une seule synthèse éditorialisée, sans section `À ne pas manquer` dupliquée.
+- Organisation principale par sport, puis compétition, puis horaire.
+- La synthèse initiale tient sur une page courte et peut écarter les sports secondaires.
+- Un contrôle global révèle uniquement la sélection principale des sports secondaires.
+- Un contrôle `+N` au niveau d'une compétition révèle ses autres événements.
+- Les événements terminés sont masqués par défaut et réapparaissent via `Voir toute la journée`.
+- Les événements en cours restent à leur place et utilisent une indication rouge discrète `DIRECT`.
+- Navigation temporelle : `Aujourd'hui`, `Demain`, `À venir` ; cette dernière reste organisée par sport sur plusieurs jours.
+- En-tête fonctionnel : nom, recherche contextuelle, `À propos` et réglages.
+- La recherche filtre la synthèse de l'onglet courant sans ouvrir de page séparée.
+- Réglages progressifs : sports affichés et accès TV par bouquet. Un bouquet masqué l'emporte pour l'instant sur les favoris.
+- Interface essentiellement typographique, avec un petit pictogramme monochrome par sport et sans logos colorés.
+- Modes clair et sombre dès le prototype.
+- Conception mobile en priorité ; colonne centrale de 800 px maximum sur ordinateur.
+
+Le prototype est disponible sur `/prototype` lorsque le serveur SportToday est lancé.
 
 ## 1. Objectif de la refonte
 
@@ -194,3 +213,28 @@ La maquette sera validée si :
 - toutes les fonctions de l'inventaire ont une destination explicite ;
 - le diagnostic et les exports ne donnent plus l'impression d'être des fonctions centrales ;
 - une journée chargée reste lisible sur téléphone sans accumulation de cartes et de badges.
+
+## 12. Arbitrages du prototype visuel
+
+- Conserver la densité actuelle, les onglets `Aujourd'hui / Demain / À venir`, le survol des lignes et l'action globale `+ N autres sports`.
+- Porter la séparation colorée au niveau du sport entier, et non au niveau intermédiaire de la compétition.
+- Présenter les compétitions sous la forme `Compétition / contexte` : par exemple `Ligue 1 / 3e journée` ou `Grand Prix d'Espagne / 12e Grand Prix de la saison`.
+- Réunir le nombre d'éléments masqués et leur ouverture dans une seule action explicite : `Afficher les 2 autres matchs`.
+- Renforcer le diffuseur par la graisse et le contraste, sans ajouter une nouvelle pastille.
+- Suspendre les pictogrammes sportifs tant qu'une famille cohérente et correctement dessinée n'est pas retenue.
+- Palette bleu nuit validée ; le comparateur temporaire a été retiré.
+- Remplacer les comptages génériques comme `rendez-vous` ou `affiches retenues` par un contexte utile : `Dès 17:00`, `Samedi`, etc.
+- Réserver le rouge à l'état `Direct`.
+
+## 13. Passage au MVP réel
+
+La direction validée est désormais appliquée à la page principale alimentée par les rapports :
+
+- en-tête SportToday, recherche réelle et navigation `Aujourd'hui / Demain / À venir` ;
+- synthèse unique organisée par sport puis compétition ;
+- rail bleu au niveau du sport, contexte temporel utile et séparateur de compétition ;
+- deux événements visibles au maximum par compétition, avec ouverture explicite du complément ;
+- heure, affiche et diffuseurs sur la ligne principale ;
+- marqueur rouge uniquement quand l'événement est effectivement en cours ;
+- réglages, validation et diagnostic conservés mais retirés de la lecture principale ;
+- route `/prototype` conservée temporairement comme référence pendant la stabilisation.

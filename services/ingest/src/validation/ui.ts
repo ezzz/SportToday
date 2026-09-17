@@ -169,23 +169,127 @@ export function validationHtml(): string {
       .week-preview-item { grid-template-columns:1fr; gap:3px; }
       .week-preview-channels { text-align:left; }
     }
+
+    /* MVP1 — direction visuelle validée */
+    :root {
+      --page:#f5f7fa; --surface:#fbfcfe; --surface-strong:#fff; --ink:#192132;
+      --muted:#616b7c; --faint:#8c94a1; --line:#d9dfe8; --line-soft:#e9edf2;
+      --accent:#2b59a2; --accent-strong:#1c3968; --accent-bright:#3d70bd; --accent-soft:#e6edf8;
+      --live:#d72d2d; --shadow:0 14px 40px rgba(22,28,45,.09);
+    }
+    body { background:var(--page); color:var(--ink); }
+    body > header.site-header { position:sticky; top:0; z-index:20; padding:0; background:color-mix(in srgb,var(--surface) 94%,transparent); color:var(--ink); border-top:3px solid var(--accent-bright); border-bottom:1px solid var(--line); backdrop-filter:blur(12px); }
+    .header-inner { width:calc(100% - 32px); max-width:980px; min-height:66px; margin:auto; display:flex; align-items:center; gap:22px; }
+    .brand { color:var(--ink); text-decoration:none; font-size:20px; font-weight:800; letter-spacing:-.045em; white-space:nowrap; }
+    .brand-mark { color:var(--accent-bright); }
+    .site-search { flex:1; position:relative; max-width:420px; margin-left:auto; }
+    .site-search svg { position:absolute; width:16px; height:16px; left:13px; top:50%; transform:translateY(-50%); color:var(--muted); pointer-events:none; }
+    .site-search input { width:100%; height:38px; padding:0 14px 0 39px; border:1px solid var(--line); border-radius:999px; color:var(--ink); background:var(--page); font:inherit; }
+    .site-search input:focus { outline:3px solid color-mix(in srgb,var(--accent-bright) 18%,transparent); border-color:var(--accent-bright); }
+    .header-actions { display:flex; align-items:center; gap:4px; }
+    .header-link { border:0; background:transparent; color:var(--muted); padding:9px 10px; font-size:13px; }
+    .header-link:hover { background:var(--accent-soft); border-color:transparent; color:var(--ink); }
+    main { width:calc(100% - 32px); max-width:800px; margin:0 auto; padding:28px 0 52px; }
+    .date-nav { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); border-bottom:1px solid var(--line); margin-bottom:24px; }
+    .date-nav #date-buttons { display:contents; }
+    .date-nav .date-filter { min-width:0; border:0; border-bottom:2px solid transparent; border-radius:0; padding:11px 5px 12px; margin-bottom:-1px; background:transparent; color:var(--muted); font-weight:700; }
+    .date-nav .date-filter.active { border-bottom-color:var(--accent-bright); color:var(--accent-strong); background:var(--accent-soft); border-radius:10px 10px 0 0; }
+    .date-nav .date-filter small { display:block; margin-top:2px; color:var(--faint); font-size:10px; font-weight:500; }
+    .day-intro { display:flex; align-items:end; justify-content:space-between; gap:16px; margin-bottom:18px; }
+    .day-intro h1 { margin:0; color:var(--accent-strong); font-size:clamp(25px,4vw,34px); letter-spacing:-.045em; line-height:1.05; }
+    .day-intro #subtitle { margin:7px 0 0; color:var(--muted); font-size:13px; }
+    .freshness { margin:4px 0 0; color:var(--faint); font-size:11px; }
+    .toolbar { padding:0; background:transparent; border:0; border-radius:0; }
+    .toolbar:not(.settings-visible) { display:none; }
+    .toolbar > .primary-row { display:none; }
+    .advanced-filters { margin:0 0 18px; padding:0; border:0; }
+    .advanced-filters > summary { width:max-content; margin-left:auto; padding:5px 0; color:var(--accent); }
+    .advanced-filters[open] { padding:12px 14px; background:var(--surface-strong); border:1px solid var(--line); border-radius:12px; }
+    .period-context { justify-content:flex-end; margin:0 0 10px; color:var(--faint); font-size:11px; }
+    .cards { display:grid; gap:24px; }
+    .highlights,.section-heading { display:none; }
+    .sport-group { position:relative; display:block; margin:0; padding:0 0 0 15px; background:transparent; border:0; border-radius:0; }
+    .sport-group::before { content:""; position:absolute; left:0; top:2px; bottom:0; width:3px; border-radius:99px; background:color-mix(in srgb,var(--accent-bright) 66%,var(--line)); }
+    .sport-heading { display:flex; align-items:center; gap:9px; min-height:31px; margin:0 0 5px; padding:0; color:var(--accent-strong); background:transparent; border:0; border-radius:0; }
+    .sport-heading::before { display:none; }
+    .sport-heading h2 { font-size:18px; font-weight:800; letter-spacing:-.025em; }
+    .sport-heading span { color:var(--muted); font-size:12px; font-weight:620; }
+    .competition-group { display:block; border-top:2px solid color-mix(in srgb,var(--accent) 18%,var(--line)); }
+    .competition-group + .competition-group { margin-top:10px; }
+    .competition-heading { min-height:42px; display:flex; align-items:center; gap:7px; margin:0; padding:8px 2px 6px; color:var(--ink); border:0; }
+    .competition-heading h2 { font-size:15px; font-weight:750; letter-spacing:-.015em; }
+    .competition-heading span { margin-left:0; color:var(--muted); font-size:12px; font-weight:520; }
+    .competition-heading span::before { content:"/"; margin-right:7px; color:var(--faint); }
+    .competition-more { margin-left:auto; border:1px solid color-mix(in srgb,var(--accent) 28%,var(--line)); border-radius:999px; padding:6px 11px; background:var(--accent-soft); color:var(--accent-strong); font-size:11px; font-weight:750; white-space:nowrap; }
+    .card,.compact-card { padding:0; background:transparent; border:0; border-bottom:1px solid var(--line-soft); border-radius:0; }
+    .card.finished { opacity:.58; background:transparent; border-color:var(--line); }
+    .card-head,.card-main { display:block; }
+    .event-line { display:grid; grid-template-columns:58px minmax(0,1fr) minmax(95px,auto) 18px; align-items:center; gap:10px; min-height:45px; padding:6px 2px; transition:background .15s ease; }
+    .event-line:hover { background:color-mix(in srgb,var(--accent-soft) 55%,transparent); }
+    .official-time { display:block; margin:0; padding:0; color:var(--ink); background:transparent; border-radius:0; font-size:14px; font-variant-numeric:tabular-nums; }
+    .event-line h2,.compact-card h2 { margin:0; min-width:0; color:var(--ink); font-size:14px; font-weight:570; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .event-line > .broadcasts { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:4px 7px; min-width:95px; margin:0; }
+    .broadcast,.broadcast[data-tone] { padding:0; color:var(--accent-strong); background:transparent; border:0; border-radius:0; font-size:12px; font-weight:700; }
+    .broadcast + .broadcast::before { content:"·"; margin-right:7px; color:var(--faint); }
+    .live-state { display:inline-flex; align-items:center; gap:5px; margin-right:7px; color:var(--live); font-size:10px; font-weight:800; letter-spacing:.035em; vertical-align:1px; }
+    .live-dot { width:7px; height:7px; border-radius:50%; background:var(--live); box-shadow:0 0 0 3px color-mix(in srgb,var(--live) 14%,transparent); }
+    .secondary-details { grid-column:4; grid-row:1; margin:0; }
+    .secondary-details[open] { grid-column:1 / -1; grid-row:2; padding:8px 12px 12px 68px; }
+    .event-schedule { margin:2px 28px 8px 68px; color:var(--faint); }
+    .highlight-reason { display:none; }
+    .week-preview { margin-top:0; }
+    .bottom-panels { margin-top:24px; }
+    .summary-footer { color:var(--faint); font-size:10px; }
+    .about-dialog { width:min(92vw,500px); border:1px solid var(--line); border-radius:16px; background:var(--surface-strong); color:var(--ink); box-shadow:var(--shadow); }
+    .about-dialog::backdrop { background:rgba(15,20,30,.48); }
+    .about-dialog > div { padding:20px; }
+    .about-dialog h2 { margin:0 0 12px; }
+    .about-dialog p { color:var(--muted); line-height:1.55; }
+    @media (max-width:700px) {
+      .header-inner { width:calc(100% - 24px); min-height:58px; gap:8px; flex-wrap:wrap; padding:9px 0 10px; }
+      .site-search { order:3; flex-basis:100%; max-width:none; }
+      .brand { font-size:18px; }
+      main { width:calc(100% - 24px); padding-top:20px; }
+      .date-nav .date-filter { font-size:13px; overflow:hidden; }
+      .day-intro { display:block; }
+      .event-line { grid-template-columns:50px minmax(0,1fr) 17px; gap:8px; }
+      .event-line > .broadcasts { grid-column:2; justify-content:flex-start; margin-top:-7px; padding-bottom:3px; }
+      .secondary-details { grid-column:3; grid-row:1 / span 2; }
+      .secondary-details[open] { grid-column:1 / -1; grid-row:3; padding-left:58px; }
+      .event-line h2 { white-space:normal; line-height:1.25; }
+      .competition-heading { flex-wrap:wrap; }
+      .competition-more { margin-left:auto; max-width:100%; white-space:normal; }
+      .broadcast,.broadcast[data-tone] { white-space:normal; }
+      .access-summary,.access-label { min-width:0; }
+      .access-label { overflow-wrap:anywhere; }
+      .event-schedule { margin-left:58px; }
+    }
   </style>
 </head>
 <body>
-  <header><h1>Quel sport regarder ?</h1><p id="subtitle">Chargement de la sélection…</p><p class="freshness" id="freshness"></p></header>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="/">Sport<span class="brand-mark">Today</span></a>
+      <label class="site-search">
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>
+        <input id="site-search" type="search" placeholder="Rechercher un sport, une équipe, une chaîne…" autocomplete="off">
+      </label>
+      <nav class="header-actions" aria-label="Navigation secondaire">
+        <button class="header-link" id="about-open">À propos</button>
+        <button class="header-link" id="settings-open">Réglages</button>
+      </nav>
+    </div>
+  </header>
   <main>
+    <nav class="date-nav" aria-label="Période">
+      <span id="date-buttons"><button class="date-filter active">Chargement…</button></span>
+      <button class="date-filter upcoming-filter" data-upcoming>À venir<small>Jusqu’à dimanche</small></button>
+    </nav>
+    <section class="day-intro">
+      <div><h1 id="day-title">Aujourd’hui</h1><p id="subtitle">Chargement de la sélection…</p><p class="freshness" id="freshness"></p></div>
+      <button class="period-filter header-link" id="show-day" data-period="day">Voir toute la journée</button>
+    </section>
     <section class="toolbar">
-      <div class="primary-row">
-        <div class="filter-row view-row" id="view-filters" hidden>
-          <span class="filter-label">Vue</span>
-          <button class="view-filter active" data-view="events">À voir</button>
-          <button class="view-filter" data-view="programmes">Agenda TV</button>
-        </div>
-        <div class="filter-row date-row" id="date-filters">
-          <span class="filter-label">Date</span>
-          <span id="date-buttons"><button class="date-filter active">Chargement…</button></span>
-        </div>
-      </div>
       <div class="filter-row">
         <span class="filter-label">Quand</span>
         <button class="period-filter active" data-period="now">Maintenant</button>
@@ -202,6 +306,11 @@ export function validationHtml(): string {
       </div>
       <details class="advanced-filters">
         <summary>Personnaliser et diagnostiquer</summary>
+        <div class="filter-row view-row" id="view-filters" hidden>
+          <span class="filter-label">Vue</span>
+          <button class="view-filter active" data-view="events">À voir</button>
+          <button class="view-filter" data-view="programmes">Agenda TV</button>
+        </div>
         <div class="filter-row">
           <span class="filter-label">Programme</span>
           <button class="category-filter active" data-category="live">● Direct</button>
@@ -232,7 +341,7 @@ export function validationHtml(): string {
         </div>
       </details>
     </section>
-    <div class="period-context"><span id="period-context"></span><button class="period-filter" id="show-day" data-period="day">Voir toute la journée</button></div>
+    <div class="period-context"><span id="period-context"></span></div>
     <section class="cards" id="cards"><div class="empty">Chargement…</div></section>
     <section class="week-preview" id="week-preview" hidden>
       <div class="section-heading"><h2>À venir jusqu’à dimanche</h2><span id="week-preview-context"></span></div>
@@ -270,6 +379,14 @@ export function validationHtml(): string {
       <p class="summary-footer" id="summary"></p>
     </section>
   </main>
+  <dialog class="about-dialog" id="about-dialog">
+    <div>
+      <h2>À propos</h2>
+      <p><strong>SportToday</strong> aide à identifier rapidement les événements sportifs importants à regarder selon vos préférences et vos abonnements.</p>
+      <p>Les horaires et diffuseurs sont consolidés depuis plusieurs sources et peuvent évoluer. SportToday n’est affilié ni aux compétitions ni aux chaînes citées.</p>
+      <button id="about-close">Fermer</button>
+    </div>
+  </dialog>
   <script>
     const verdicts = [
       ['ok','✓ OK'],['doubt','? Doute'],['off_topic','✗ Hors sujet'],
@@ -282,6 +399,8 @@ export function validationHtml(): string {
     let activeValidation = 'all';
     let activeView = 'events';
     let activeSports = new Set();
+    let upcomingMode = false;
+    let searchQuery = '';
     let noteTimer = null;
     let missingTimer = null;
     let debugTimer = null;
@@ -292,6 +411,7 @@ export function validationHtml(): string {
     let preferences = { version:2, excludedSports:[], excludedCompetitions:[], packages:[] };
     const ratingStorageKey = 'sporttoday-ratings-v1';
     let ratings = {};
+    const expandedCompetitions = new Set();
     try {
       const saved = JSON.parse(localStorage.getItem('sporttoday-favorites') || '[]');
       if (Array.isArray(saved)) favorites = new Set(saved.filter(value=>typeof value==='string'));
@@ -338,6 +458,7 @@ export function validationHtml(): string {
       const response = await fetch('/api/report'+query);
       if (!response.ok) throw new Error('Impossible de charger la sélection.');
       state = await response.json();
+      upcomingMode=false;
       activePeriod=state.report.date===todayInTimeZone(state.report.timeZone)?'now':'day';
       if (state.programmeReport) document.getElementById('view-filters').hidden=false;
       document.getElementById('missing-event').value = state.validation.missingEventNote || '';
@@ -386,8 +507,9 @@ export function validationHtml(): string {
       const dates = (state.availableDates || [state.report.date]).slice(0,2);
       const selected = state.report.date;
       const labels = ['Aujourd’hui','Demain'];
-      const buttons = dates.map((date,index) => '<button class="date-filter '+(date===selected?'active':'')+'" data-date="'+escapeHtml(date)+'">'+(labels[index]||escapeHtml(date))+' <small>'+escapeHtml(formatShortDate(date))+'</small></button>');
+      const buttons = dates.map((date,index) => '<button class="date-filter '+(!upcomingMode&&date===selected?'active':'')+'" data-date="'+escapeHtml(date)+'">'+(labels[index]||escapeHtml(date))+' <small>'+escapeHtml(formatShortDate(date))+'</small></button>');
       document.getElementById('date-buttons').innerHTML = buttons.join('');
+      document.querySelector('[data-upcoming]').classList.toggle('active',upcomingMode);
     }
 
     function formatShortDate(value) {
@@ -399,8 +521,8 @@ export function validationHtml(): string {
       updateSubtitle(report);
       const eventFirst=report.viewMode==='event-first';
       const matching = eventFirst
-        ? report.items.map(filterEventBroadcasts).map(filterPreferredBroadcasts).filter(Boolean).filter(item=>item.broadcasts.length>0).filter(item=>matchesEventCategory(item)).filter(item=>matchesEventPeriod(item,report)).filter(matchesSport)
-        : report.items.map(item=>({...item,broadcasts:item.broadcasts.filter(broadcast=>matchesBroadcast(item,broadcast,report)&&matchesChannelPreference(broadcast))})).filter(item=>item.broadcasts.length>0).filter(matchesSport);
+        ? report.items.map(filterEventBroadcasts).map(filterPreferredBroadcasts).filter(Boolean).filter(item=>item.broadcasts.length>0).filter(item=>matchesEventCategory(item)).filter(item=>matchesEventPeriod(item,report)).filter(matchesSport).filter(matchesSearch)
+        : report.items.map(item=>({...item,broadcasts:item.broadcasts.filter(broadcast=>matchesBroadcast(item,broadcast,report)&&matchesChannelPreference(broadcast))})).filter(item=>item.broadcasts.length>0).filter(matchesSport).filter(matchesSearch);
       const stats = matching.reduce((acc,item) => { const v=validationFor(item.id).verdict; acc[v==='pending'?'pending':v==='ok'?'ok':'issues']++; return acc; }, {pending:0,ok:0,issues:0});
       const filtered = eventFirst ? matching.filter(item => { const v=validationFor(item.id).verdict; return activeValidation==='all'||activeValidation===v||(activeValidation==='issues'&&issue(v)); }) : matching;
       const visible = eventFirst ? filtered : diversifiedSelection(filtered,report.limit);
@@ -408,7 +530,7 @@ export function validationHtml(): string {
       const preferenceLabel=preferenceMode==='preferences'?' · Ma sélection':'';
       const periodLabels={now:'Maintenant et dans les 3 prochaines heures',evening:'Ce soir · dès 20 h',day:'Toute la journée'};
       document.getElementById('period-context').textContent=periodLabels[activePeriod]+preferenceLabel+' · '+matching.length+' événement'+(matching.length>1?'s':'')+(activePeriod!=='day'?' / '+dayCount+' sur la journée':'');
-      document.getElementById('show-day').hidden=activePeriod==='day';
+      document.getElementById('show-day').hidden=upcomingMode||activePeriod==='day';
       const summary=eventFirst
         ? [['Compétitions',new Set(matching.map(item=>item.competition||'Autre')).size],['Événements',matching.length],['Catalogue',report.catalogueEventCount??matching.length],['Chaîne ou plateforme',matching.filter(item=>item.broadcasts.length).length],['Sans diffuseur',matching.filter(item=>!item.broadcasts.length).length],['À valider',stats.pending],['Validés OK',stats.ok],['Doutes / erreurs',stats.issues]]
         : [['Programmes regroupés',matching.length],['Affichés',visible.length]];
@@ -433,8 +555,13 @@ export function validationHtml(): string {
       renderCoverage();
       document.getElementById('cards').innerHTML = visible.length
         ? (eventFirst ? renderEventSelection(visible,report) : visible.map(item=>cardHtml(item,report)).join(''))
-        : '<div class="empty">'+(activePeriod==='now'?'Rien en cours ou dans les trois prochaines heures.':'Aucun événement dans ce filtre.')+'</div>';
+        : '<div class="empty">'+(searchQuery?'Aucun événement ne correspond à cette recherche.':activePeriod==='now'?'Rien en cours ou dans les trois prochaines heures.':'Aucun événement dans ce filtre.')+'</div>';
       renderWeekPreview(report,eventFirst);
+      document.getElementById('cards').hidden=upcomingMode;
+      document.querySelector('.toolbar').hidden=upcomingMode;
+      document.querySelector('.period-context').hidden=upcomingMode;
+      document.querySelector('.bottom-panels').hidden=upcomingMode;
+      if(!upcomingMode)document.getElementById('week-preview').hidden=true;
       const selectedSports = [...activeSports].sort().map(encodeURIComponent).join('%2C');
       const query = '?category='+encodeURIComponent(activeCategory)+'&period='+encodeURIComponent(activePeriod)+(selectedSports?'&sports='+selectedSports:'');
       const dateQuery='&date='+encodeURIComponent(report.date);
@@ -570,7 +697,9 @@ export function validationHtml(): string {
     function updateSubtitle(report) {
       const date = new Intl.DateTimeFormat('fr-FR',{dateStyle:'full',timeZone:report.timeZone}).format(new Date(report.date+'T12:00:00Z'));
       const generated=new Intl.DateTimeFormat('fr-FR',{timeZone:report.timeZone,hour:'2-digit',minute:'2-digit'}).format(new Date(report.generatedAt));
-      document.getElementById('subtitle').textContent = date+' · '+(report.viewMode==='event-first'?'Les rendez-vous à regarder':'Agenda TV détaillé');
+      const today=report.date===todayInTimeZone(report.timeZone);
+      document.getElementById('day-title').textContent=upcomingMode?'À venir':today?'Aujourd’hui':'Demain';
+      document.getElementById('subtitle').textContent = upcomingMode?'Les principaux événements jusqu’à dimanche, organisés par sport.':date+' · '+(report.viewMode==='event-first'?'La sélection sportive du jour':'Agenda TV détaillé');
       document.getElementById('freshness').textContent='Sélection générée à '+generated+((report.eventSourceErrors||[]).length?' · données partielles':'');
     }
 
@@ -620,6 +749,12 @@ export function validationHtml(): string {
       return temporaryMatch&&preferenceMatch;
     }
 
+    function matchesSearch(item) {
+      if(!searchQuery)return true;
+      const value=[item.sport,sportLabel(item.sport),item.competition,item.title,item.participants,...(item.broadcasts||[]).map(b=>b.platform||b.channel)].filter(Boolean).join(' ').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('fr-FR');
+      return value.includes(searchQuery);
+    }
+
     function matchesChannelPreference(broadcast) {
       if(preferenceMode!=='preferences')return true;
       if(!isFrenchBroadcast(broadcast))return false;
@@ -652,10 +787,7 @@ export function validationHtml(): string {
     }
 
     function renderEventSelection(items,report) {
-      const highlights=highlightSelection(items);
-      const context={now:'maintenant',evening:'ce soir',day:'sur la journée'}[activePeriod];
-      const highlightHtml=highlights.length?'<section class="highlights"><div class="section-heading"><h2>À ne pas manquer</h2><span>'+highlights.length+' rendez-vous '+context+'</span></div>'+highlights.map(item=>cardHtml(item,report,true,true)).join('')+'</section>':'';
-      return highlightHtml+'<div class="section-heading"><h2>Tous les rendez-vous</h2><span>Par sport et compétition</span></div>'+renderEventGroups(items,report);
+      return renderEventGroups(items,report);
     }
 
     function highlightSelection(items) {
@@ -693,7 +825,7 @@ export function validationHtml(): string {
       const panel=document.getElementById('week-preview');
       if(!eventFirst||!Array.isArray(state.weekPreview)) { panel.hidden=true; return; }
       const detailedThrough=(state.availableDates||[]).slice(0,2).at(-1)||report.date;
-      let candidates=state.weekPreview.filter(item=>item.date>detailedThrough&&matchesSport(item));
+      let candidates=state.weekPreview.filter(item=>item.date>detailedThrough&&matchesSport(item)&&matchesSearch(item));
       candidates=candidates.filter(item=>['A','B'].includes(item.eventImportance)||item.score>=85||ratingFor(ratingKey('sport',item))>=4||ratingFor(ratingKey('competition',item))>=4);
       const motorGroups=new Map();
       for(const item of candidates.filter(item=>['f1','motogp'].includes(canonicalSport(item.sport)))) {
@@ -724,8 +856,8 @@ export function validationHtml(): string {
         if(picked.length===8)break;
       }
       const selected=picked.sort((a,b)=>firstItemStart(a).localeCompare(firstItemStart(b)));
-      panel.hidden=selected.length===0;
-      if(!selected.length)return;
+      panel.hidden=selected.length===0&&!upcomingMode;
+      if(!selected.length){document.getElementById('week-preview-items').innerHTML='<div class="empty">Aucun événement majeur disponible jusqu’à dimanche.</div>';return;}
       document.getElementById('week-preview-context').textContent=selected.length+' rendez-vous principaux';
       document.getElementById('week-preview-items').innerHTML=selected.map(item=>weekPreviewHtml(item,report)).join('');
     }
@@ -759,10 +891,30 @@ export function validationHtml(): string {
         competitions.get(competition).push(item);
       }
       return [...sports.entries()].sort((left,right)=>Math.max(...[...right[1].values()].flat().map(item=>item.score))-Math.max(...[...left[1].values()].flat().map(item=>item.score))||sportLabel(left[0]).localeCompare(sportLabel(right[0]),'fr')).map(([sport,competitions])=>{
-        const total=[...competitions.values()].flat().length;
-        const competitionHtml=[...competitions.entries()].sort((left,right)=>Math.max(...right[1].map(item=>item.score))-Math.max(...left[1].map(item=>item.score))||left[0].localeCompare(right[0],'fr')).map(([competition,group])=>'<section class="competition-group"><div class="competition-heading"><h2>'+escapeHtml(competition)+'</h2><span>'+group.length+' événement'+(group.length>1?'s':'')+'</span></div>'+group.sort((left,right)=>firstItemStart(left).localeCompare(firstItemStart(right))||right.score-left.score).map(item=>cardHtml(item,report,true)).join('')+'</section>').join('');
-        return '<details class="sport-group" data-sport-group="'+escapeHtml(sport)+'" '+(collapsedSports.has(sport)?'':'open')+'><summary class="sport-heading"><h2>'+escapeHtml(sportLabel(sport))+'</h2><span>'+total+' événement'+(total>1?'s':'')+'</span></summary>'+competitionHtml+'</details>';
+        const sportItems=[...competitions.values()].flat();
+        const competitionHtml=[...competitions.entries()].sort((left,right)=>Math.max(...right[1].map(item=>item.score))-Math.max(...left[1].map(item=>item.score))||left[0].localeCompare(right[0],'fr')).map(([competition,group])=>{
+          const key=sport+'|'+competition,expanded=expandedCompetitions.has(key);
+          const sorted=group.sort((left,right)=>firstItemStart(left).localeCompare(firstItemStart(right))||right.score-left.score);
+          const shown=expanded?sorted:sorted.slice(0,2),hidden=sorted.length-shown.length;
+          const context=competitionContext(sorted);
+          const more=hidden>0?'<button class="competition-more" data-expand-competition="'+escapeHtml(key)+'">Afficher les '+hidden+' autre'+(hidden>1?'s':'')+'</button>':expanded&&sorted.length>2?'<button class="competition-more" data-expand-competition="'+escapeHtml(key)+'">Réduire</button>':'';
+          return '<section class="competition-group"><div class="competition-heading"><h2>'+escapeHtml(competition)+'</h2>'+(context?'<span>'+escapeHtml(context)+'</span>':'')+more+'</div>'+shown.map(item=>cardHtml(item,report,true)).join('')+'</section>';
+        }).join('');
+        return '<details class="sport-group" data-sport-group="'+escapeHtml(sport)+'" '+(collapsedSports.has(sport)?'':'open')+'><summary class="sport-heading"><h2>'+escapeHtml(sportLabel(sport))+'</h2><span>'+escapeHtml(sportContext(sportItems,report))+'</span></summary>'+competitionHtml+'</details>';
       }).join('');
+    }
+
+    function competitionContext(items) {
+      return items.map(item=>item.eventRoundLabel||item.eventStage||'').find(Boolean)||'';
+    }
+
+    function sportContext(items,report) {
+      const start=items.map(firstItemStart).filter(Boolean).sort()[0];
+      if(!start)return '';
+      const instant=new Date(start);
+      const localDate=new Intl.DateTimeFormat('en-CA',{timeZone:report.timeZone,year:'numeric',month:'2-digit',day:'2-digit'}).format(instant);
+      if(localDate!==report.date)return new Intl.DateTimeFormat('fr-FR',{timeZone:report.timeZone,weekday:'long'}).format(instant).replace(/^./,letter=>letter.toLocaleUpperCase('fr-FR'));
+      return 'Dès '+new Intl.DateTimeFormat('fr-FR',{timeZone:report.timeZone,hour:'2-digit',minute:'2-digit'}).format(instant);
     }
 
     function firstItemStart(item) {
@@ -780,6 +932,13 @@ export function validationHtml(): string {
       return stops.length>0&&Math.max(...stops)<Date.now();
     }
 
+    function isLiveNow(item) {
+      const now=Date.now();
+      const overlaps=(startValue,stopValue)=>{const start=Date.parse(startValue||''),stop=Date.parse(stopValue||'');return Number.isFinite(start)&&Number.isFinite(stop)&&start<=now&&stop>now;};
+      if(overlaps(item.eventStartAtUtc,item.eventEndAtUtc))return true;
+      return item.broadcasts.some(b=>b.liveStatus!=='delayed'&&overlaps(b.startAtUtc,b.stopAtUtc));
+    }
+
     function cardHtml(item,report,compact=false,highlight=false) {
       const validation = validationFor(item.id);
       const eventFirst=report.viewMode==='event-first';
@@ -795,6 +954,7 @@ export function validationHtml(): string {
       const tennisRound=eventFirst&&item.sport==='tennis'&&item.eventRoundLabel?' - '+item.eventRoundLabel:'';
       const titleWithRound=item.title+tennisRound;
       const displayTitle=highlight&&eventFirst?sportLabel(item.sport)+' · '+item.competition+' — '+titleWithRound:titleWithRound;
+      const liveIndicator=eventFirst&&isLiveNow(item)?'<span class="live-state"><span class="live-dot"></span>DIRECT</span>':'';
       const channelGroups=new Map();
       for(const b of item.broadcasts){const name=b.platform||b.channel;if(!channelGroups.has(name))channelGroups.set(name,[]);channelGroups.get(name).push(b)}
       const broadcasts=channelGroups.size?'<div class="broadcasts">'+[...channelGroups.entries()].sort((a,b)=>a[0].localeCompare(b[0],'fr',{numeric:true})).map(([name,values])=>'<span class="broadcast" data-tone="'+channelTone(values)+'" title="'+escapeHtml(broadcastTrustLabel(values))+'" aria-label="'+escapeHtml(name+' · '+broadcastTrustLabel(values))+'">'+escapeHtml(name)+'</span>').join('')+'</div>':'<div class="unmatched">Diffuseur non identifié</div>';
@@ -811,7 +971,7 @@ export function validationHtml(): string {
         (eventFirst?'<div class="validation"><div class="verdicts">'+buttons+'</div><textarea data-action="note" data-id="'+item.id+'" placeholder="Commentaire facultatif">'+escapeHtml(validation.note)+'</textarea></div>':'')+
         '</details>';
       return '<article class="card '+(compact?'compact-card ':'')+(finished?'finished':'')+'" data-verdict="'+validation.verdict+'">'+
-        '<div class="card-head"><div class="card-main"><div class="event-line">'+official+(finished?'<span class="finished-label">Terminé</span>':'')+'<h2>'+escapeHtml(displayTitle)+'</h2>'+
+        '<div class="card-head"><div class="card-main"><div class="event-line">'+official+'<h2>'+(finished?'<span class="finished-label">Terminé · </span>':'')+liveIndicator+escapeHtml(displayTitle)+'</h2>'+
         broadcasts+
         details+'</div>'+(highlight?'<p class="highlight-reason">'+escapeHtml(highlightReason(item))+'</p>':'')+schedule+'</div></div></article>';
     }
@@ -873,6 +1033,14 @@ export function validationHtml(): string {
     }, true);
 
     document.addEventListener('click', event => {
+      const competitionToggle=event.target.closest('[data-expand-competition]');
+      if(competitionToggle) {
+        const key=competitionToggle.dataset.expandCompetition;
+        if(expandedCompetitions.has(key))expandedCompetitions.delete(key);else expandedCompetitions.add(key);
+        render();return;
+      }
+      const upcoming=event.target.closest('[data-upcoming]');
+      if(upcoming) { upcomingMode=true; renderDateFilters(); render(); return; }
       const favorite=event.target.closest('[data-favorite]');
       if(favorite) {
         const key=favorite.dataset.favorite;
@@ -901,7 +1069,7 @@ export function validationHtml(): string {
         savePreferences();renderPreferences();render();return;
       }
       const date = event.target.closest('.date-filter');
-      if (date && date.dataset.date) { loadDate(date.dataset.date).catch(showError); return; }
+      if (date && date.dataset.date) { upcomingMode=false; loadDate(date.dataset.date).catch(showError); return; }
       const view = event.target.closest('.view-filter');
       if (view) { activeView=view.dataset.view; activeSports.clear(); document.querySelectorAll('.view-filter').forEach(b=>b.classList.toggle('active',b===view)); renderSportFilters(); render(); return; }
       const category = event.target.closest('.category-filter');
@@ -923,6 +1091,10 @@ export function validationHtml(): string {
     });
 
     document.addEventListener('input', event => {
+      if(event.target.id==='site-search') {
+        searchQuery=event.target.value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLocaleLowerCase('fr-FR');
+        render();return;
+      }
       if (event.target.matches('[data-action="note"]')) {
         clearTimeout(noteTimer); const id=event.target.dataset.id,value=event.target.value;
         noteTimer=setTimeout(()=>saveItem(id,{note:value},false).catch(showError),500);
@@ -954,6 +1126,15 @@ export function validationHtml(): string {
     function setSaving(){document.getElementById('save-state').textContent='Sauvegarde…';}
     function setSaved(){document.getElementById('save-state').textContent=state.validation.updatedAt?'Sauvegardé automatiquement':'Prêt à valider';}
     function showError(error){document.getElementById('save-state').textContent='Erreur de sauvegarde';console.error(error);}
+    const aboutDialog=document.getElementById('about-dialog');
+    document.getElementById('about-open').addEventListener('click',()=>aboutDialog.showModal());
+    document.getElementById('about-close').addEventListener('click',()=>aboutDialog.close());
+    document.getElementById('settings-open').addEventListener('click',()=>{
+      if(upcomingMode){upcomingMode=false;renderDateFilters();render();}
+      const toolbar=document.querySelector('.toolbar'),details=document.querySelector('.advanced-filters');
+      toolbar.classList.toggle('settings-visible');
+      if(toolbar.classList.contains('settings-visible')){details.open=true;toolbar.scrollIntoView({behavior:'smooth',block:'start'});}
+    });
     load().then(() => {
       setInterval(() => { void checkForUpdatedReport(); }, 300_000);
     }).catch(error => { showError(error); document.getElementById('cards').innerHTML='<div class="empty">'+escapeHtml(error.message)+'</div>'; });

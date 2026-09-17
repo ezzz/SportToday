@@ -17,6 +17,7 @@ import {
   type ValidationFile
 } from "./store.js";
 import { validationHtml } from "./ui.js";
+import { uxPrototypeHtml } from "./prototype-ui.js";
 
 export interface ValidationServerOptions {
   report: TonightReport;
@@ -144,6 +145,7 @@ export async function startValidationServer(options: ValidationServerOptions): P
       setSecurityHeaders(response);
       const url = new URL(request.url ?? "/", `http://${request.headers.host ?? `${host}:${port}`}`);
       if (request.method === "GET" && url.pathname === "/") return sendHtml(response, validationHtml());
+      if (request.method === "GET" && url.pathname === "/prototype") return sendHtml(response, uxPrototypeHtml());
       if (request.method === "GET" && url.pathname === "/healthz") {
         const current = bundleForDate(defaultDate).report;
         const sourceErrors = current.eventSourceErrors ?? [];
