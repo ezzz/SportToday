@@ -1,6 +1,6 @@
 # SportToday — plan consolidé MVP1
 
-Dernière consolidation : 14 septembre 2026.
+Dernière consolidation : 18 septembre 2026.
 
 ## 1. Cible produit à court terme
 
@@ -8,26 +8,43 @@ La promesse MVP1 est :
 
 > En quelques secondes, trouver les rendez-vous sportifs qui m’intéressent aujourd’hui et demain, avec une diffusion adaptée à mes accès, puis anticiper les principaux temps forts jusqu’au week-end.
 
-La première cible est une bêta privée mono-utilisateur. Elle doit être utile au quotidien sur téléphone avant toute ouverture publique. Le produit ne cherche pas à reproduire une grille TV exhaustive : sa valeur vient de la sélection, de la hiérarchie des événements et de la transparence sur la fiabilité des diffuseurs.
+Décision du 18 septembre 2026 : rester un outil privé avec authentification, pour Bruno en premier lieu. Quelques testeurs pourront être invités explicitement ; aucune inscription libre ni ouverture publique n'est prévue à court terme. Le produit doit être utile au quotidien sur téléphone. Sa valeur vient de la sélection, de la hiérarchie des événements et de la transparence sur la fiabilité des diffuseurs, pas d'une grille TV exhaustive.
 
 Le parcours principal est :
 
-1. ouvrir le site et voir immédiatement ce qui est en cours ou commence dans les trois heures ;
-2. basculer sur ce soir, toute la journée ou demain ;
+1. ouvrir Aujourd'hui et voir une synthèse courte, par sport puis compétition, des événements en cours et à venir dans la journée ;
+2. basculer sur Demain ou À venir pour anticiper les principaux événements jusqu'au week-end ;
 3. limiter la sélection aux sports suivis et aux bouquets disponibles ;
 4. comprendre d’un coup d’œil si la diffusion est certaine, probable, issue d’un multiplex ou seulement déduite de droits.
 
 ## 2. Périmètre MVP1
 
 - Dates détaillées : aujourd’hui et demain, fuseau `Europe/Paris` ; aperçu synthétique des événements prioritaires jusqu’au dimanche suivant.
-- Vues : `À voir` orientée événements et `Agenda TV` secondaire.
+- Navigation principale : `Aujourd'hui`, `Demain`, `À venir`, toujours organisée par sport. Le programme TV exhaustif n'est pas la porte d'entrée.
 - Sports couverts : football, tennis, Formule 1, MotoGP, golf, rugby (Top 14 et Pro D2), basket (NBA, EuroLeague et compétition féminine suivie), volley, athlétisme et cyclisme sur route sélectionné.
 - Football : principales compétitions diffusées en France ; la 2. Bundesliga et les compétitions secondaires non validables restent hors périmètre.
-- Accès : bêta privée, aucune exposition directe du port Node sur Internet.
+- Accès : authentification obligatoire avant le site et ses endpoints ; Tailscale reste l'accès actuel et le canal d'administration. Aucune exposition directe du port Node sur Internet.
 
-Hors périmètre MVP1 : application mobile native, comptes multi-utilisateurs, notifications, scores en direct complets, moteur éditorial automatisé, monétisation et publication publique.
+Hors périmètre à court terme : application native, gestion de comptes maison, synchronisation des préférences entre appareils, notifications, scores complets, nouveaux sports, publicité, SEO, acquisition d'audience et analytics marketing. Les devis EPG et la recherche de nouvelles sources contractuelles sont en attente, pas des prérequis pour travailler sur l'UX privée.
 
-## 3. Expérience retenue
+## 3. Expérience retenue et état de départ
+
+Le VPS privé et la refonte visuelle ont déjà été utilisés. La présentation bleu nuit est validée ; on ne relance pas un chantier de design général. Les listes ci-dessous décrivent la cible fonctionnelle, pas une certification de l'état du code. Chaque lot de la section 8 commence par vérifier l'existant.
+
+La référence visuelle reste [`UX-REDESIGN.md`](./UX-REDESIGN.md). Les anciennes itérations `Maintenant`, sélection de tête dupliquée et notes de 1 à 5 sont remplacées dans la cible par :
+
+- une synthèse unique et courte, Sport → Compétition → événements par horaire croissant ;
+- une journée entière comme horizon par défaut, sans priorité systématique au soir ;
+- des lignes compactes : heure, événement, chaînes ; détails repliés ;
+- les événements terminés masqués par défaut, accessibles via la journée complète ;
+- un marqueur discret pour les événements en cours, sans section supplémentaire ;
+- une révélation progressive des matchs, compétitions et sports écartés de la sélection ;
+- des préférences simples : favoris et masquage, sans notation ; le filtrage des bouquets reste prioritaire ;
+- des commentaires de signalement discrets et contextualisés.
+
+### Historique technique des itérations précédentes
+
+Les trois blocs suivants conservent la trace des fonctionnalités du MVP précédent. Ils ne priment pas sur la cible ci-dessus ; les fonctions utiles sont à préserver sans réintroduire leurs anciens contrôles visuels.
 
 ### Itération courte 1 — choisir vite
 
@@ -69,6 +86,8 @@ Hors périmètre MVP1 : application mobile native, comptes multi-utilisateurs, n
 - Un commentaire général de debug est sauvegardé côté serveur pour chaque date et exportable via `/feedback.json`.
 
 ## 4. Sources retenues
+
+La revue des droits et licences est archivée dans [`SOURCE-LICENSING.md`](./SOURCE-LICENSING.md). Le périmètre reste privé, sans publicité ni référencement. L'authentification limite l'accès mais ne fournit aucune autorisation supplémentaire de collecte ou de réutilisation des données. Le maintien technique des sources n'est donc pas une validation juridique ; leurs incertitudes restent consignées et une source doit pouvoir être désactivée si nécessaire.
 
 | Besoin | Source actuelle | Statut MVP1 | Limite connue |
 | --- | --- | --- | --- |
@@ -123,23 +142,79 @@ Les classements, mappings de bouquets et identifications de pays restent des heu
 
 Les noms internes `poc4`, certains noms de rapports et les scripts Windows `*-poc4-*` sont maintenus provisoirement pour compatibilité avec les données et installations existantes. Les nouvelles commandes publiques sont `mvp:*`.
 
-## 7. Critères de sortie MVP1
+## 7. Critères de finalisation de la version privée
 
-La cible peut être considérée prête pour le VPS privé lorsque :
+- Un visiteur non autorisé ne peut lire ni pages, ni données JSON, ni exports, ni écrire un commentaire ; aucun accès direct au VPS ne contourne la protection.
+- Connexion, expiration de session et révocation sont testées sur téléphone et ordinateur.
+- Aujourd'hui, Demain et À venir restent cohérents après minuit ; une couverture partielle n'est jamais présentée comme exhaustive.
+- Les détails permettent de distinguer heure sportive, créneau TV, diffusion confirmée et déduction par droits.
+- Une panne fournisseur ne vide pas les données utilisables et ne bloque pas indéfiniment l'actualisation.
+- Signalements persistants, diagnostic administrateur, sauvegarde et restauration sont vérifiés.
+- Aucun besoin de relancer manuellement le serveur pendant une semaine d'usage normal.
 
-- les trois itérations ci-dessus ont été validées sur plusieurs journées chargées et calmes ;
-- aujourd’hui/demain restent corrects après minuit et lors de l’actualisation automatique ;
-- aucun replay connu n’est présenté en vert ou dans le direct ;
-- les bouquets filtrent correctement les principaux diffuseurs français ;
-- une panne d’une source ne vide pas les données précédemment utilisables ;
-- `/healthz`, logs, sauvegarde et restauration ont été testés ;
-- la procédure de déploiement privé est exécutée sans exposer le port 4173 publiquement.
+## 8. Court terme : quatre lots ordonnés
 
-## 8. Suite ordonnée
+Ordre révisé avec Bruno le 18 septembre : **lot 2 → lot 3 → lot 4 → lot 1**. Finaliser le site avant tout partage. Tailscale reste le seul accès distant pendant ces travaux ; l'authentification navigateur viendra en dernier, avant une éventuelle invitation. Les numéros restent stables pour retrouver les échanges précédents.
 
-1. Validation utilisateur des trois itérations sur l’US Open et un week-end riche en football/rugby.
-2. Corrections limitées aux défauts bloquants observés ; gel fonctionnel MVP1.
-3. Préparation du VPS Ubuntu 24.04, installation Docker et test local au serveur.
-4. Accès privé via Tailscale, sans port applicatif public.
-5. Test de sauvegarde/restauration et surveillance pendant une semaine.
-6. Seulement après stabilité : reprise UX plus ambitieuse, notifications ou extension de couverture.
+### Lot 1 — accès privé simple et vérifiable
+
+Objectif : consulter confortablement le site depuis un navigateur, sans développer un système de comptes.
+
+- Vérifier la protection actuelle ; conserver Tailscale seul tant que le nouvel accès n'est pas prêt.
+- Solution proposée : domaine + Cloudflare Access avec liste explicite d'emails autorisés et connexion par code email. Confirmer le choix et les prérequis avant configuration.
+- Préférer un tunnel sortant vers l'application liée à localhost ; aucune ouverture publique du port 4173, aucun chemin alternatif non protégé.
+- Couvrir toutes les routes, y compris JSON, exports et signalements. Réserver diagnostics détaillés et exports de feedback à l'administrateur avant d'inviter un tiers.
+- Garder SSH et l'administration via Tailscale ; secrets hors Git et navigateur, sessions révocables, aucune inscription libre.
+- Ne pas ajouter d'anti-scraping complexe : authentification, restriction d'accès et limites raisonnables sur les écritures suffisent au périmètre visé, sans empêcher un utilisateur autorisé de copier ce qu'il voit.
+
+À préparer avec Bruno : domaine/sous-domaine choisi, compte et configuration DNS compatibles avec la solution retenue, email personnel autorisé. Aucun secret à coller dans la conversation. Pas d'invitation automatique de testeurs.
+
+Validation : accès autorisé sur mobile ; refus sans connexion, pour un email absent de la liste et après révocation ; impossibilité de contourner la protection par l'IP publique ou une route secondaire. Documenter la procédure réelle dans `DEPLOYMENT-PRIVEE.md` après mise en place.
+
+### Lot 2 — donner sa valeur à « À venir »
+
+Implémentation : regroupement sport/compétition, deux événements prioritaires par compétition avec révélation des autres, quatre sports initiaux, course principale F1/MotoGP, respect des bouquets et états vides explicites. Les favoris et les indications d'heure estimée/de droits seuls sont conservés. Validation visuelle sur données réelles à faire ; aucune nouvelle source ni augmentation de quota.
+
+- Réutiliser les sources existantes à horizon suffisant, sans nouveaux abonnements ni appels hors fenêtre autorisée par les plans API.
+- Du lundi au jeudi : À venir de J+2 au dimanche. Vendredi : Après-demain, dimanche uniquement. Samedi : Après-demain, lundi uniquement. Dimanche : À venir du mardi au dimanche suivant. Ne jamais dupliquer Demain ; afficher explicitement les périodes sans données.
+- Grouper Sport → Compétition ; afficher jour et heure, sélectionner les temps forts (course F1/MotoGP avant essais, étapes et matchs prioritaires).
+- Respecter sports masqués et bouquets ; ne pas inventer une chaîne ni assimiler droits généraux et créneau confirmé.
+- Signaler sobrement les horaires non publiés et la couverture partielle ; conserver une synthèse courte avec révélation progressive.
+
+Validation : un week-end riche et une période calme, sans doublons de sessions ni événements inventés ; limitation du football futur compréhensible.
+
+### Lot 3 — finaliser le détail et les signalements
+
+Implémentation du 18 septembre : détail commun à Aujourd'hui/Demain et À venir ; faits sportifs, description, programmation et créneaux TV séparés. Sources/diagnostic, préférences et signalement sont repliés séparément. Le commentaire est sauvegardé sans reconstruire la ligne, avec retour de sauvegarde local et date capturée. Les retours conservent désormais leur contexte et survivent au retrait d'un événement du catalogue. Les notes d'intérêt ne sont plus proposées dans le détail.
+
+Confidentialité actuelle : les retours et leur export restent partagés à l'intérieur de l'accès personnel Tailscale ; préférences/favoris restent locaux au navigateur. La séparation administrateur/invité et la restriction des exports appartiennent au lot 1, repoussé avant tout partage. Ne pas inviter de testeur avant ce contrôle. Validation visuelle sur téléphone à faire.
+
+- Garder la ligne synthétique actuelle ; redessiner uniquement le contenu déplié.
+- Préserver les informations utiles du MVP : compétition/session, programmation des matchs, description disponible, horaires sportifs et TV séparés, chaînes et provenance/confiance.
+- Éviter les répétitions et reléguer le diagnostic technique dans un niveau secondaire.
+- Rendre le signalement discret, lié à l'événement ou à la compétition, enregistré côté serveur et récupérable par Bruno.
+- Vérifier ce qui est partagé ou propre au navigateur avant tout ajout de testeur ; pas de synchronisation de profils dans ce lot.
+
+Validation : détail lisible sur téléphone, aucune perte d'information utile, commentaire récupérable après redémarrage, aucun export de commentaires accessible à un simple invité.
+
+Retouches du 22 septembre 2026 : le détail courant est ramené à la description, aux créneaux TV et à trois actions compactes ; les faits déjà visibles dans le titre ne sont plus répétés. La date des onglets est agrandie, « Créneaux TV » devient « TV » sur la ligne courte, le bouton de journée est renforcé et la fraîcheur descend en pied de page. Lorsqu'aucun événement ne correspond aux trois prochaines heures mais que d'autres arrivent aujourd'hui, l'ouverture affiche directement la journée. L'API exclut désormais elle aussi les dates de Demain de l'onglet À venir ; cas du dimanche testé depuis les deux onglets.
+
+### Lot 4 — stabiliser l'exploitation quotidienne
+
+- Vérifier les délais maximum des collectes, les actualisations ignorées/reportées, la reprise après panne et le changement J+1 → J.
+- Afficher discrètement la fraîcheur des données ; réserver les erreurs détaillées à l'administration.
+- Tester sauvegarde/restauration, persistance des retours, redéploiement et retour à la version précédente.
+- Surveiller erreurs, temps de refresh, quotas et disponibilité ; pas de traçage individuel ni d'analytics marketing.
+- Corriger immédiatement tout blocage de refresh observé, même avant la fin des lots UX.
+
+Validation : une semaine incluant un week-end, avec mise à jour automatique et simulation d'une source indisponible. Ensuite : gel fonctionnel et corrections issues de l'usage privé.
+
+## 9. Documents de référence et sujets en attente
+
+- Ce fichier : seul plan et ordre des priorités.
+- [`UX-REDESIGN.md`](./UX-REDESIGN.md) : décisions UX et historique du prototype, pas une deuxième roadmap.
+- [`DEPLOYMENT-PRIVEE.md`](./DEPLOYMENT-PRIVEE.md) : exploitation et déploiement ; distinguer l'accès Tailscale actuel de l'accès authentifié proposé.
+- [`SOURCE-LICENSING.md`](./SOURCE-LICENSING.md) : preuves et incertitudes conservées ; les démarches liées à une publication publique restent en attente.
+- [`README.md`](./README.md) : commandes de lancement et repères techniques.
+
+Une ouverture publique, même sans publicité, nécessite une nouvelle décision et une revue des droits avant tout travail SEO, acquisition ou monétisation. Ce n'est plus la prochaine étape automatique du projet.

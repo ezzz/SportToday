@@ -4,6 +4,14 @@ Document de travail préparatoire au prototype UX local. La piste Figma Starter 
 
 Dernière mise à jour : 16 septembre 2026.
 
+### Complément implémentation — 18 septembre 2026, lot 3
+
+La ligne synthétique reste inchangée. Le détail ouvert présente d'abord les faits sportifs (tour/session, début et fin connus), la programmation complète des matchs, la description et les diffusions par chaîne avec leurs créneaux TV. Les règles de droits ne sont pas présentées comme des horaires TV confirmés.
+
+Trois contrôles secondaires restent repliés : `Suivre ou masquer`, `Sources et diagnostic`, `⚑ Signaler un problème`. Le signalement ouvre un commentaire contextualisé avec statut de sauvegarde ; la catégorie de problème est facultative et encore un niveau en dessous. Aucune note 1–5 dans ce nouveau détail. Le même contenu est disponible dans À venir.
+
+Les sections d'inventaire ci-dessous décrivent l'ancien MVP, pas la cible actuelle. Les retours sont partagés sur le serveur privé ; les favoris et préférences sont locaux au navigateur. L'accès des invités aux retours/export sera traité avant tout partage, dans le lot authentification.
+
 ## Décisions validées après le questionnaire UX
 
 - Une seule synthèse éditorialisée, sans section `À ne pas manquer` dupliquée.

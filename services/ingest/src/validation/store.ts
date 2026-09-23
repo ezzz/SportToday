@@ -21,6 +21,7 @@ export interface ItemValidation {
   verdict: ValidationVerdict;
   note: string;
   validatedAt: string;
+  context?: { title: string; sport: string; competition: string };
 }
 
 export interface ValidationFile {
@@ -41,10 +42,8 @@ export async function loadValidation(filePath: string, report: TonightReport): P
   try {
     const parsed = JSON.parse(await readFile(filePath, "utf8")) as Partial<ValidationFile>;
     const items: Record<string, ItemValidation> = {};
-    const reportItemIds = new Set(report.items.map((item) => item.id));
     if (parsed.items && typeof parsed.items === "object") {
       for (const [itemId, value] of Object.entries(parsed.items)) {
-        if (!reportItemIds.has(itemId)) continue;
         if (!value || typeof value !== "object") continue;
         const candidate = value as Partial<ItemValidation>;
         if (!isValidationVerdict(candidate.verdict)) continue;
@@ -53,7 +52,8 @@ export async function loadValidation(filePath: string, report: TonightReport): P
         items[itemId] = {
           verdict: candidate.verdict,
           note,
-          validatedAt: typeof candidate.validatedAt === "string" ? candidate.validatedAt : ""
+          validatedAt: typeof candidate.validatedAt === "string" ? candidate.validatedAt : "",
+          ...(candidate.context && typeof candidate.context.title === "string" && typeof candidate.context.sport === "string" && typeof candidate.context.competition === "string" ? { context: candidate.context } : {})
         };
       }
     }
@@ -80,7 +80,8 @@ export function updateItemValidation(
   validation: ValidationFile,
   itemId: string,
   verdict: ValidationVerdict,
-  note: string
+  note: string,
+  context?: ItemValidation["context"]
 ): ValidationFile {
   const now = new Date().toISOString();
   const normalizedNote = note.trim();
@@ -94,7 +95,7 @@ export function updateItemValidation(
     updatedAt: now,
     items: {
       ...validation.items,
-      [itemId]: { verdict, note: normalizedNote, validatedAt: now }
+      [itemId]: { verdict, note: normalizedNote, validatedAt: now, ...(context ? { context } : validation.items[itemId]?.context ? { context: validation.items[itemId]!.context } : {}) }
     }
   };
 }

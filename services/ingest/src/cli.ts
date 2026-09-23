@@ -1,5 +1,6 @@
 import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
+import { upcomingWindow } from './validation/upcoming-window.js';
 
 import { config, isXmltvSource } from "./config.js";
 import { loadEventCatalogue } from "./events/catalogue.js";
@@ -533,8 +534,7 @@ function nextDate(value: string): string {
 function poc4Dates(serve: boolean, date: string, throughWeekend = false): string[] {
   if (!serve) return [date];
   const start = new Date(`${date}T12:00:00Z`);
-  const daysUntilSunday = (7 - start.getUTCDay()) % 7;
-  const horizon = throughWeekend ? Math.max(1, daysUntilSunday) : 1;
+  const horizon = throughWeekend ? Math.round((Date.parse(upcomingWindow(date).through+'T12:00:00Z')-start.getTime())/86_400_000) : 1;
   return Array.from({ length: horizon + 1 }, (_, offset) => {
     const value = new Date(start);
     value.setUTCDate(value.getUTCDate() + offset);

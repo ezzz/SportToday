@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import type { TonightReport } from "../reports/tonight.js";
+import type { TonightItem, TonightReport } from "../reports/tonight.js";
 import { startValidationServer } from "./server.js";
 
 test("expose un healthcheck sans chemin local et permet l'arrêt propre", async () => {
@@ -91,3 +91,78 @@ function fixtureReport(): TonightReport {
     items: []
   };
 }
+
+test("l'aperçu transmet les favoris, le tour et la précision horaire depuis Aujourd'hui et Demain", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'sporttoday-preview-'));
+  const report = { ...fixtureReport(), viewMode: 'event-first' as const };
+  const item: TonightItem = {
+    id: 'future', title: 'Finale', description: '', sport: 'tennis', competition: 'Tournoi',
+    participants: 'Joueur A | Joueur B', contentCategory: 'Sport Live', isLive: 'unknown',
+    liveStatus: 'unknown', titleQuality: 'clear', confidence: 'high', score: 90,
+    selectionReasons: [], broadcasts: [], eventRoundLabel: 'Finale',
+    eventTimeConfidence: 'estimated', eventStartAtUtc: '2026-09-11T13:00:00Z'
+  };
+  const server = await startValidationServer({ report, reportsRoot: directory, host: '127.0.0.1', port: 0,
+    reportsByDate: {
+      '2026-09-09': { report },
+      '2026-09-10': { report: { ...report, date: '2026-09-10' } },
+      '2026-09-11': { report: { ...report, date: '2026-09-11', items: [item] } }
+    }
+  });
+  try {
+    for (const date of ['2026-09-09', '2026-09-10']) {
+      const response = await fetch(`${server.url}/api/report?date=${date}`);
+      const payload = await response.json() as { weekPreview: Array<Partial<TonightItem> & { date: string }> };
+      assert.equal(payload.weekPreview.length, 1);
+      assert.equal(payload.weekPreview[0]?.date, '2026-09-11');
+      assert.equal(payload.weekPreview[0]?.participants, item.participants);
+      assert.equal(payload.weekPreview[0]?.eventRoundLabel, 'Finale');
+      assert.equal(payload.weekPreview[0]?.eventTimeConfidence, 'estimated');
+    }
+    const saveNote = await fetch(`${server.url}/api/validation`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ date: '2026-09-11', itemId: item.id, note: 'Horaire à corriger' })
+    });
+    assert.equal(saveNote.status, 200);
+    const saveVerdict = await fetch(`${server.url}/api/validation`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ date: '2026-09-11', itemId: item.id, verdict: 'wrong_time' })
+    });
+    assert.equal(saveVerdict.status, 200);
+    const saved = await saveVerdict.json() as { items: Record<string, { note: string; context: { competition: string } }> };
+    assert.equal(saved.items.future?.note, 'Horaire à corriger');
+    assert.equal(saved.items.future?.context.competition, 'Tournoi');
+    const invalidDate = await fetch(`${server.url}/api/validation`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ date: '2026-09-21', itemId: item.id, note: 'Ne pas rattacher à aujourd’hui' })
+    });
+    assert.equal(invalidDate.status, 400);
+    const feedback = await (await fetch(`${server.url}/feedback.json`)).json() as { feedback: Array<{ date: string; items: Record<string, { note: string }> }> };
+    assert.equal(feedback.feedback.find(entry => entry.date === '2026-09-11')?.items.future?.note, 'Horaire à corriger');
+  } finally {
+    await server.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("le dimanche, À venir exclut le lundi depuis Aujourd'hui et Demain", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "sporttoday-upcoming-sunday-"));
+  const base = { ...fixtureReport(), date: "2026-09-20", viewMode: "event-first" as const };
+  const event: TonightItem = { id: "future", title: "Match", description: "", sport: "football", competition: "Ligue 1",
+    participants: "", contentCategory: "Sport Live", isLive: "unknown", liveStatus: "unknown", titleQuality: "clear",
+    confidence: "high", score: 90, selectionReasons: [], broadcasts: [] };
+  const monday = { ...base, date: "2026-09-21", items: [{ ...event, id: "monday" }] };
+  const tuesday = { ...base, date: "2026-09-22", items: [{ ...event, id: "tuesday" }] };
+  const server = await startValidationServer({ report: base, reportsRoot: directory, host: "127.0.0.1", port: 0,
+    reportsByDate: { [base.date]: { report: base }, [monday.date]: { report: monday }, [tuesday.date]: { report: tuesday } }
+  });
+  try {
+    for (const date of [base.date, monday.date]) {
+      const payload = await (await fetch(`${server.url}/api/report?date=${date}`)).json() as { weekPreview: Array<{ date: string }> };
+      assert.deepEqual(payload.weekPreview.map(item => item.date), [tuesday.date]);
+    }
+  } finally {
+    await server.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});

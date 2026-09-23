@@ -18,6 +18,7 @@ import {
 } from "./store.js";
 import { validationHtml } from "./ui.js";
 import { uxPrototypeHtml } from "./prototype-ui.js";
+import { upcomingWindow } from "./upcoming-window.js";
 
 export interface ValidationServerOptions {
   report: TonightReport;
@@ -170,20 +171,26 @@ export async function startValidationServer(options: ValidationServerOptions): P
           coverageReport: bundle.coverageReport ?? null,
           validation: validationForDate(selectedDate),
           availableDates: Object.keys(reportsByDate).sort(),
-          weekPreview: weekPreviewItems(reportsByDate, selectedDate)
+          baseDate: defaultDate,
+          weekPreview: weekPreviewItems(reportsByDate, defaultDate, validations)
         });
       }
       if (request.method === "POST" && url.pathname === "/api/validation") {
         const body = await readJson(request);
+        if (typeof body.date === "string" && !reportsByDate[body.date]) return sendJson(response, { error: "Date indisponible. Le retour n’a pas été enregistré." }, 400);
         const bundle = bundleForDate(stringField(body, "date", false));
         const selectedDate = bundle.report.date;
         const selectedValidation = validationForDate(selectedDate);
         const itemId = stringField(body, "itemId");
-        const verdict = body.verdict;
-        const note = stringField(body, "note", false);
-        if (!bundle.report.items.some((item) => item.id === itemId)) return sendJson(response, { error: "Événement inconnu." }, 404);
+        const previous = selectedValidation.items[itemId];
+        const verdict = body.verdict ?? previous?.verdict ?? "pending";
+        const note = body.note === undefined ? previous?.note ?? "" : stringField(body, "note", false);
+        const item = bundle.report.items.find((item) => item.id === itemId);
+        if (!item) return sendJson(response, { error: "Événement inconnu." }, 404);
         if (!isValidationVerdict(verdict)) return sendJson(response, { error: "Verdict invalide." }, 400);
-        return sendJson(response, await persist(selectedDate, updateItemValidation(selectedValidation, itemId, verdict, note)));
+        return sendJson(response, await persist(selectedDate, updateItemValidation(selectedValidation, itemId, verdict, note, {
+          title: item.title, sport: item.sport, competition: item.competition
+        })));
       }
       if (request.method === "POST" && url.pathname === "/api/missing-event") {
         const body = await readJson(request);
@@ -279,13 +286,21 @@ async function persistedFeedback(reportsRoot: string): Promise<Array<ValidationF
 
 function weekPreviewItems(
   reportsByDate: Record<string, { report: TonightReport }>,
-  selectedDate: string
+  baseDate: string,
+  validations: Map<string, ValidationFile>
 ) {
+  const window = upcomingWindow(baseDate);
   return Object.entries(reportsByDate)
-    .filter(([date, bundle]) => date > selectedDate && bundle.report.viewMode === "event-first")
+    .filter(([date, bundle]) => date >= window.from && date <= window.through && bundle.report.viewMode === "event-first")
     .sort(([left], [right]) => left.localeCompare(right))
     .flatMap(([date, bundle]) => bundle.report.items.map((item) => ({
       date,
+      reportGeneratedAt: bundle.report.generatedAt,
+      description: item.description,
+      eventSource: item.eventSource,
+      eventSchedule: item.eventSchedule,
+      selectionReasons: item.selectionReasons,
+      validation: validations.get(date)?.items[item.id],
       id: item.id,
       title: item.title,
       sport: item.sport,
@@ -295,8 +310,11 @@ function weekPreviewItems(
       eventStartAtUtc: item.eventStartAtUtc,
       eventEndAtUtc: item.eventEndAtUtc,
       eventTimeLabel: item.eventTimeLabel,
+      eventTimeConfidence: item.eventTimeConfidence,
       eventStatus: item.eventStatus,
       eventStage: item.eventStage,
+      eventRoundLabel: item.eventRoundLabel,
+      participants: item.participants,
       eventImportance: item.eventImportance
     })));
 }

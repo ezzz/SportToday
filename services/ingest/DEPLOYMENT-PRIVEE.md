@@ -2,6 +2,14 @@
 
 Ce guide prépare la bêta privée mono-utilisateur. La cible recommandée est un petit VPS **Ubuntu 24.04 LTS**, Docker Compose et Tailscale. Le port applicatif 4173 ne doit pas être exposé sur Internet.
 
+### Décision du 18 septembre 2026
+
+Le projet reste privé avec authentification ; l'ouverture publique est reportée sans échéance. La procédure Tailscale ci-dessous reste la référence actuelle. Le [plan consolidé](./MVP1-PLAN.md#8-court-terme--quatre-lots-ordonnés) prévoit d'étudier un accès navigateur par domaine + Cloudflare Access, avec emails explicitement autorisés, sans inscription libre. Cette évolution n'est pas configurée par la présente mise à jour documentaire.
+
+Avant toute bascule, protéger toutes les routes et les exports, empêcher le contournement par l'origine VPS et tester la révocation. Garder l'administration sous Tailscale. Les commandes et la procédure de connexion seront ajoutées ici après vérification et mise en place ; ne pas ouvrir les ports publics en anticipation. L'accès privé ne lève pas les incertitudes de droits décrites dans `SOURCE-LICENSING.md`.
+
+Priorité révisée avec Bruno : finaliser d'abord À venir, les détails et la fiabilité. L'accès navigateur authentifié sera réalisé en dernier, avant le partage ; Tailscale reste inchangé jusque-là.
+
 ## Architecture cible
 
 ```text
@@ -10,7 +18,7 @@ Téléphone / Mac ── réseau privé Tailscale ── VPS
                                                 └─ SportToday :4173
 ```
 
-Tailscale fournit l’accès privé entre les appareils autorisés. Aucun domaine n’est nécessaire pour la première bêta. Un domaine et un reverse proxy HTTPS public ne seront étudiés qu’après validation du fonctionnement continu.
+Tailscale fournit l'accès privé entre les appareils autorisés. Aucun domaine n'est nécessaire pour cet accès. Un éventuel domaine devra présenter une authentification avant tout contenu, et non rendre l'application librement accessible.
 
 ## À préparer côté utilisateur
 

@@ -7,7 +7,7 @@ import test from "node:test";
 import type { TonightReport } from "../reports/tonight.js";
 import { loadValidation, saveValidation, updateDebugNote, updateItemValidation, validationPath, type ValidationFile } from "./store.js";
 
-test("sauvegarde les verdicts et retire les entrées en attente ou obsolètes", async () => {
+test("sauvegarde les verdicts, retire les entrées vides et conserve les retours des événements retirés", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "sporttoday-validation-"));
   const filePath = path.join(directory, "validation.json");
   const report = fixtureReport();
@@ -27,12 +27,17 @@ test("sauvegarde les verdicts et retire les entrées en attente ou obsolètes", 
     await saveValidation(filePath, initial);
     assert.match(validationPath(directory, report), /validation-poc21-tonight-xmltvfr-2026-08-17\.json$/u);
     const loaded = await loadValidation(filePath, report);
-    assert.deepEqual(loaded.items, {});
+    assert.deepEqual(loaded.items, { obsolete: initial.items.obsolete });
 
     const checked = updateItemValidation(loaded, "event1", "ok", "vérifié");
     await saveValidation(filePath, checked);
     assert.equal(JSON.parse(await readFile(filePath, "utf8")).items.event1.verdict, "ok");
-    assert.deepEqual(updateItemValidation(checked, "event1", "pending", "").items, {});
+    assert.deepEqual(updateItemValidation(checked, "event1", "pending", "").items, { obsolete: initial.items.obsolete });
+    const contextual = updateItemValidation(checked, 'event1', 'wrong_time', 'horaire incorrect', { title: 'Paris / Lyon', sport: 'football', competition: 'Ligue 1' });
+    await saveValidation(filePath, contextual);
+    const reloaded = await loadValidation(filePath, { ...report, items: [] });
+    assert.equal(reloaded.items.event1?.note, 'horaire incorrect');
+    assert.equal(reloaded.items.event1?.context?.competition, 'Ligue 1');
     assert.equal(updateDebugNote(checked, "  test depuis le VPS  ").debugNote, "test depuis le VPS");
   } finally {
     await rm(directory, { recursive: true, force: true });
